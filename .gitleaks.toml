@@ -1,0 +1,8 @@
+[allowlist]
+  description = "Global Allowlist"
+
+  paths = [
+    # Ignore all example certs
+    '''\/example.*\.crt$''',
+    '''\/example.*\.key$''',
+  ]

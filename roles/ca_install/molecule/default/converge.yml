@@ -3,8 +3,8 @@
   hosts: all
   vars:
     ca_install_certificates:
-      - "data/CA-one.crt"
-      - "data/CA-two.crt"
+      - "data/example.ca-one.crt"
+      - "data/example.ca-two.crt"
     ca_install_pems:
       - |
         -----BEGIN CERTIFICATE-----
