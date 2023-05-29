@@ -1,2 +1,2 @@
 ---
-# vars file for ca_install
+ca_install_serial_fetch_regex: 'Serial Number:\n+\s*([a-zA-Z0-9:]+)|Serial Number:\s?([a-zA-Z0-9]+)'

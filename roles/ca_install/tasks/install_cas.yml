@@ -1,0 +1,69 @@
+---
+- name: Store target CA remote files
+  ansible.builtin.set_fact:
+    ca_install_certificates_data: >
+      {{
+        ca_install_certificates_data|default([]) +
+        [{
+          'target_path': ca_install_target_dir + (item | basename | split('.') | first) + '.crt',
+          'src_path' : item
+        }]
+      }}
+  with_items: "{{ ca_install_certificates | default([]) }}"
+
+- name: Store PRM CA remote files
+  ansible.builtin.set_fact:
+    ca_install_certificates_data: >
+      {{
+        ca_install_certificates_data|default([]) +
+        [{
+            'target_path': ca_install_target_dir + 'ca-install-certificate-' + ca_index | string + '.crt',
+            'content': item
+        }]
+      }}
+  loop: "{{ ca_install_pems | default([]) }}"
+  loop_control:
+    index_var: ca_index
+
+- name: Copy certificates to the staging dir
+  become: true
+  become_method: su
+  ansible.builtin.copy:
+    src: "{{ item.src_path | default(omit) }}"
+    content: "{{ item.content | default(omit) }}"
+    dest: "{{ item.target_path }}"
+    owner: root
+    group: root
+    mode: '0644'
+  with_items: "{{ ca_install_certificates_data | default([]) }}"
+
+- name: Save certificates SNs to further validate installation
+  ansible.builtin.shell:
+    cmd: "openssl x509 -noout -serial -in {{ item.target_path }} | cut -f2 -d '='"
+  register: ca_install_certificates_sns_out
+  with_items: "{{ (ca_install_certificates_data | default([])) }}"
+
+- name: Update system-wide certificate
+  become: true
+  become_method: su
+  ansible.builtin.command:
+    cmd: "{{ ca_install_update_cmd }}"
+  when: ca_install_certificates | default([]) | length > 0
+
+- name: Fetch installed CAs from bundle
+  ansible.builtin.shell:
+    cmd: "openssl storeutl -noout -text -certs {{ ca_install_bundle_file }} | grep -i -A1 'Serial Number'"
+  register: ca_install_cert_list_out
+
+- name: Assert certificates installed
+  vars:
+    ca_install_cert_installed_cas_sns: >
+      {{  ca_install_cert_list_out.stdout |
+          regex_findall(ca_install_serial_fetch_regex,  multiline=True, ignorecase=True) |
+          flatten | unique | select | replace(':','') | lower
+      }}
+  ansible.builtin.assert:
+    that: (item.stdout | lower) in ca_install_cert_installed_cas_sns
+    quiet: true
+    msg: "Certificate not properly installed"
+  with_items: "{{ (ca_install_certificates_sns_out | default({'results':[]})).results }}"

@@ -12,16 +12,13 @@ platforms:
     image: debian:bullseye
     dockerfile: ../../../../testing/container_files/Dockerfile.j2
     pre_build_image: false
+
+  - name: ubuntu-22
+    image: ubuntu:22.04
+    dockerfile: ../../../../testing/container_files/Dockerfile.j2
+    pre_build_image: false
+
 provisioner:
   name: ansible
 verifier:
   name: ansible
-scenario:
-  name: default
-  test_sequence:
-    - destroy
-    - create
-    - prepare
-    - converge
-    - verify
-    - destroy

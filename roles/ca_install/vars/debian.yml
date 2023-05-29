@@ -1,0 +1,3 @@
+ca_install_target_dir: "/usr/local/share/ca-certificates/"
+ca_install_update_cmd: "update-ca-certificates --fresh"
+ca_install_bundle_file: "/etc/ssl/certs/ca-certificates.crt"

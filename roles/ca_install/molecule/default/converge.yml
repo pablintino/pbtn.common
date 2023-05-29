@@ -1,12 +1,35 @@
 ---
 - name: Converge
   hosts: all
+  vars:
+    ca_install_certificates:
+      - "data/CA-one.crt"
+      - "data/CA-two.crt"
+    ca_install_pems:
+      - |
+        -----BEGIN CERTIFICATE-----
+        MIIDczCCAlugAwIBAgIUCYI+WMVVaZJdIi3g61ImbnSp7AYwDQYJKoZIhvcNAQEL
+        BQAwSDEoMCYGA1UEAwwfaW5mcmEzLmF1dG8udGVzdC5wYWJsaW50aW5vLm5ldDEL
+        MAkGA1UEBhMCRVMxDzANBgNVBAcMBk1hZHJpZDAgFw0yMzA1MjkxOTI3MzVaGA8y
+        MTIzMDUwNTE5MjczNVowSDEoMCYGA1UEAwwfaW5mcmEzLmF1dG8udGVzdC5wYWJs
+        aW50aW5vLm5ldDELMAkGA1UEBhMCRVMxDzANBgNVBAcMBk1hZHJpZDCCASIwDQYJ
+        KoZIhvcNAQEBBQADggEPADCCAQoCggEBAJhD6pH42dcSetWIah4Ud4X+aarJqrIG
+        NG6XZw6QzDu2cLz91Yfsb6MTNR+QmzGevKFaEUIgxV6pd8KGU3lDYCodE+m22Aco
+        SgPElp7a7TUDKJd3ryVnKeBwspog5vFA55aFgC0EdQBwDs9L0uvHP1DaXk9odms2
+        BvD4LMQTcUpudGpjv1j6Qwyafm4fP93a+IkMxjqs5pn+Bu3NYf2PWtZI5v2qAcnI
+        WtIIdO33SVBGkkQePuHEAHUbQwQk1stpCi3VDsb8Rk0EVCWw4wF0Qatb19lf9X39
+        yHUiDPHTuLL7gIs4EbWl4+dWcq05sY0AUuxDHXSbpVDqdqnqmeV9h30CAwEAAaNT
+        MFEwHQYDVR0OBBYEFG0C4VBEvPNTb9wldFqF4TUa0XwuMB8GA1UdIwQYMBaAFG0C
+        4VBEvPNTb9wldFqF4TUa0XwuMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQEL
+        BQADggEBAGykHeLYY9D8f/VPCuRzVz/tufgb9NCcNwyO69G0qxSpgNN23OJooBdH
+        ZuDvFMCwZapSgXKpXxfdCSuxKGmjhJVudN70ph8HdRLEDpq55vVlhWOXoUDY9hg1
+        53PTUm/ly7KjwQG9m/L+GcUqnxK+fr1/8VwjyID9/4bE9eNcsV4om+zoUkeswjtT
+        vyegFYieXzlg3JYIg9gtBuxu6TiexhFNwBx2LMJlA2yjVdrcPsdo8Ge/0hiCrpH3
+        uV+xk+wA9eYejR5h3eC1KG4/lqvUOv154UMppcBSt2CUDXar2lViAp38gKpu6FNd
+        sXWEdm1TmhpxFJu/XY5L46B3t0BY9vE=
+        -----END CERTIFICATE-----
+
   tasks:
-    # replace these tasks with whatever you find suitable to test
-    - name: Copy something to test use of synchronize module
-      ansible.builtin.copy:
-        src: /etc/hosts
-        dest: /tmp/hosts-from-controller
-    - name: "Include pablintino.ca_install"
+    - name: "Include ca_install"
       ansible.builtin.include_role:
-        name: "pablintino.ca_install"
+        name: "ca_install"
