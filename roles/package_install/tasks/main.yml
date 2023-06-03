@@ -63,3 +63,9 @@
     state: present
     update_cache: true
   when: ansible_os_family | lower == 'redhat'
+
+- name: Install given packages
+  vars:
+    package_install_list: "{{ package_install_packages }}"
+  ansible.builtin.include_tasks:
+    file: cache_update_install_packages.yml

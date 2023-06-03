@@ -1,0 +1,33 @@
+---
+- name: Update cache and install apt packages
+  become: true
+  become_method: su
+  ansible.builtin.apt:
+    update_cache: yes
+    name: "{{ package_install_list }}"
+    state: present
+  when:
+    - ansible_pkg_mgr == "apt"
+    - package_install_list | length > 0
+
+- name: Update cache and install yum packages
+  become: true
+  become_method: su
+  ansible.builtin.yum:
+    name: "{{ package_install_list }}"
+    update_cache: yes
+    state: present
+  when:
+    - ansible_pkg_mgr == "yum"
+    - package_install_list | length > 0
+
+- name: Update cache and install dnf packages
+  become: true
+  become_method: su
+  ansible.builtin.dnf:
+    name: "{{ package_install_list }}"
+    update_cache: yes
+    state: present
+  when:
+    - ansible_pkg_mgr == "dnf"
+    - package_install_list | length > 0

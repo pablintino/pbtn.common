@@ -1,5 +1,7 @@
 ---
 - name: Store target CA remote files
+  vars:
+    pem_paths: "{{ ca_install_certificates | default([]) }}"
   ansible.builtin.set_fact:
     ca_install_certificates_data: >
       {{
@@ -9,9 +11,12 @@
           'src_path' : item
         }]
       }}
-  with_items: "{{ ca_install_certificates | default([]) }}"
+  with_items: "{{ pem_paths }}"
+  when: pem_paths | length > 0
 
 - name: Store PRM CA remote files
+  vars:
+    pem_contents: "{{ ca_install_pems | default([]) }}"
   ansible.builtin.set_fact:
     ca_install_certificates_data: >
       {{
@@ -21,9 +26,10 @@
             'content': item
         }]
       }}
-  loop: "{{ ca_install_pems | default([]) }}"
+  loop: "{{ pem_contents }}"
   loop_control:
     index_var: ca_index
+  when: pem_contents | length > 0
 
 - name: Copy certificates to the staging dir
   become: true
@@ -43,12 +49,21 @@
   register: ca_install_certificates_sns_out
   with_items: "{{ (ca_install_certificates_data | default([])) }}"
 
+- name: Install CA update related tools
+  vars:
+    package_install_list: "{{ ca_install_packages | default([]) }}"
+  ansible.builtin.include_role:
+    name: package_install
+    tasks_from: cache_update_install_packages.yml
+
 - name: Update system-wide certificate
   become: true
   become_method: su
+  environment:
+    PATH: "{{ '/usr/local/sbin:/usr/sbin/:' + ansible_env.PATH}}"
   ansible.builtin.command:
     cmd: "{{ ca_install_update_cmd }}"
-  when: ca_install_certificates | default([]) | length > 0
+  when: ca_install_certificates_data | default([]) | length > 0
 
 - name: Fetch installed CAs from bundle
   ansible.builtin.shell:
