@@ -1,5 +1,0 @@
-package_install_base_packages:
-  - sudo
-  - python3
-  - python3-pip
-  - freeipa-client

@@ -1,0 +1,45 @@
+---
+# Should be done before package installation
+- name: Ensure dnf pre-requirements
+  when: ansible_pkg_mgr == "dnf"
+  vars:
+    package_install_dnf_prereqs_tuple: "{{ package_install_repos_list | default([]) | subelements('dnf_dependencies', {'skip_missing': True}) }}"
+  block:
+    - name: Install dnf config-manager plugin before using it
+      become: true
+      become_method: su
+      ansible.builtin.dnf:
+        name: "dnf-plugins-core"
+        state: present
+      when: package_install_dnf_prereqs_tuple | length > 0
+
+    - name: Enable needed dnf repos
+      become: true
+      become_method: su
+      register: package_install_conf_mngr_enable_out
+      ansible.builtin.command:
+        cmd: "dnf config-manager --set-enabled {{ item.1 }}"
+      loop: "{{ package_install_dnf_prereqs_tuple }}"
+      changed_when: false
+
+- name: Add apt repositories
+  become: true
+  become_method: su
+  ansible.builtin.apt_repository:
+    repo: "{{ item.repo }}"
+    filename: "{{ item.file | default(omit) }}"
+    state: present
+  with_items: "{{ package_install_repos_list }}"
+  when: ansible_pkg_mgr == "apt"
+
+- name: Add rpm repositories
+  become: true
+  become_method: su
+  ansible.builtin.yum_repository:
+    name: "{{ item.name }}"
+    baseurl: "{{ item.url }}"
+    description: "{{ item.description }}"
+    file: "{{ item.file | default(omit) }}"
+  # Filter out packages that doesn't contain URL (packages installed by using dnf_dependencies)
+  loop: "{{ package_install_repos_list | selectattr('url', 'defined') }}"
+  when: ansible_pkg_mgr == "yum" or ansible_pkg_mgr == "dnf"
