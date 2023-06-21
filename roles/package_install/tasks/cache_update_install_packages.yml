@@ -2,6 +2,8 @@
 - name: Update cache and install apt packages
   become: true
   become_method: su
+  environment:
+    DEBIAN_FRONTEND: "{{ package_install_apt_install_frontend }}"
   ansible.builtin.apt:
     update_cache: yes
     name: "{{ package_install_packages_list }}"

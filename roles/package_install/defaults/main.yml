@@ -4,3 +4,4 @@ package_install_base_packages:
   - sudo
 
 package_install_base_repositories: []
+package_install_apt_install_frontend: noninteractive
