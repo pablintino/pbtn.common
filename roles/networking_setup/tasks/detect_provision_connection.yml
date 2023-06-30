@@ -1,0 +1,12 @@
+---
+- name: Try infer managment connection from SSH environment
+  when: 'SSH_CONNECTION' in ansible_env
+  block:
+    - name: Get SSH connection target IP
+      vars:
+        nm_networking_setup_ssh_target_ip: "{{ (ansible_env.SSH_CONNECTION | split(' '))[2] }}"
+      ansible.builtin.set_fact:
+        nm_networking_setup_ssh_target_connection: >-
+          {{
+            nm_networking_setup_ssh_target_ip | pablintino.base_infra.networking_setup_ip2conn(pbi_network_connections)
+          }}

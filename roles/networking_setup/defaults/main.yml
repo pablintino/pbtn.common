@@ -1,0 +1,3 @@
+---
+networking_setup_wait_for_ip_delay: 20
+networking_setup_wait_for_ip_retries: 20

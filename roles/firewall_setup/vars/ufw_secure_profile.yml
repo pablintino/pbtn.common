@@ -1,0 +1,6 @@
+firewall_setup_base_rules:
+  - name: Allow management SSH
+    dst-port: 22
+    proto: tcp
+    interfaces:
+      -

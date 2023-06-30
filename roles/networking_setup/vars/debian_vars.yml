@@ -1,0 +1,2 @@
+network_setup_packages:
+  - network-manager

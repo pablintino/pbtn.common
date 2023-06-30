@@ -1,0 +1,39 @@
+---
+dependency:
+  name: galaxy
+
+driver:
+  name: podman
+
+platforms:
+  - name: rocky-9
+    image: rockylinux:9
+    # If we prebuild images we use the default Dockerfile.j2
+    # that add things such as python and sudo, both needed
+    pre_build_image: false
+
+  - name: debian-11
+    image: debian:bullseye
+    # If we prebuild images we use the default Dockerfile.j2
+    # that add things such as python and sudo, both needed
+    pre_build_image: false
+
+  - name: ubuntu-22
+    image: ubuntu:22.04
+    # If we prebuild images we use the default Dockerfile.j2
+    # that add things such as python and sudo, both needed
+    pre_build_image: false
+
+verifier:
+  name: ansible
+
+scenario:
+  name: default
+  test_sequence:
+    - destroy
+    - create
+    - prepare
+    - converge
+    - idempotence
+    - verify
+    - destroy

@@ -1,0 +1,15 @@
+---
+- name: Check that distro is supported
+  ansible.builtin.assert:
+    msg: Unsupported distribution
+    that: >-
+      (ansible_os_family | lower == "debian") or
+      (ansible_os_family | lower == "redhat")
+
+- name: Setup firewalld for RHEL based distros
+  ansible.builtin.import_tasks: setup_firewalld.yaml
+  when: ansible_os_family | lower == "redhat"
+
+- name: Setup ufw for Debian based distros
+  ansible.builtin.import_tasks: setup_ufw.yaml
+  when: ansible_os_family | lower == "debian"

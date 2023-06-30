@@ -16,8 +16,7 @@ readme: README.md
 # A list of the collection's content authors. Can be just the name or in the format 'Full Name <email> (url)
 # @nicks:irc/im.site#channel'
 authors:
-- your name <example@domain.com>
-
+- Pablo Rodriguez Nava <pablintino@hotmail.com>
 
 ### OPTIONAL but strongly recommended
 # A short summary description of the collection
@@ -40,10 +39,12 @@ tags: []
 # collection label 'namespace.name'. The value is a version range
 # L(specifiers,https://python-semanticversion.readthedocs.io/en/latest/#requirement-specification). Multiple version
 # range specifiers can be set and are separated by ','
-dependencies: {}
+dependencies:
+  "ansible.posix": ">=1.5.4"
+  "community.general": ">=7.0.1"
 
 # The URL of the originating SCM repository
-repository: http://example.com/repository
+repository: https://github.com/pablintino/pablintino.base_infra
 
 # The URL to any online docs
 documentation: http://docs.example.com

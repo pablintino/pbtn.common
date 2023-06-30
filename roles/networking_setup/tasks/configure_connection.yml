@@ -1,0 +1,94 @@
+---
+- name: Assert basic things about the connection
+  ansible.builtin.assert:
+    that:
+      - >-
+        'mode' in item.value and
+        (
+          item.value.mode == 'auto' or
+          item.value.mode == 'manual'
+        )
+      - >-
+        item.value.mode != 'manual' or
+        (
+          ('ip4' in item.value and (item.value.ip4 | ansible.utils.ipaddr != false)) and
+          ('ip4gw' in item.value and (item.value.ip4gw | ansible.utils.ipaddr != false))
+        )
+      # Only ethernet is supported now
+      - ('device-type' in item.value) and item.value['device-type'] == 'ethernet'
+
+- name: Assert that the device of the connection can be referenced
+  ansible.builtin.assert:
+    that: "'iface_info' in item.value"
+    msg: "Connection {{ item.key }} references an interface that cannot be found"
+
+- name: Assert that the device of the connection is not in use
+  ansible.builtin.assert:
+    that: >-
+      ('nm_connection_info' not in item.value) or
+      (item.value.nm_connection_info.connection_id == item.key) or
+      (item.value.force | default(false) and (item.value.nm_connection_info.connection_id != item.key))
+    msg: "Connection {{ item.key }} references an interface that is already in use by {{ item.value.nm_connection_info.connection_id }}"
+
+# Rename if interface is gonna be stolen from other interface (needs explicit flag)
+- name: Rename exising connetion to match the name of the new one
+  when: >-
+    'nm_connection_info' in item.value and
+    item.value.nm_connection_info.connection_id != item.key
+  become: true
+  ansible.builtin.command:
+    cmd: "nmcli connection modify '{{ item.value.nm_connection_info.connection_id }}' connection.id '{{ item.key }}'"
+  changed_when: true
+
+- name: Setup network connection
+  become: true
+  community.general.nmcli:
+    conn_name: "{{ item.key | lower }}"
+    type: "{{ item.value['device-type'] }}"
+    ip4: "{{ item.value.ip4 if item.value.mode == 'manual' else omit }}"
+    gw4: >-
+      {{
+        (item.value.ip4gw | default(omit))
+        if item.value.mode == 'manual' else
+        omit
+      }}
+    dns4: "{{ item.value.dns | default(omit) }}"
+    dns4_ignore_auto: "{{ item.value.dns | default([]) | length > 0 }}"
+    routes4_extended: >-
+      {{
+        item.value.routes |
+        default([]) |
+        pablintino.base_infra.nmcli_rich_rules_map
+      }}
+    ifname: "{{ item.value.iface_info.device }}"
+    autoconnect: "{{ item.value.onboot | default(true) | bool }}"
+    gw4_ignore_auto: "{{ item.value.ignore_gw | default(false) | bool }}"
+    method4: "{{ item.value.mode }}"
+    method6: disabled
+    state: present
+
+- name: Fetch the connection status
+  pablintino.base_infra.nmcli_get_connections:
+    connection: "{{ item.key }}"
+  retries: "{{ networking_setup_wait_for_ip_retries }}"
+  delay: "{{ networking_setup_wait_for_ip_delay }}"
+  register: network_setup_nm_last_connection_status
+  until: >-
+    'ip4_address_1' in network_setup_nm_last_connection_status.result and
+    network_setup_nm_last_connection_status.result.ip4_address_1 | ansible.utils.ipaddr
+
+- name: Save connection status
+  vars:
+    updated_connection_value: >-
+      {{
+        item.value |
+        combine({ 'nm_connection_info': omit }) |
+        combine({ 'nm_connection_info': network_setup_nm_last_connection_status.result })
+      }}
+  ansible.builtin.set_fact:
+    pbi_network_connections: >-
+      {{
+        pbi_network_connections |
+        combine({ item.key: omit }) |
+        combine({ item.key: updated_connection_value })
+      }}
