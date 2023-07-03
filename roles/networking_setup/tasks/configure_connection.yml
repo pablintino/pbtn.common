@@ -19,16 +19,16 @@
 
 - name: Assert that the device of the connection can be referenced
   ansible.builtin.assert:
-    that: "'iface_info' in item.value"
+    that: "'iface' in item.value and item.value.iface != ''"
     msg: "Connection {{ item.key }} references an interface that cannot be found"
 
 - name: Assert that the device of the connection is not in use
   ansible.builtin.assert:
     that: >-
       ('nm_connection_info' not in item.value) or
-      (item.value.nm_connection_info.connection_id == item.key) or
-      (item.value.force | default(false) and (item.value.nm_connection_info.connection_id != item.key))
-    msg: "Connection {{ item.key }} references an interface that is already in use by {{ item.value.nm_connection_info.connection_id }}"
+      (item.value['nm_connection_info'].connection_id == item.key) or
+      (item.value.force | default(false) and (item.value['nm_connection_info'].connection_id != item.key))
+    msg: "Connection {{ item.key }} references an interface that is already in use"
 
 # Rename if interface is gonna be stolen from other interface (needs explicit flag)
 - name: Rename exising connetion to match the name of the new one
@@ -60,7 +60,7 @@
         default([]) |
         pablintino.base_infra.nmcli_rich_rules_map
       }}
-    ifname: "{{ item.value.iface_info.device }}"
+    ifname: "{{ item.value.iface }}"
     autoconnect: "{{ item.value.onboot | default(true) | bool }}"
     gw4_ignore_auto: "{{ item.value.ignore_gw | default(false) | bool }}"
     method4: "{{ item.value.mode }}"

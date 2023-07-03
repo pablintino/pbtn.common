@@ -1,18 +1,4 @@
 ---
-- name: Create interfaces dict
-  ansible.builtin.set_fact:
-    networking_setup_detected_ifaces: >-
-      {{
-        networking_setup_detected_ifaces | default({}) |
-        combine(
-          {
-            item: hostvars[inventory_hostname][('ansible_%s' | format(item | replace('-','_') ))]
-          }
-        )
-      }}
-    cacheable: true
-  loop: "{{ ansible_interfaces }}"
-
 - name: Assert that connections references an interface
   ansible.builtin.assert:
     msg: "Connection {{ item.key }} should have mac or iface configured"
@@ -25,16 +11,24 @@
   pablintino.base_infra.nmcli_get_connections:
   register: network_setup_nm_connections_details
 
-- name: Fetch SSH nm connection
-  when: "'SSH_CONNECTION' in ansible_env"
-  ansible.builtin.set_fact:
-    nm_networking_setup_ssh_target_connection: >-
-      {{
-        ((ansible_env.SSH_CONNECTION | split(' '))[2]) |
-        pablintino.base_infra.networking_setup_ip2conn(network_setup_nm_connections_details.result)
-      }}
+- name: Get devices details
+  pablintino.base_infra.nmcli_get_devices:
+  register: networking_setup_detected_ifaces
 
-- name: Add interfaces data to the connections
+- name: Add interfaces data to the connections if MAC provided
+  vars:
+    connection_iface: >-
+      {{
+        networking_setup_detected_ifaces.result |
+        dict2items |
+        selectattr('value.hwaddr', 'defined') |
+        selectattr(
+            'value.hwaddr',
+            'regex',
+            '^'+ item.value.mac + '$',
+            'ignorecase'
+        )
+      }}
   ansible.builtin.set_fact:
     pbi_network_connections: >-
       {{
@@ -43,63 +37,53 @@
         combine(
           {
             item.key: {
-              'iface_info':
-                ((
-                  networking_setup_detected_ifaces |
-                  dict2items |
-                  selectattr('value.macaddress', 'defined') |
-                  selectattr(
-                      'value.macaddress',
-                      'equalto',
-                      item.value.mac | lower
-                  ) |
-                  first
-                ).value)
-                if ('mac' in item.value) else
-                (
-                  networking_setup_detected_ifaces[item.value['iface']]
-                  if ('iface' in item.value) else
-                  omit
-                )
+              'iface': ((connection_iface | first).value.device)
+                if connection_iface | length == 1 else omit
             }
           }
-        , recursive=True)
+          , recursive=True)
       }}
     cacheable: true
   loop: "{{ networking_setup_connections | dict2items }}"
+  when: >-
+    ('iface' not in item.value or item.value.iface == '') and
+    ('mac' in item.value and item.value.mac != '')
   loop_control:
     label: "{{ item.key }}"
 
 - name: Add current connection info to connections
+  vars:
+    current_connection: >-
+      (
+        network_setup_nm_connections_details.result |
+        dict2items |
+        map(attribute='value') |
+        selectattr('connection_interface_name', 'defined') |
+        selectattr(
+          'connection_interface_name',
+          'equalto',
+          item.value.iface
+        )
+      )
+      if ('iface' in item.value) else []
   ansible.builtin.set_fact:
     pbi_network_connections: >-
       {{
-        pbi_network_connections |
-        combine(
+          pbi_network_connections |
+          combine(
           {
-            item.key: {
+              item.key: {
               'nm_connection_info':
-                (
-                  network_setup_nm_connections_details.result |
-                  dict2items |
-                  map(attribute='value') |
-                  selectattr('connection_interface_name', 'defined') |
-                  selectattr(
-                      'connection_interface_name',
-                      'equalto',
-                      item.value.iface_info.device
-                  ) | first
-                )
-                if ('iface_info' in item.value) else
-                omit
-            }
+                  current_connection | first
+                  if current_connection | length == 1 else omit
+              }
           }
-        , recursive=True)
+          , recursive=True)
       }}
     cacheable: true
   loop: "{{ pbi_network_connections | dict2items }}"
   loop_control:
-    label: "{{ item.key }}"
+    label: "{{ item }}"
 
 - name: Configure connection
   ansible.builtin.include_tasks:
@@ -108,3 +92,6 @@
   loop_control:
     label: "{{ item.key }}"
 
+- name: Set management connection properties
+  ansible.builtin.include_tasks:
+    file: detect_managment_connection.yml

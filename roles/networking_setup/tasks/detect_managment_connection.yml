@@ -1,0 +1,63 @@
+---
+- name: Fetch management connection
+  vars:
+    mngt_connections: >-
+      {{
+        pbi_network_connections |
+        dict2items |
+        selectattr('value.is_mngt_connection', 'defined') |
+        selectattr(
+            'value.is_mngt_connection',
+            'equalto',
+            true
+        )
+      }}
+  ansible.builtin.set_fact:
+    networking_setup_mngt_connection: >-
+      {{
+        mngt_connections if pbi_network_connections | length == 1 else ""
+      }}
+    cacheable: true
+
+- name: Get SSH connection target IP
+  when: networking_setup_mngt_connection == '' and 'SSH_CONNECTION' in ansible_env
+  ansible.builtin.set_fact:
+    nm_networking_setup_ssh_target_connection: >-
+      {{
+        ((ansible_env.SSH_CONNECTION | split(' '))[2]) |
+        pablintino.base_infra.networking_setup_ip2conn(network_setup_nm_connections_details.result)
+      }}
+
+
+- name: Ensure management network is properly detected
+  ansible.builtin.assert:
+    that: >-
+      (
+        nm_networking_setup_ssh_target_connection is defined and
+        nm_networking_setup_ssh_target_connection != ''
+      ) or
+      (
+        networking_setup_mngt_connection is defined and
+        networking_setup_mngt_connection != ''
+      )
+    msg: Unable to detect the current provision/managment connection
+
+- name: Set management connection if infered
+  when: >-
+    ( networking_setup_mngt_connection is not defined or
+      networking_setup_mngt_connection == ''
+    ) and nm_networking_setup_ssh_target_connection is defined
+  ansible.builtin.set_fact:
+    pbi_network_connections: >-
+      {{
+          pbi_network_connections |
+          combine(
+          {
+            nm_networking_setup_ssh_target_connection: {
+              'is_mngt_connection': true
+            }
+          }
+          , recursive=True)
+      }}
+    cacheable: true
+
