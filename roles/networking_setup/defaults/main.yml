@@ -1,3 +1,5 @@
 ---
 networking_setup_wait_for_ip_delay: 20
 networking_setup_wait_for_ip_retries: 20
+pbi_nstp_nm_config_path: "/etc/NetworkManager/NetworkManager.conf"
+pbi_nstp_interfaces_file_path: /etc/network/interfaces

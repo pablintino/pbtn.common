@@ -1,0 +1,33 @@
+---
+- name: Ensure that Network Manager is started and enabled
+  become: true
+  ansible.builtin.systemd:
+    state: started
+    enabled: true
+    name: NetworkManager
+
+- name: Check that interfaces file exists
+  ansible.builtin.stat:
+    path: "{{ pbi_nstp_interfaces_file_path }}"
+  register: pbi_nstp_interfaces_file_stat
+
+- name: Check/migrate plain interfaces file
+  when: pbi_nstp_interfaces_file_stat.stat.exists
+  block:
+  - name: Fetch interfaces file content
+    ansible.builtin.slurp:
+      src: "{{ pbi_nstp_interfaces_file_path }}"
+    register: pbi_nstp_interfaces_file_slrup
+
+  - name: Fetch the actual ifaces configured in interfaces file
+    vars:
+      ifaces_regex: ^iface\s([a-zA-Z0-9]*)\s?
+      pbi_nstp_interfaces_defined_ifaces_names: >-
+        {{
+          pbi_nstp_interfaces_file_slrup['content'] |
+          b64decode |
+          regex_search(ifaces_regex, '\1', multiline=True)
+        }}
+    when: pbi_nstp_interfaces_defined_ifaces_names | length > 0
+    ansible.builtin.include_tasks:
+      file: setup_migrate_if_scripts_to_nm.yml

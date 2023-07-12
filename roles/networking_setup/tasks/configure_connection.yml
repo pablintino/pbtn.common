@@ -16,11 +16,13 @@
         )
       # Only ethernet is supported now
       - ('device-type' in item.value) and item.value['device-type'] == 'ethernet'
+    quiet: true
 
 - name: Assert that the device of the connection can be referenced
   ansible.builtin.assert:
     that: "'iface' in item.value and item.value.iface != ''"
     msg: "Connection {{ item.key }} references an interface that cannot be found"
+    quiet: true
 
 - name: Assert that the device of the connection is not in use
   ansible.builtin.assert:
@@ -29,16 +31,48 @@
       (item.value['nm_connection_info'].connection_id == item.key) or
       (item.value.force | default(false) and (item.value['nm_connection_info'].connection_id != item.key))
     msg: "Connection {{ item.key }} references an interface that is already in use"
+    quiet: true
 
-# Rename if interface is gonna be stolen from other interface (needs explicit flag)
-- name: Rename exising connetion to match the name of the new one
+- name: Rename (and remove already existing one if needed) the current connection
+  vars:
+    nmcli_connections_details: "{{ network_setup_nm_connections_details.result }}"
   when: >-
     'nm_connection_info' in item.value and
     item.value.nm_connection_info.connection_id != item.key
-  become: true
-  ansible.builtin.command:
-    cmd: "nmcli connection modify '{{ item.value.nm_connection_info.connection_id }}' connection.id '{{ item.key }}'"
-  changed_when: true
+  block:
+    # Ensure we only removed already existing connections if they are not active
+    - name: Assert that target connection removal is valid if the target connection already exists
+      ansible.builtin.assert:
+        that: >-
+          (item.key not in nmcli_connections_details) or
+          (
+            ('state' not in nmcli_connections_details[item.key]) or
+            (
+              not (nmcli_connections_details[item.key].state | regex_search('^(?i)active|activated'))
+            )
+          )
+    # Prevent duplicating connection names, is possible in NM, but, inconvinient using the ansible module
+    - name: Delete target existing network if inactive and collides with the one we are configuring
+      become: true
+      when: >-
+        (item.key in nmcli_connections_details) and
+        (
+          ('state' not in nmcli_connections_details[item.key]) or
+          (not (nmcli_connections_details[item.key].state | regex_search('^(?i)active|activated')))
+        )
+      ansible.builtin.command:
+        cmd: "nmcli connection delete {{ nmcli_connections_details[item.key].connection_uuid }}"
+      changed_when: true
+
+    # Rename if interface is gonna be stolen from other interface (needs explicit flag)
+    - name: Rename exising connetion to match the name of the new one
+      become: true
+      ansible.builtin.shell:
+        cmd: >-
+          nmcli connection modify
+          '{{ item.value.nm_connection_info.connection_uuid }}'
+          connection.id '{{ item.key }}'
+      changed_when: true
 
 - name: Setup network connection
   become: true

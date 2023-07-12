@@ -10,12 +10,9 @@
     name: package_install
     tasks_from: cache_update_install_packages.yml
 
-- name: Ensure that Network Manager is started and enabled
-  become: true
-  ansible.builtin.systemd:
-    state: started
-    enabled: true
-    name: NetworkManager
+- name: Setup network-manager to handle all connections
+  ansible.builtin.include_tasks:
+    file: setup_network_manager.yml
 
 - name: Configure connections
   ansible.builtin.include_tasks:

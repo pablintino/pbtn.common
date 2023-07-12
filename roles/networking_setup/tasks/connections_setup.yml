@@ -3,6 +3,7 @@
   ansible.builtin.assert:
     msg: "Connection {{ item.key }} should have mac or iface configured"
     that: ('mac' in item.value) or ('iface' in item.value)
+    quiet: true
   loop: "{{ networking_setup_connections | dict2items }}"
   loop_control:
     label: "{{ item.key }}"
@@ -53,37 +54,67 @@
 
 - name: Add current connection info to connections
   vars:
-    current_connection: >-
-      (
-        network_setup_nm_connections_details.result |
-        dict2items |
-        map(attribute='value') |
-        selectattr('connection_interface_name', 'defined') |
-        selectattr(
-          'connection_interface_name',
-          'equalto',
-          item.value.iface
+    # Connections that references the current interface in the loop of interfaces
+    interface_connections: >-
+      {{
+        (
+          network_setup_nm_connections_details.result |
+          dict2items |
+          map(attribute='value') |
+          selectattr('connection_interface_name', 'defined') |
+          selectattr(
+            'connection_interface_name',
+            'equalto',
+            item.value.iface
+          )
         )
-      )
-      if ('iface' in item.value) else []
+        if ('iface' in item.value) else []
+      }}
+    # Filter the previous variable to take into account only the active one
+    interface_active_connection: >-
+      {{
+        interface_connections |
+        selectattr('state', 'defined') |
+        selectattr('state', 'search', '(?i)active|activated')
+      }}
+
+    # Result is a list, if an active exists that one is the selected, if not, the
+    # whole connections list is used and the first one will be picked afterwards
+    matched_connection_list: >-
+      {{
+        interface_active_connection
+        if interface_active_connection | length == 1 else
+        interface_connections
+      }}
   ansible.builtin.set_fact:
     pbi_network_connections: >-
       {{
           pbi_network_connections |
+          default(networking_setup_connections) |
           combine(
           {
               item.key: {
               'nm_connection_info':
-                  current_connection | first
-                  if current_connection | length == 1 else omit
+                  matched_connection_list | first
+                  if matched_connection_list | length > 0
+                  else omit
               }
           }
           , recursive=True)
       }}
     cacheable: true
-  loop: "{{ pbi_network_connections | dict2items }}"
+  loop: >-
+    {{
+      pbi_network_connections |
+      default(networking_setup_connections) |
+      dict2items
+    }}
   loop_control:
-    label: "{{ item }}"
+    label: "{{ item.key }}"
+
+- name: debug222
+  ansible.builtin.debug:
+    var: pbi_network_connections
 
 - name: Configure connection
   ansible.builtin.include_tasks:
