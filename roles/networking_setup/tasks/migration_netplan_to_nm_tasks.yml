@@ -1,0 +1,51 @@
+---
+## Reached this point netplan is active -> Migrate to NM
+
+# Ensures that dhclient is still used and DUID is preserved (same client-id == same IP)
+- name: Use dhclient instead
+  become: true
+  community.general.ini_file:
+    path: "/etc/NetworkManager/conf.d/dhcp-client.conf"
+    section: main
+    option: dhcp
+    value: "dhclient"
+    mode: '0600'
+
+- name: Set netplan renderer to NetworkManager
+  become: true
+  ansible.builtin.copy:
+    content: |-
+      # Ansible pablintino.base_infra managed
+      network:
+        renderer: NetworkManager
+        version: 2
+    dest: "/etc/netplan/99-network-manager.yaml"
+    mode: '0600'
+
+# At this point, generate -> apply: Will fill NM with the proper config for
+# each interface, allowing no disconnection/service disrupt
+- name: Enable NetworkManager as netplan renderer
+  become: true
+  ansible.builtin.shell:
+    # Perform this in a single shell to avoid disruption
+    cmd: >-
+      netplan generate &&
+      netplan apply &&
+      systemctl restart NetworkManager
+
+
+# Already disabled, let's delete the already NM managed ifaces (ethernet ones for now)
+- name: Enable NetworkManager as netplan renderer
+  become: true
+  ansible.builtin.command:
+    # Note: This will handle the creation of the needed yaml file and give it a proper name
+    # ensuring the generated config file has more priority to the already existing ones.
+    # Don't try to do it in plain Ansible, as file priority in netplan is complicated to
+    # replace with plan Ansible
+    cmd: netplan set network.ethernets=NULL
+
+- name: Generate and apply the new config without ethernet interfaces managed by netplan
+  become: true
+  ansible.builtin.shell:
+    # No need to reload/restart NM, as it's config will not change
+    cmd: netplan generate && netplan apply

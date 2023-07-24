@@ -6,28 +6,20 @@
     enabled: true
     name: NetworkManager
 
-- name: Check that interfaces file exists
-  ansible.builtin.stat:
-    path: "{{ pbi_nstp_interfaces_file_path }}"
-  register: pbi_nstp_interfaces_file_stat
+- name: Flag interfaces file migration if needed
+  ansible.builtin.import_tasks:
+    file: migration_interfaces_file_check.yml
 
-- name: Check/migrate plain interfaces file
-  when: pbi_nstp_interfaces_file_stat.stat.exists
-  block:
-  - name: Fetch interfaces file content
-    ansible.builtin.slurp:
-      src: "{{ pbi_nstp_interfaces_file_path }}"
-    register: pbi_nstp_interfaces_file_slrup
+- name: Flag netplan interfaces migration if needed
+  ansible.builtin.import_tasks:
+    file: migration_netplan_check.yml
 
-  - name: Fetch the actual ifaces configured in interfaces file
-    vars:
-      ifaces_regex: ^iface\s([a-zA-Z0-9]*)\s?
-      pbi_nstp_interfaces_defined_ifaces_names: >-
-        {{
-          pbi_nstp_interfaces_file_slrup['content'] |
-          b64decode |
-          regex_search(ifaces_regex, '\1', multiline=True)
-        }}
-    when: pbi_nstp_interfaces_defined_ifaces_names | length > 0
-    ansible.builtin.include_tasks:
-      file: setup_migrate_if_scripts_to_nm.yml
+- name: Migrate interfaces from ifaces file to NM
+  when: pbi_nstp_migrate_from_netplan_need | bool
+  ansible.builtin.include_tasks:
+    file: migration_netplan_to_nm_tasks.yml
+
+- name: Migrate interfaces from ifaces file to NM
+  when: pbi_nstp_migrate_from_interfaces_file_need | bool
+  ansible.builtin.include_tasks:
+    file: migration_interfaces_file_to_nm_tasks.yml

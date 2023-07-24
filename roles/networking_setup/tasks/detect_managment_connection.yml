@@ -25,9 +25,8 @@
     nm_networking_setup_ssh_target_connection: >-
       {{
         ((ansible_env.SSH_CONNECTION | split(' '))[2]) |
-        pablintino.base_infra.networking_setup_ip2conn(network_setup_nm_connections_details.result)
+        pablintino.base_infra.nstp_filter_ip2cconn(pbi_network_connections)
       }}
-
 
 - name: Ensure management network is properly detected
   ansible.builtin.assert:

@@ -7,30 +7,9 @@ __metaclass__ = type
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.common.text.converters import to_text
 
-import jc
-
-
-def execute_command(module, cmd, use_unsafe_shell=False, data=None):
-    return module.run_command(
-        [to_text(item) for item in cmd] if isinstance(cmd, list) else to_text(cmd),
-        use_unsafe_shell=use_unsafe_shell,
-        data=data,
-    )
-
-
-def get_devices_details(module, device=None):
-    (rc, out, err) = execute_command(
-        module, "nmcli device show" + (f" '{device}'" if device else "")
-    )
-
-    if rc is not None and rc != 0:
-        return None, err or "Error fetching devices"
-
-    jc_output = jc.parse("nmcli", out)
-    if not device:
-        return {device["device"]: device for device in jc_output}, None
-
-    return jc_output[0], None
+from ansible_collections.pablintino.base_infra.plugins.module_utils.network_manager_parser import (
+    NmcliIface,
+)
 
 
 def main():
@@ -52,7 +31,18 @@ def main():
         "changed": False,
     }
 
-    (nm_result, err) = get_devices_details(module, module.params.get("device", None))
+    def __exec_cmd(cmd):
+        return module.run_command(
+            [to_text(item) for item in cmd] if isinstance(cmd, list) else to_text(cmd)
+        )
+
+    device_name = module.params.get("device", None)
+    nmcli_interface = NmcliIface(__exec_cmd)
+    (nm_result, err) = (
+        nmcli_interface.get_device_details(device_name)
+        if device_name
+        else nmcli_interface.get_devices()
+    )
 
     if err is not None:
         result["msg"] = err

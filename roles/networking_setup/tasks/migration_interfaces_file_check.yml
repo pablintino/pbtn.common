@@ -1,0 +1,15 @@
+---
+- name: Check that interfaces file exists
+  pablintino.base_infra.ifaces_file_get_ifaces:
+    ignore_non_existent: true
+  register: pbi_nstp_interfaces_files_parse_out
+
+- name: Set migration from interfaces file if needed
+  ansible.builtin.set_fact:
+    pbi_nstp_migrate_from_interfaces_file_need: >-
+      {{
+        pbi_nstp_interfaces_files_parse_out.interfaces.keys() |
+        reject("in", pbi_nstp_interfaces_file_ignored_ifaces) |
+        length > 0
+      }}
+    cacheable: true

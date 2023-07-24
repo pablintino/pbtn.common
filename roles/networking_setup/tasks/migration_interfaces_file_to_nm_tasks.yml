@@ -22,7 +22,7 @@
 
 - name: Comment out all the interfaces declared in the interfaces file
   become: true
-  pablintino.base_infra.delete_iface_from_net_interfaces:
+  pablintino.base_infra.ifaces_file_delete_ifaces:
     skip_interfaces:
       - lo
       - loopback
@@ -67,7 +67,7 @@
   loop: >-
     {{
       pbi_nstp_nm_connections_after_migration.result |
-      pablintino.base_infra.nmcli_connections_filter(active=false, ifaces=pbi_nstp_nm_interfaces_file_removed.removed_ifaces)
+      pablintino.base_infra.nmcli_filters_connections_by(active=false, ifaces=pbi_nstp_nm_interfaces_file_removed.removed_ifaces)
       | dict2items
     }}
   loop_control:
@@ -84,7 +84,7 @@
   loop: >-
     {{
       pbi_nstp_nm_connections_after_migration.result |
-      pablintino.base_infra.nmcli_connections_filter(active=true, ifaces=pbi_nstp_nm_interfaces_file_removed.removed_ifaces)
+      pablintino.base_infra.nmcli_filters_connections_by(active=true, ifaces=pbi_nstp_nm_interfaces_file_removed.removed_ifaces)
       | dict2items
     }}
   loop_control:

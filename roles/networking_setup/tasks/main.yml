@@ -11,24 +11,44 @@
     tasks_from: cache_update_install_packages.yml
 
 - name: Setup network-manager to handle all connections
-  ansible.builtin.include_tasks:
+  ansible.builtin.import_tasks:
     file: setup_network_manager.yml
 
 - name: Configure connections
-  ansible.builtin.include_tasks:
-    file: connections_setup.yml
+  ansible.builtin.import_tasks:
+    file: setup_network_manager_connections.yml
+
+- name: Set management connection properties
+  ansible.builtin.import_tasks:
+    file: detect_managment_connection.yml
 
 - name: Ensure infra folder exists
   ansible.builtin.file:
     path: "{{ ansible_user_dir }}/.infra"
     state: directory
 
+- name: Prepare role file content
+  ansible.builtin.set_fact:
+    pbi_nstp_role_file_content: >-
+      {{
+        pbi_nstp_role_file_content |
+        default({}) |
+        combine(
+          {
+            item.key: item.value | pablintino.base_infra.nstp_filter_cconn_static_fields
+          }, recursive=True
+        )
+      }}
+  loop: "{{ pbi_network_connections | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
 - name: Copy role related vars to the infra directory
   ansible.builtin.copy:
     content: >-
       {{
         {
-          'pbi_network_connections': pbi_network_connections
+          'pbi_network_connections': pbi_nstp_role_file_content
         } | to_nice_yaml
       }}
     dest: "{{ ansible_user_dir }}/.infra/networking.yaml"

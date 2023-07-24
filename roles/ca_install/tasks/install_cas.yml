@@ -34,7 +34,6 @@
 
 - name: Copy certificates to the staging dir
   become: true
-  become_method: su
   register: ca_install_copy_certs_out
   ansible.builtin.copy:
     src: "{{ item.src_path | default(omit) }}"
@@ -63,7 +62,6 @@
 
     - name: Update system-wide certificate
       become: true
-      become_method: su
       environment:
         PATH: "{{ '/usr/local/sbin:/usr/sbin/:' + ansible_env.PATH}}"
       ansible.builtin.command:

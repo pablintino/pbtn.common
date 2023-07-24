@@ -7,49 +7,16 @@ __metaclass__ = type
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.common.text.converters import to_text
 
-import jc
-
-
-def execute_command(module, cmd, use_unsafe_shell=False, data=None):
-    return module.run_command(
-        [to_text(item) for item in cmd] if isinstance(cmd, list) else to_text(cmd),
-        use_unsafe_shell=use_unsafe_shell,
-        data=data,
-    )
-
-
-def get_connections(module):
-    (rc, out, err) = execute_command(
-        module, "nmcli --fields name --terse connection show"
-    )
-    if rc is not None and rc != 0:
-        return None, err or "Error fetching connections"
-
-    resulting_connections = {}
-    for conn in out.splitlines():
-        (details, err) = get_connection_details(module, conn)
-        if err is not None:
-            return None, err
-        resulting_connections[conn] = details
-
-    return resulting_connections, None
-
-
-def get_connection_details(module, connection):
-    (rc, out, err) = execute_command(module, f"nmcli connection show '{connection}'")
-    if rc is not None and rc != 0:
-        return None, err or "Error fetching connections"
-    conn_details = jc.parse("nmcli", out)
-    if isinstance(conn_details, list) and len(conn_details) == 1:
-        conn_details = conn_details[0]
-
-    return conn_details, None
+from ansible_collections.pablintino.base_infra.plugins.module_utils.network_manager_parser import (
+    NmcliIface,
+)
 
 
 def main():
     module = AnsibleModule(
         argument_spec={
             "connection": {"type": "str"},
+            "query_device": {"type": "bool", "default": False},
         },
         supports_check_mode=False,
     )
@@ -66,10 +33,18 @@ def main():
     }
 
     connection = module.params.get("connection", None)
+    query_device = module.params.get("query_device")
+
+    def __exec_cmd(cmd):
+        return module.run_command(
+            [to_text(item) for item in cmd] if isinstance(cmd, list) else to_text(cmd)
+        )
+
+    nmcli_interface = NmcliIface(__exec_cmd)
     (nm_result, err) = (
-        get_connection_details(module, connection)
+        nmcli_interface.get_connection_details(connection, query_device=query_device)
         if connection
-        else get_connections(module)
+        else nmcli_interface.get_connections(query_device=query_device)
     )
 
     if err is not None:

@@ -7,7 +7,6 @@
   block:
     - name: Install dnf config-manager plugin before using it
       become: true
-      become_method: su
       ansible.builtin.dnf:
         name: "dnf-plugins-core"
         state: present
@@ -15,7 +14,6 @@
 
     - name: Enable needed dnf repos
       become: true
-      become_method: su
       register: package_install_conf_mngr_enable_out
       ansible.builtin.command:
         cmd: "dnf config-manager --set-enabled {{ item.1 }}"
@@ -24,7 +22,6 @@
 
 - name: Add apt repositories
   become: true
-  become_method: su
   ansible.builtin.apt_repository:
     repo: "{{ item.repo }}"
     filename: "{{ item.file | default(omit) }}"
@@ -34,7 +31,6 @@
 
 - name: Add rpm repositories
   become: true
-  become_method: su
   ansible.builtin.yum_repository:
     name: "{{ item.name }}"
     baseurl: "{{ item.url }}"
