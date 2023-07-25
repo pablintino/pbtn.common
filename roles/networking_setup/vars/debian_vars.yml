@@ -1,2 +1,2 @@
-network_setup_packages:
+pbi_nstp_packages:
   - network-manager

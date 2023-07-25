@@ -28,24 +28,8 @@
         pablintino.base_infra.nstp_filter_ip2cconn(pbi_network_connections)
       }}
 
-- name: Ensure management network is properly detected
-  ansible.builtin.assert:
-    that: >-
-      (
-        nm_networking_setup_ssh_target_connection is defined and
-        nm_networking_setup_ssh_target_connection != ''
-      ) or
-      (
-        networking_setup_mngt_connection is defined and
-        networking_setup_mngt_connection != ''
-      )
-    msg: Unable to detect the current provision/managment connection
-
 - name: Set management connection if infered
-  when: >-
-    ( networking_setup_mngt_connection is not defined or
-      networking_setup_mngt_connection == ''
-    ) and nm_networking_setup_ssh_target_connection is defined
+  when: networking_setup_mngt_connection != ''
   ansible.builtin.set_fact:
     pbi_network_connections: >-
       {{
@@ -59,4 +43,3 @@
           , recursive=True)
       }}
     cacheable: true
-

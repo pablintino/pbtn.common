@@ -11,15 +11,13 @@
     value: "dhclient"
     mode: '0600'
 
+# The file name here is key, as 99 will ensure that only the
+# renderer will be overwritten and the interfaces will remain untouched
 - name: Set netplan renderer to NetworkManager
   become: true
   ansible.builtin.copy:
-    content: |-
-      # Ansible pablintino.base_infra managed
-      network:
-        renderer: NetworkManager
-        version: 2
-    dest: "/etc/netplan/99-network-manager.yaml"
+    content: "{{ pbi_nstp_netplan_disabling_config }}"
+    dest: "{{ pbi_nstp_netplan_config_dir }}/99-network-manager.yaml"
     mode: '0600'
 
 # At this point, generate -> apply: Will fill NM with the proper config for
@@ -33,16 +31,31 @@
       netplan apply &&
       systemctl restart NetworkManager
 
+- name: Find all netplan configuration files for further deletion
+  become: true
+  register: pbi_nstp_netplan_post_nm_transition_configs_find
+  ansible.builtin.find:
+    paths: "{{ pbi_nstp_netplan_config_dir }}"
+    patterns: '*.yaml,*.yml'
+
+- name: Remove the existing configuration files to push only our own NM rendering based config
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ pbi_nstp_netplan_post_nm_transition_configs_find.files }}"
+  loop_control:
+    label: "{{ item.path }}"
 
 # Already disabled, let's delete the already NM managed ifaces (ethernet ones for now)
-- name: Enable NetworkManager as netplan renderer
+# Don't try to use 'netplan set' for this. Already tested and deleting the ethernet ifaces
+# with that will lend to an invalid yaml. Seems like a bug or something not too well thought.
+- name: Set netplan renderer to NetworkManager
   become: true
-  ansible.builtin.command:
-    # Note: This will handle the creation of the needed yaml file and give it a proper name
-    # ensuring the generated config file has more priority to the already existing ones.
-    # Don't try to do it in plain Ansible, as file priority in netplan is complicated to
-    # replace with plan Ansible
-    cmd: netplan set network.ethernets=NULL
+  ansible.builtin.copy:
+    content: "{{ pbi_nstp_netplan_disabling_config }}"
+    dest: "{{ pbi_nstp_netplan_config_dir }}/70-network-manager.yaml"
+    mode: '0600'
 
 - name: Generate and apply the new config without ethernet interfaces managed by netplan
   become: true

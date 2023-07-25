@@ -4,7 +4,7 @@
     msg: "Connection {{ item.key }} should have mac or iface configured"
     that: ('mac' in item.value) or ('iface' in item.value)
     quiet: true
-  loop: "{{ networking_setup_connections | dict2items }}"
+  loop: "{{ pbi_nstp_connections | dict2items }}"
   loop_control:
     label: "{{ item.key }}"
 
@@ -34,7 +34,7 @@
     pbi_network_connections: >-
       {{
         pbi_network_connections |
-        default(networking_setup_connections) |
+        default(pbi_nstp_connections) |
         combine(
           {
             item.key: {
@@ -45,7 +45,7 @@
           , recursive=True)
       }}
     cacheable: true
-  loop: "{{ networking_setup_connections | dict2items }}"
+  loop: "{{ pbi_nstp_connections | dict2items }}"
   when: >-
     ('iface' not in item.value or item.value.iface == '') and
     ('mac' in item.value and item.value.mac != '')
@@ -57,7 +57,7 @@
     pbi_network_connections: >-
       {{
           pbi_network_connections |
-          default(networking_setup_connections) |
+          default(pbi_nstp_connections) |
           combine(
           {
               item.key: {
@@ -75,7 +75,7 @@
   loop: >-
     {{
       pbi_network_connections |
-      default(networking_setup_connections) |
+      default(pbi_nstp_connections) |
       dict2items |
       selectattr('value.iface', 'defined')
     }}

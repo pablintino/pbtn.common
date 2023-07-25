@@ -1,12 +1,44 @@
 ---
 - name: Converge
   hosts: all
+  gather_facts: true
   tasks:
-    # replace these tasks with whatever you find suitable to test
-    - name: Copy something to test use of synchronize module
-      ansible.builtin.copy:
-        src: /etc/hosts
-        dest: /tmp/hosts-from-controller
-    - name: "Include pablintino.network_setup"
+    - name: Calculate the attached private network interfaces macaddress and interface name
+      vars:
+        mngt_ip_addr: "{{ ansible_default_ipv4.address|default(ansible_all_ipv4_addresses[0]) }}"
+        ssh_connection_iface: >-
+            {{
+                (
+                  hostvars[inventory_hostname].values() |
+                  selectattr('macaddress', 'defined') |
+                  selectattr('device', 'defined') |
+                  selectattr('ipv4.address', 'defined') |
+                  selectattr('ipv4.address', 'equalto', mngt_ip_addr) |
+                  first
+                ).device
+            }}
+        custom_net_ifaces_facts: >-
+          {{
+            hostvars[inventory_hostname].values() |
+            selectattr('macaddress', 'defined') |
+            selectattr('device', 'defined') |
+            rejectattr('device', 'equalto', ssh_connection_iface) |
+            rejectattr('device', 'equalto', "lo")
+          }}
+      ansible.builtin.set_fact:
+        pbi_tst_nstp_device_1_mac: "{{ custom_net_ifaces_facts[0].macaddress }}"
+        pbi_tst_nstp_device_2_ifacename: "{{ custom_net_ifaces_facts[1].device }}"
+
+    - name: "Include role under test"
+      vars:
+        pbi_nstp_connections:
+          internal1:
+            device-type: ethernet
+            mac: "{{ pbi_tst_nstp_device_1_mac }}"
+            mode: auto
+          mngt:
+            device-type: ethernet
+            iface: "{{ pbi_tst_nstp_device_2_ifacename }}"
+            mode: auto
       ansible.builtin.include_role:
-        name: "pablintino.network_setup"
+        name: "pablintino.base_infra.networking_setup"

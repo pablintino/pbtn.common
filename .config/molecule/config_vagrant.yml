@@ -13,6 +13,9 @@ provisioner:
   connection_options:
     ansible_ssh_user: vagrant
     ansible_become: true
+  config_options:
+    ssh_connection:
+      pipelining: true
 
 platforms:
   - name: ubuntu-22
@@ -23,10 +26,15 @@ platforms:
       ssh.keep_alive: yes
       ssh.remote_user: "vagrant"
     interfaces:
-      - auto_config: true
-        network_name: private_network
+      - network_name: private_network
+        type: dhcp
+        auto_config: false
+
+      - network_name: private_network
         type: static
-        ip: 192.168.10.10
+        mac: d2:55:ee:86:11:24
+        auto_config: false
+        ip: 172.17.199.2
 
   - name: debian-11
     box: debian/bullseye64
@@ -36,10 +44,15 @@ platforms:
       ssh.keep_alive: yes
       ssh.remote_user: "vagrant"
     interfaces:
-      - auto_config: true
-        network_name: private_network
+      - network_name: private_network
+        type: dhcp
+        auto_config: false
+
+      - network_name: private_network
         type: static
-        ip: 192.168.10.12
+        mac: d2:55:ee:86:11:25
+        auto_config: false
+        ip: 172.17.199.3
 
   - name: rocky-9
     box: rockylinux/9
@@ -49,10 +62,15 @@ platforms:
       ssh.keep_alive: yes
       ssh.remote_user: "vagrant"
     interfaces:
-      - auto_config: true
-        network_name: private_network
+      - network_name: private_network
+        type: dhcp
+        auto_config: false
+
+      - network_name: private_network
         type: static
-        ip: 192.168.10.11
+        mac: d2:55:ee:86:11:26
+        auto_config: false
+        ip: 172.17.199.4
 
 verifier:
   name: ansible
