@@ -13,30 +13,30 @@
         )
       }}
   ansible.builtin.set_fact:
-    networking_setup_mngt_connection: >-
+    pbi_nstp_mngt_connection: >-
       {{
         mngt_connections if pbi_network_connections | length == 1 else ""
       }}
     cacheable: true
 
 - name: Get SSH connection target IP
-  when: networking_setup_mngt_connection == '' and 'SSH_CONNECTION' in ansible_env
+  when: pbi_nstp_mngt_connection == '' and 'SSH_CONNECTION' in ansible_env
   ansible.builtin.set_fact:
-    nm_networking_setup_ssh_target_connection: >-
+    pbi_nstp_ssh_target_connection: >-
       {{
         ((ansible_env.SSH_CONNECTION | split(' '))[2]) |
         pablintino.base_infra.nstp_filter_ip2cconn(pbi_network_connections)
       }}
 
 - name: Set management connection if infered
-  when: networking_setup_mngt_connection != ''
+  when: pbi_nstp_mngt_connection != ''
   ansible.builtin.set_fact:
     pbi_network_connections: >-
       {{
           pbi_network_connections |
           combine(
           {
-            nm_networking_setup_ssh_target_connection: {
+            pbi_nstp_ssh_target_connection: {
               'is_mngt_connection': true
             }
           }

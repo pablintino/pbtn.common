@@ -85,8 +85,8 @@
 - name: Fetch the connection status
   pablintino.base_infra.nmcli_get_connections:
     connection: "{{ item.key }}"
-  retries: "{{ networking_setup_wait_for_ip_retries }}"
-  delay: "{{ networking_setup_wait_for_ip_delay }}"
+  retries: "{{ pbi_nstp_wait_for_ip_retries }}"
+  delay: "{{ pbi_nstp_wait_for_ip_delay }}"
   register: network_setup_nm_last_connection_status
   until: >-
     'ip4_address' in network_setup_nm_last_connection_status.result and

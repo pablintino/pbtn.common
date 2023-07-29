@@ -14,13 +14,13 @@
 
 - name: Get devices details
   pablintino.base_infra.nmcli_get_devices:
-  register: networking_setup_detected_ifaces
+  register: pbi_nstp
 
 - name: Add interfaces data to the connections if MAC provided
   vars:
     connection_iface: >-
       {{
-        networking_setup_detected_ifaces.result |
+        pbi_nstp.result |
         dict2items |
         selectattr('value.general_hwaddr', 'defined') |
         selectattr(
