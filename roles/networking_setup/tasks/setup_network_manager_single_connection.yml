@@ -12,7 +12,7 @@
         item.value.mode != 'manual' or
         (
           ('ip4' in item.value and (item.value.ip4 | ansible.utils.ipaddr != false)) and
-          ('ip4gw' in item.value and (item.value.ip4gw | ansible.utils.ipaddr != false))
+          (('ip4gw' not in item.value) or (item.value.ip4gw | ansible.utils.ipaddr != false))
         )
       # Only ethernet is supported now
       - ('device-type' in item.value) and item.value['device-type'] == 'ethernet'

@@ -1,6 +1,7 @@
 ---
 pbi_nstp_wait_for_ip_delay: 20
 pbi_nstp_wait_for_ip_retries: 20
+pbi_nstp_networking_output_file_path: "{{ ansible_user_dir }}/.infra/networking.yaml"
 pbi_nstp_nm_config_path: "/etc/NetworkManager/NetworkManager.conf"
 pbi_nstp_netplan_config_dir: "/etc/netplan/"
 pbi_nstp_netplan_disabling_config: |-

@@ -51,4 +51,4 @@
           'pbi_network_connections': pbi_nstp_role_file_content
         } | to_nice_yaml
       }}
-    dest: "{{ ansible_user_dir }}/.infra/networking.yaml"
+    dest: "{{ pbi_nstp_networking_output_file_path }}"
