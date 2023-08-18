@@ -2,24 +2,24 @@
 - name: Check netplan executable exists
   ansible.builtin.command:
     cmd: which netplan
-  register: pbi_nstp_netplan_cmd_avail_out
+  register: _pbi_nstp_netplan_cmd_avail_out
   failed_when: false
   changed_when: false
 
 # No need to manually parse netplan config files manually
 - name: Fetch netplan renderer
   become: true
-  when: pbi_nstp_netplan_cmd_avail_out.rc == 0
+  when: _pbi_nstp_netplan_cmd_avail_out.rc == 0
   ansible.builtin.command:
     cmd: netplan get renderer
-  register: pbi_nstp_netplan_renderer_out
+  register: _pbi_nstp_netplan_renderer_out
   changed_when: false
 
 - name: Set migration from netplan if needed
   ansible.builtin.set_fact:
     pbi_nstp_migrate_from_netplan_need: >-
       {{
-        pbi_nstp_netplan_cmd_avail_out.rc == 0 and
-        pbi_nstp_netplan_renderer_out.stdout != 'NetworkManager'
+        _pbi_nstp_netplan_cmd_avail_out.rc == 0 and
+        _pbi_nstp_netplan_renderer_out.stdout != 'NetworkManager'
       }}
     cacheable: true

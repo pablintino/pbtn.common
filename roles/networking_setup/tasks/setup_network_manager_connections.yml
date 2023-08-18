@@ -10,17 +10,17 @@
 
 - name: Get connections details
   pablintino.base_infra.nmcli_get_connections:
-  register: network_setup_nm_connections_details
+  register: _pbi_nstp_nm_connections_details
 
 - name: Get devices details
   pablintino.base_infra.nmcli_get_devices:
-  register: pbi_nstp
+  register: _pbi_nstp_nm_devices_details
 
 - name: Add interfaces data to the connections if MAC provided
   vars:
     connection_iface: >-
       {{
-        pbi_nstp.result |
+        _pbi_nstp_nm_devices_details.result |
         dict2items |
         selectattr('value.general_hwaddr', 'defined') |
         selectattr(
@@ -64,7 +64,7 @@
               'nm_connection_info':
                   (
                     item.value |
-                    pablintino.base_infra.nmcli_filter_cconn2nmcliconn(network_setup_nm_connections_details.result) |
+                    pablintino.base_infra.nmcli_filter_cconn2nmcliconn(_pbi_nstp_nm_connections_details.result) |
                     default(omit, true)
                   )
               }
@@ -93,7 +93,7 @@
 - name: Get post-configuration connections details
   pablintino.base_infra.nmcli_get_connections:
     query_device: true
-  register: pbi_nstp_post_config_connections_details
+  register: _pbi_nstp_post_config_connections_details
 
 - name: Save new connection statuses
   vars:
@@ -104,8 +104,8 @@
         combine(
           {
             'nm_connection_info': (
-              pbi_nstp_post_config_connections_details.result[item.key]
-              if item.key in pbi_nstp_post_config_connections_details.result
+              _pbi_nstp_post_config_connections_details.result[item.key]
+              if item.key in _pbi_nstp_post_config_connections_details.result
               else omit
             )
           }

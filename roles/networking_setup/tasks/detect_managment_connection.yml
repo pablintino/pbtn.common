@@ -1,7 +1,7 @@
 ---
 - name: Fetch management connection
   vars:
-    mngt_connections: >-
+    _pbi_nstp_mngt_connections: >-
       {{
         pbi_network_connections |
         dict2items |
@@ -15,7 +15,7 @@
   ansible.builtin.set_fact:
     pbi_nstp_mngt_connection: >-
       {{
-        mngt_connections if pbi_network_connections | length == 1 else ""
+        _pbi_nstp_mngt_connections if pbi_network_connections | length == 1 else ""
       }}
     cacheable: true
 

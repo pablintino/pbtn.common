@@ -33,7 +33,7 @@
 
 - name: Find all netplan configuration files for further deletion
   become: true
-  register: pbi_nstp_netplan_post_nm_transition_configs_find
+  register: _pbi_nstp_netplan_post_nm_transition_configs_find
   ansible.builtin.find:
     paths: "{{ pbi_nstp_netplan_config_dir }}"
     patterns: '*.yaml,*.yml'
@@ -43,7 +43,7 @@
   ansible.builtin.file:
     path: "{{ item.path }}"
     state: absent
-  loop: "{{ pbi_nstp_netplan_post_nm_transition_configs_find.files }}"
+  loop: "{{ _pbi_nstp_netplan_post_nm_transition_configs_find.files }}"
   loop_control:
     label: "{{ item.path }}"
 

@@ -87,7 +87,7 @@
     connection: "{{ item.key }}"
   retries: "{{ pbi_nstp_wait_for_ip_retries }}"
   delay: "{{ pbi_nstp_wait_for_ip_delay }}"
-  register: network_setup_nm_last_connection_status
+  register: _pbi_nstp_nm_last_connection_status
   until: >-
-    'ip4_address' in network_setup_nm_last_connection_status.result and
-    (network_setup_nm_last_connection_status.result.ip4_address | length > 0)
+    'ip4_address' in _pbi_nstp_nm_last_connection_status.result and
+    (_pbi_nstp_nm_last_connection_status.result.ip4_address | length > 0)
