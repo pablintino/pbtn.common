@@ -2,10 +2,10 @@
 - name: Converge
   hosts: all
   vars:
-    ca_install_certificates:
+    pbi_canst_certificates:
       - "data/example.ca-one.crt"
       - "data/example.ca-two.crt"
-    ca_install_pems:
+    pbi_canst_pems:
       - |
         -----BEGIN CERTIFICATE-----
         MIIDczCCAlugAwIBAgIUCYI+WMVVaZJdIi3g61ImbnSp7AYwDQYJKoZIhvcNAQEL

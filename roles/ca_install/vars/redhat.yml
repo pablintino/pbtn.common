@@ -1,3 +1,3 @@
-ca_install_target_dir: "/etc/pki/ca-trust/source/anchors/"
-ca_install_update_cmd: update-ca-trust
-ca_install_bundle_file: "/etc/pki/tls/certs/ca-bundle.crt"
+pbi_canst_target_dir: "/etc/pki/ca-trust/source/anchors/"
+pbi_canst_update_cmd: update-ca-trust
+pbi_canst_bundle_file: "/etc/pki/tls/certs/ca-bundle.crt"

@@ -1,40 +1,41 @@
 ---
 - name: Store target CA remote files
   vars:
-    pem_paths: "{{ ca_install_certificates | default([]) }}"
+    pem_paths: "{{ pbi_canst_certificates | default([]) }}"
   ansible.builtin.set_fact:
-    ca_install_certificates_data: >
+    _pbi_canst_certificates_data: >
       {{
-        ca_install_certificates_data|default([]) +
+        _pbi_canst_certificates_data|default([]) +
         [{
-          'target_path': ca_install_target_dir +
+          'target_path': pbi_canst_target_dir +
             ((item | basename | splitext).0 + '.crt'),
           'src_path' : item
         }]
       }}
+    cacheable: true
   with_items: "{{ pem_paths }}"
   when: pem_paths | length > 0
 
 - name: Store PRM CA remote files
   vars:
-    pem_contents: "{{ ca_install_pems | default([]) }}"
+    _pbi_canst_pem_contents: "{{ pbi_canst_pems | default([]) }}"
   ansible.builtin.set_fact:
-    ca_install_certificates_data: >
+    _pbi_canst_certificates_data: >
       {{
-        ca_install_certificates_data|default([]) +
+        _pbi_canst_certificates_data|default([]) +
         [{
-            'target_path': ca_install_target_dir + 'ca-install-certificate-' + ca_index | string + '.crt',
+            'target_path': pbi_canst_target_dir + 'ca-install-certificate-' + ca_index | string + '.crt',
             'content': item
         }]
       }}
-  loop: "{{ pem_contents }}"
+  loop: "{{ _pbi_canst_pem_contents }}"
   loop_control:
     index_var: ca_index
-  when: pem_contents | length > 0
+  when: _pbi_canst_pem_contents | length > 0
 
 - name: Copy certificates to the staging dir
   become: true
-  register: ca_install_copy_certs_out
+  register: _pbi_canst_copy_certs_out
   ansible.builtin.copy:
     src: "{{ item.src_path | default(omit) }}"
     content: "{{ item.content | default(omit) }}"
@@ -42,20 +43,20 @@
     owner: root
     group: root
     mode: '0644'
-  with_items: "{{ ca_install_certificates_data | default([]) }}"
+  with_items: "{{ _pbi_canst_certificates_data | default([]) }}"
 
 - name: Update certs if needed
-  when: ca_install_copy_certs_out.changed
+  when: _pbi_canst_copy_certs_out.changed
   block:
     - name: Save certificates SNs to further validate installation
       ansible.builtin.shell:
         cmd: "openssl x509 -noout -serial -in {{ item.target_path }} | cut -f2 -d '='"
-      register: ca_install_certificates_sns_out
-      with_items: "{{ (ca_install_certificates_data | default([])) }}"
+      register: _pbi_canst_certificates_sns_out
+      with_items: "{{ (_pbi_canst_certificates_data | default([])) }}"
 
     - name: Install CA update related tools
       vars:
-        pbi_pknst_packages_install_list: "{{ ca_install_packages | default([]) }}"
+        pbi_pknst_packages_install_list: "{{ pbi_canst_install_packages | default([]) }}"
       ansible.builtin.import_role:
         name: package_install
         tasks_from: install_packages.yml
@@ -65,23 +66,23 @@
       environment:
         PATH: "{{ '/usr/local/sbin:/usr/sbin/:' + ansible_env.PATH}}"
       ansible.builtin.command:
-        cmd: "{{ ca_install_update_cmd }}"
-      when: ca_install_certificates_data | default([]) | length > 0
+        cmd: "{{ pbi_canst_update_cmd }}"
+      when: _pbi_canst_certificates_data | default([]) | length > 0
 
     - name: Fetch installed CAs from bundle
       ansible.builtin.shell:
-        cmd: "openssl storeutl -noout -text -certs {{ ca_install_bundle_file }} | grep -i -A1 'Serial Number'"
-      register: ca_install_cert_list_out
+        cmd: "openssl storeutl -noout -text -certs {{ pbi_canst_bundle_file }} | grep -i -A1 'Serial Number'"
+      register: _pbi_canst_cert_list_out
 
     - name: Assert certificates installed
       vars:
-        ca_install_cert_installed_cas_sns: >
-          {{  ca_install_cert_list_out.stdout |
-              regex_findall(ca_install_serial_fetch_regex,  multiline=True, ignorecase=True) |
+        _pbi_canst_cert_installed_cas_sns: >
+          {{  _pbi_canst_cert_list_out.stdout |
+              regex_findall(pbi_canst_serial_fetch_regex,  multiline=True, ignorecase=True) |
               flatten | unique | select | replace(':','') | lower
           }}
       ansible.builtin.assert:
-        that: (item.stdout | lower) in ca_install_cert_installed_cas_sns
+        that: (item.stdout | lower) in _pbi_canst_cert_installed_cas_sns
         quiet: true
         msg: "Certificate not properly installed"
-      with_items: "{{ (ca_install_certificates_sns_out | default({'results':[]})).results }}"
+      with_items: "{{ (_pbi_canst_certificates_sns_out | default({'results':[]})).results }}"

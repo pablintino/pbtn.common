@@ -1,5 +1,5 @@
-ca_install_target_dir: "/usr/local/share/ca-certificates/"
-ca_install_update_cmd: "update-ca-certificates --fresh"
-ca_install_bundle_file: "/etc/ssl/certs/ca-certificates.crt"
-ca_install_packages:
+pbi_canst_target_dir: "/usr/local/share/ca-certificates/"
+pbi_canst_update_cmd: "update-ca-certificates --fresh"
+pbi_canst_bundle_file: "/etc/ssl/certs/ca-certificates.crt"
+pbi_canst_install_packages:
   - ca-certificates
