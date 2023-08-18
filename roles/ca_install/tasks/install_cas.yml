@@ -58,7 +58,7 @@
         package_install_packages_list: "{{ ca_install_packages | default([]) }}"
       ansible.builtin.import_role:
         name: package_install
-        tasks_from: cache_update_install_packages.yml
+        tasks_from: install_packages.yml
 
     - name: Update system-wide certificate
       become: true

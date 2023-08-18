@@ -1,2 +1,159 @@
 ---
-# defaults file for firewall_setup
+pbi_fwstp_disable_native_firewall: true
+pbi_fwstp_rules_template: "templates/nftables-base-tables.nft.j2"
+
+pbi_fwstp_default_input_policy: "drop"
+pbi_fwstp_default_output_policy: "accept"
+pbi_fwstp_default_forward_policy: "drop"
+
+pbi_fwstp_default_input_rules:
+  - "{{ pbi_fwstp_default_rule_input_loopback_non_local_addr_log }}"
+  - "{{ pbi_fwstp_default_rule_input_loopback_non_local_addr_drop }}"
+  - "{{ pbi_fwstp_default_rule_input_loopback_accept }}"
+  - "{{ pbi_fwstp_default_rule_input_stablished_related_accept }}"
+  - "{{ pbi_fwstp_default_rule_input_tcp_new_non_syn_log }}"
+  - "{{ pbi_fwstp_default_rule_input_tcp_new_non_syn_drop }}"
+  - "{{ pbi_fwstp_default_rule_input_tcp_invalid_fin_syn_log }}"
+  - "{{ pbi_fwstp_default_rule_input_tcp_invalid_fin_syn_drop }}"
+  - "{{ pbi_fwstp_default_rule_input_tcp_invalid_syn_rst_log }}"
+  - "{{ pbi_fwstp_default_rule_input_tcp_invalid_syn_rst_drop }}"
+  - "{{ pbi_fwstp_default_rule_input_tcp_invalid_flags_log }}"
+  - "{{ pbi_fwstp_default_rule_input_tcp_invalid_flags_drop }}"
+  - "{{ pbi_fwstp_default_rule_input_tcp_invalid_flags_2_log }}"
+  - "{{ pbi_fwstp_default_rule_input_tcp_invalid_flags_2_drop }}"
+  - "{{ pbi_fwstp_default_rule_input_invalid_ct_state_log }}"
+  - "{{ pbi_fwstp_default_rule_invalid_ct_state_drop }}"
+
+pbi_fwstp_default_output_rules:
+  - "{{ pbi_fwstp_default_rule_output_loopback_non_local_addr_log }}"
+  - "{{ pbi_fwstp_default_rule_output_loopback_non_local_addr_drop }}"
+  - "{{ pbi_fwstp_default_rule_output_loopback_accept }}"
+  - "{{ pbi_fwstp_default_rule_output_stablished_related_accept }}"
+  - "{{ pbi_fwstp_default_rule_output_invalid_ct_state_log }}"
+  - "{{ pbi_fwstp_default_rule_invalid_ct_state_drop }}"
+
+pbi_fwstp_default_rule_input_loopback_non_local_addr_log: >-
+  iifname "lo"
+  ip saddr != 127.0.0.0/8
+  limit rate 100/minute burst 150 packets
+  log prefix "IN - LO INVALID ADDR: "
+  comment "Rate limit logging for loopback non local packets"
+
+pbi_fwstp_default_rule_input_loopback_non_local_addr_drop: >-
+  iifname "lo"
+  ip saddr != 127.0.0.0/8
+  drop
+  comment "Drop loopback iface non local packets"
+
+pbi_fwstp_default_rule_input_loopback_accept: >-
+  iifname "lo" accept
+  comment "Permit all traffic in to loopback interface"
+
+pbi_fwstp_default_rule_input_stablished_related_accept: >-
+  ct state established,related
+  accept
+  comment "Permit established/related connections"
+
+pbi_fwstp_default_rule_input_tcp_new_non_syn_log: >-
+  tcp flags != syn
+  ct state new
+  limit rate 100/minute burst 150 packets
+  log prefix "IN - New !SYN: "
+  comment "Rate limit logging for new connections that do not have the SYN TCP flag set"
+
+pbi_fwstp_default_rule_input_tcp_new_non_syn_drop: >-
+  tcp flags != syn
+  ct state new
+  counter drop
+  comment "Drop new connections that do not have the SYN TCP flag set"
+
+pbi_fwstp_default_rule_input_tcp_invalid_fin_syn_log: >-
+  tcp flags & (fin|syn) == (fin|syn)
+  limit rate 100/minute burst 150 packets
+  log prefix "IN - TCP FIN|SIN: "
+  comment "Rate limit logging for TCP packets with invalid fin/syn flag set"
+
+pbi_fwstp_default_rule_input_tcp_invalid_fin_syn_drop: >-
+  tcp flags & (fin|syn) == (fin|syn)
+  counter drop
+  comment "Drop TCP packets with invalid fin/syn flag set"
+
+pbi_fwstp_default_rule_input_tcp_invalid_syn_rst_log: >-
+  tcp flags & (syn|rst) == (syn|rst)
+  limit rate 100/minute burst 150 packets
+  log prefix "IN - TCP SYN|RST: "
+  comment "Rate limit logging for TCP packets with invalid syn/rst flag set"
+
+pbi_fwstp_default_rule_input_tcp_invalid_syn_rst_drop: >-
+  tcp flags & (syn|rst) == (syn|rst)
+  counter drop
+  comment "Drop TCP packets with invalid syn/rst flag set"
+
+pbi_fwstp_default_rule_input_tcp_invalid_flags_log: >-
+  tcp flags & (fin|syn|rst|psh|ack|urg) < (fin)
+  limit rate 100/minute burst 150 packets
+  log prefix "IN - FIN:"
+  comment "Rate limit logging for invalid TCP flags (fin|syn|rst|psh|ack|urg) < (fin)"
+
+pbi_fwstp_default_rule_input_tcp_invalid_flags_drop: >-
+  tcp flags & (fin|syn|rst|psh|ack|urg) < (fin)
+  counter drop
+  comment "Drop TCP packets with flags (fin|syn|rst|psh|ack|urg) < (fin)"
+
+pbi_fwstp_default_rule_input_tcp_invalid_flags_2_log: >-
+  tcp flags & (fin|syn|rst|psh|ack|urg) == (fin|psh|urg)
+  limit rate 100/minute burst 150 packets
+  log prefix "IN - FIN|PSH|URG:"
+  comment "Rate limit logging for invalid TCP flags (fin|syn|rst|psh|ack|urg) == (fin|psh|urg)"
+
+pbi_fwstp_default_rule_input_tcp_invalid_flags_2_drop: >-
+  tcp flags & (fin|syn|rst|psh|ack|urg) == (fin|psh|urg)
+  counter drop
+  comment "Drop TCP packets with flags (fin|syn|rst|psh|ack|urg) == (fin|psh|urg)"
+
+pbi_fwstp_default_rule_input_invalid_ct_state_log: >-
+  ct state invalid
+  limit rate 100/minute burst 150 packets
+  log flags all prefix "IN - Invalid: "
+  comment "Rate limit logging for traffic with invalid connection state"
+
+pbi_fwstp_default_rule_invalid_ct_state_drop: >-
+  ct state invalid
+  counter drop
+  comment "Drop traffic with invalid connection state"
+
+pbi_fwstp_default_rule_input_ssh_accept_template: >-
+  iifname {{ managment_conn.iface }}
+  {% if managment_conn.mode == 'manual' -%}
+  ip daddr == {{ managment_conn.ip4 }}
+  {% endif -%}
+  tcp dport 22 accept
+
+pbi_fwstp_default_rule_output_loopback_non_local_addr_log: >-
+  oifname "lo"
+  ip daddr != 127.0.0.0/8
+  limit rate 100/minute burst 150 packets
+  log prefix "IN - LO INVALID ADDR: "
+  comment "Rate limit logging for loopback non local output packets"
+
+pbi_fwstp_default_rule_output_loopback_non_local_addr_drop: >-
+  oifname "lo"
+  ip daddr != 127.0.0.0/8
+  drop
+  comment "Drop loopback iface non local output packets"
+
+pbi_fwstp_default_rule_output_loopback_accept: >-
+  oifname "lo" accept
+  comment "Permit all traffic out of loopback interface"
+
+pbi_fwstp_default_rule_output_stablished_related_accept: >-
+  ct state established,related
+  counter
+  accept
+  comment "Permit established/related connections"
+
+pbi_fwstp_default_rule_output_invalid_ct_state_log: >-
+  ct state invalid
+  limit rate 100/minute burst 150 packets
+  log flags all prefix "OUT - Invalid: "
+  comment "Rate limit logging for traffic with invalid connection state"

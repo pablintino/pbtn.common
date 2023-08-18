@@ -1,0 +1,5 @@
+pbi_fwstp_packages:
+  - nftables
+
+pbi_fwstp_native_firewall_service_name: firewalld
+pbi_fwstp_nftables_file: "/etc/sysconfig/nftables.conf"

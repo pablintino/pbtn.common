@@ -1,0 +1,79 @@
+---
+- name: Check if the executable precondition is meet
+  when: "pbi_pknst_install_exec_condition is defined"
+  environment:
+    PATH: "{{ '/usr/local/sbin:/usr/sbin/:' + ansible_env.PATH}}"
+  ansible.builtin.command:
+    cmd: "which {{ pbi_pknst_install_exec_condition }}"
+  changed_when: false
+  failed_when: false
+  register: _pbi_pknst_exec_condition_out
+
+- name: Install packages
+  when: "'rc' in _pbi_pknst_exec_condition_out and _pbi_pknst_exec_condition_out['rc'] != 0"
+  block:
+    - name: Update cache if needed and install apt packages
+      become: true
+      environment:
+        DEBIAN_FRONTEND: "{{ package_install_apt_install_frontend }}"
+      ansible.builtin.apt:
+        update_cache: "{{ pbi_pknst_update_cache }}"
+        name: "{{ package_install_packages_list }}"
+        state: present
+      when:
+        - ansible_pkg_mgr == "apt"
+        - package_install_packages_list | length > 0
+
+    - name: Update cache if needed and install yum packages
+      become: true
+      ansible.builtin.yum:
+        name: "{{ package_install_packages_list }}"
+        cacheonly: >-
+          {{
+            true
+            if
+              (
+                (pbi_pknst_cache_only | bool) and
+                (not update_cache | bool)
+              ) else omit
+          }}
+        update_cache: >-
+          {{
+            true
+            if
+              (
+                (pbi_pknst_update_cache | bool) and
+                (not pbi_pknst_cache_only | bool)
+              ) else omit
+          }}
+        state: present
+      when:
+        - ansible_pkg_mgr == "yum"
+        - package_install_packages_list | length > 0
+
+    - name: Update cache if needed and install dnf packages
+      become: true
+      ansible.builtin.dnf:
+        name: "{{ package_install_packages_list }}"
+        cacheonly: >-
+          {{
+            true
+            if
+              (
+                (pbi_pknst_cache_only | bool) and
+                (not update_cache | bool)
+              ) else omit
+          }}
+        update_cache: >-
+          {{
+            true
+            if
+              (
+                (pbi_pknst_update_cache | bool) and
+                (not pbi_pknst_cache_only | bool)
+              ) else omit
+          }}
+        state: present
+      when:
+        - ansible_pkg_mgr == "dnf"
+        - package_install_packages_list | length > 0

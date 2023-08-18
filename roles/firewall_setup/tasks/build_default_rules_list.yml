@@ -1,0 +1,25 @@
+---
+- name: Set default rules initial lists
+  ansible.builtin.set_fact:
+    pbi_fwstp_default_input_list: "{{ pbi_fwstp_default_input_rules }}"
+    pbi_fwstp_default_output_list: "{{ pbi_fwstp_default_output_rules }}"
+    cacheable: true
+
+- name: Append SSH input rule for the managment interface
+  vars:
+    managment_conn: >-
+      {{
+        (
+          pbi_network_connections |
+          default({}) |
+          dict2items |
+          selectattr('value.is_mngt_connection', 'defined') |
+          selectattr('value.iface', 'defined') |
+          selectattr('value.is_mngt_connection', 'equalto', true) |
+          first | default({'value' : {}})
+        ).value
+      }}
+  when: "managment_conn | length > 0"
+  ansible.builtin.set_fact:
+    pbi_fwstp_default_input_list: "{{ pbi_fwstp_default_input_list + [pbi_fwstp_default_rule_input_ssh_accept_template] }}"
+    cacheable: true

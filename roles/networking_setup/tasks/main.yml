@@ -8,7 +8,7 @@
     package_install_packages_list: "{{ pbi_nstp_packages }}"
   ansible.builtin.include_role:
     name: package_install
-    tasks_from: cache_update_install_packages.yml
+    tasks_from: install_packages.yml
 
 - name: Setup network-manager to handle all connections
   ansible.builtin.import_tasks:

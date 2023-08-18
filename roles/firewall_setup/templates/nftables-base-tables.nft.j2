@@ -1,0 +1,52 @@
+#!/usr/sbin/nft -f
+
+
+flush ruleset
+
+table inet firewall {
+
+    chain inbound {
+        type filter hook input priority 0; policy {{ pbi_fwstp_default_input_policy }};
+
+        # Drop IPv6 support by explicetly dropping IPv6 traffic
+        ip version 6 drop
+
+        {% for rule in pbi_fwstp_input_pre_rules | default([]) -%}
+        {{ rule }}
+        {% endfor %}
+
+        {% for rule in pbi_fwstp_default_input_list | default([]) -%}
+        {{ rule }}
+        {% endfor %}
+
+        {% for rule in pbi_fwstp_input_post_rules | default([]) -%}
+        {{ rule }}
+        {%- endfor %}
+
+    }
+
+    chain outbound {
+        type filter hook output priority 0; policy {{ pbi_fwstp_default_output_policy }};
+
+        # Drop IPv6 support by explicetly dropping IPv6 traffic
+        ip version 6 drop
+
+        {% for rule in pbi_fwstp_output_pre_rules | default([]) -%}
+        {{ rule }}
+        {% endfor %}
+
+        {% for rule in pbi_fwstp_default_output_list | default([]) -%}
+        {{ rule }}
+        {% endfor %}
+
+        {% for rule in pbi_fwstp_output_post_rules | default([]) -%}
+        {{ rule }}
+        {% endfor %}
+
+    }
+
+    chain forward {
+        # Drop everything (assumes this device is not a router)
+        type filter hook forward priority 0; policy {{ pbi_fwstp_default_forward_policy }};
+    }
+}

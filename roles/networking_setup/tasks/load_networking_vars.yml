@@ -1,0 +1,19 @@
+---
+- name: Try loading the networking metadata
+  when: "pbi_network_connections is not defined"
+  block:
+    - name: Try fetch the networking file from remote
+      register: _pbi_nstp_output_file_slrup
+      ansible.builtin.slurp:
+        src: "{{ pbi_nstp_networking_output_file_path }}"
+      ignore_errors: true
+
+    - name: Load the static file information
+      when: "'content' in _pbi_nstp_output_file_slrup"
+      ansible.builtin.set_fact:
+        pbi_network_connections: >-
+          {{
+            (_pbi_nstp_output_file_slrup['content'] | b64decode) |
+            from_yaml
+          }}
+        cacheable: true

@@ -1,15 +1,32 @@
 ---
-- name: Check that distro is supported
-  ansible.builtin.assert:
-    msg: Unsupported distribution
-    that: >-
-      (ansible_os_family | lower == "debian") or
-      (ansible_os_family | lower == "redhat")
+- name: Gather roles variables per SO
+  ansible.builtin.include_vars:
+    file: "{{ role_path }}/vars/{{ ansible_os_family | lower }}_vars.yml"
 
-- name: Setup firewalld for RHEL based distros
-  ansible.builtin.import_tasks: setup_firewalld.yaml
-  when: ansible_os_family | lower == "redhat"
+- name: Remove the native firewall
+  ansible.builtin.package:
+    name: "{{ pbi_fwstp_native_firewall_service_name }}"
+    state: absent
 
-- name: Setup ufw for Debian based distros
-  ansible.builtin.import_tasks: setup_ufw.yaml
-  when: ansible_os_family | lower == "debian"
+- name: Install firewall related packages
+  vars:
+    package_install_packages_list: "{{ pbi_fwstp_packages }}"
+    pbi_pknst_install_exec_condition: nft
+  ansible.builtin.include_role:
+    name: package_install
+    tasks_from: install_packages.yml
+
+- name: Try loading the networking metadata
+  ansible.builtin.include_role:
+    name: networking_setup
+    tasks_from: load_networking_vars.yml
+
+- name: Compute default rules lists
+  ansible.builtin.include_tasks:
+    file: build_default_rules_list.yml
+
+- name: Apply rules if necessary
+  become: true
+  pablintino.base_infra.nftables_apply:
+    target_config_file: "{{ pbi_fwstp_nftables_file }}"
+    config: "{{ lookup('ansible.builtin.template', pbi_fwstp_rules_template) }}"

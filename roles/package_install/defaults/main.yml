@@ -5,3 +5,5 @@ package_install_base_packages:
 
 package_install_base_repositories: []
 package_install_apt_install_frontend: noninteractive
+pbi_pknst_update_cache: true
+pbi_pknst_cache_only: false
