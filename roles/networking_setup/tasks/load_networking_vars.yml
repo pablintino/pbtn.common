@@ -2,7 +2,13 @@
 - name: Try loading the networking metadata
   when: "pbi_network_connections is not defined"
   block:
+    - name: Check if the networking file exists
+      ansible.builtin.stat:
+        path: "{{ pbi_nstp_networking_output_file_path }}"
+      register: _pbi_nstp_output_file_stat
+
     - name: Try fetch the networking file from remote
+      when: "_pbi_nstp_output_file_stat.stat.exists"
       register: _pbi_nstp_output_file_slrup
       ansible.builtin.slurp:
         src: "{{ pbi_nstp_networking_output_file_path }}"
