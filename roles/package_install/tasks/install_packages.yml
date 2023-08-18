@@ -10,7 +10,9 @@
   register: _pbi_pknst_exec_condition_out
 
 - name: Install packages
-  when: "'rc' in _pbi_pknst_exec_condition_out and _pbi_pknst_exec_condition_out['rc'] != 0"
+  when: >-
+      (pbi_pknst_install_exec_condition is not defined) or
+      ('rc' in _pbi_pknst_exec_condition_out and _pbi_pknst_exec_condition_out['rc'] != 0)
   block:
     - name: Update cache if needed and install apt packages
       become: true
