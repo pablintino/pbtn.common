@@ -1,25 +1,26 @@
 ---
 - name: Set packages and repositories to be installed
   ansible.builtin.set_fact:
-    package_install_effective_packages: "{{ package_install_base_packages | default([]) + package_install_packages | default([]) }}"
-    package_install_effective_repositories: "{{ package_install_base_repositories | default([]) + package_install_repositories | default([]) }}"
+    _pbi_pknst_effective_packages: "{{ pbi_pknst_base_packages | default([]) + pbi_pknst_packages | default([]) }}"
+    _pbi_pknst_effective_repositories: "{{ pbi_pknst_base_repositories | default([]) + pbi_pknst_repositories | default([]) }}"
+    cacheable: true
 
 - name: Print repositories and packages to be installed
   vars:
-    to_install:
-      packages: "{{ package_install_effective_packages }}"
-      repositories: "{{ package_install_effective_repositories }}"
+    _pbi_pknst_to_install_data:
+      packages: "{{ _pbi_pknst_effective_packages }}"
+      repositories: "{{ _pbi_pknst_effective_repositories }}"
   ansible.builtin.debug:
-    var: to_install
+    var: _pbi_pknst_to_install_data
 
 - name: Install given repositories
   vars:
-    package_install_repos_list: "{{ package_install_effective_repositories }}"
+    pbi_pknst_repos_install_list: "{{ _pbi_pknst_effective_repositories }}"
   ansible.builtin.import_tasks:
     file: install_repos.yml
 
 - name: Install given packages
   vars:
-    package_install_packages_list: "{{ package_install_effective_packages }}"
+    pbi_pknst_packages_install_list: "{{ _pbi_pknst_effective_packages }}"
   ansible.builtin.import_tasks:
     file: install_packages.yml

@@ -5,7 +5,7 @@
 
 - name: Install network related packages
   vars:
-    package_install_packages_list: "{{ pbi_nstp_packages }}"
+    pbi_pknst_packages_install_list: "{{ pbi_nstp_packages }}"
   ansible.builtin.include_role:
     name: package_install
     tasks_from: install_packages.yml

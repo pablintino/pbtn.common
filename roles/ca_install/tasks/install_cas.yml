@@ -55,7 +55,7 @@
 
     - name: Install CA update related tools
       vars:
-        package_install_packages_list: "{{ ca_install_packages | default([]) }}"
+        pbi_pknst_packages_install_list: "{{ ca_install_packages | default([]) }}"
       ansible.builtin.import_role:
         name: package_install
         tasks_from: install_packages.yml

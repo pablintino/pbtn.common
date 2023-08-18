@@ -10,7 +10,7 @@
 
 - name: Install firewall related packages
   vars:
-    package_install_packages_list: "{{ pbi_fwstp_packages }}"
+    pbi_pknst_packages_install_list: "{{ pbi_fwstp_packages }}"
     pbi_pknst_install_exec_condition: nft
   ansible.builtin.include_role:
     name: package_install

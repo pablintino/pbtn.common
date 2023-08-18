@@ -1,9 +1,9 @@
 ---
 # defaults file for package_install
-package_install_base_packages:
+pbi_pknst_base_packages:
   - sudo
 
-package_install_base_repositories: []
-package_install_apt_install_frontend: noninteractive
+pbi_pknst_base_repositories: []
+pbi_pknst_apt_install_frontend: noninteractive
 pbi_pknst_update_cache: true
 pbi_pknst_cache_only: false
