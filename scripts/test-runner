@@ -1,0 +1,275 @@
+#!/usr/bin/env python3
+
+import abc
+import argparse
+import pathlib
+import yaml
+import io
+import selectors
+import subprocess
+import sys
+
+
+def run_capture_command(args, cwd=None):
+    process = subprocess.Popen(
+        args,
+        bufsize=1,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        universal_newlines=True,
+        cwd=cwd,
+    )
+    with io.StringIO() as buf:
+
+        def __handle_output(stream, _):
+            line = stream.readline()
+            buf.write(line)
+            sys.stdout.write(line)
+
+        try:
+            selector = selectors.DefaultSelector()
+            selector.register(process.stdout, selectors.EVENT_READ, __handle_output)
+
+            # Loop until subprocess is terminated
+            while process.poll() is None:
+                events = selector.select()
+                for key, mask in events:
+                    key.data(key.fileobj, mask)
+
+            # Get the return code
+            rc = process.wait()
+        finally:
+            selector.close()
+
+        return rc, buf.getvalue()
+
+
+class TestRunnerConfig:
+    CONFIG_PROFILE_LOCAL = "local"
+    CONFIG_PROFILES = [
+        CONFIG_PROFILE_LOCAL,
+    ]
+
+    def __init__(self, file_path, run_args) -> None:
+        with open(file_path, "r") as runner_config_file:
+            self.__config_dict = yaml.safe_load(runner_config_file)
+        self.__run_args = run_args
+        self.__validate()
+        self.__parse()
+
+    def __validate(self):
+        if "profiles" not in self.__config_dict or not isinstance(
+            self.__config_dict["profiles"], dict
+        ):
+            raise SystemExit("test-runner configuration contains no profiles dict")
+
+        unrecognised_profile = next(
+            (
+                prof_name not in self.CONFIG_PROFILES
+                for prof_name in self.__config_dict["profiles"].keys()
+            ),
+            None,
+        )
+        if unrecognised_profile:
+            raise SystemExit(
+                f"test-runner configuration contains an unrecognised profile {unrecognised_profile}"
+            )
+
+        run_profile = self.get_profile_name()
+        if not run_profile or (
+            run_profile not in self.__config_dict["profiles"].keys()
+        ):
+            raise SystemExit(
+                f"test-runner configuration doesn't support the selected profile"
+            )
+
+    def __parse(self):
+        self.profiles = self.__config_dict["profiles"]
+
+    def get_profile_name(self):
+        return self.__run_args.profile
+
+    def get_profile_config(self):
+        return self.profiles[self.get_profile_name()]
+
+    def get_output_dir(self) -> pathlib.Path:
+        return pathlib.Path(self.__run_args.output)
+
+    def get_target_role(self) -> str:
+        return self.__run_args.role
+
+
+class TestRunnerBaseProfile(metaclass=abc.ABCMeta):
+    def __init__(self, runner_config: TestRunnerConfig, base_dir: pathlib.Path) -> None:
+        self._runner_config = runner_config
+        self._profile_config = self._runner_config.get_profile_config()
+        self._name = self._runner_config.get_profile_name()
+        self._base_dir = base_dir
+        self._roles_drivers = {}
+        self._drivers_config_paths = {}
+        self.__load_roles()
+        self.__initialize()
+
+    def __initialize(self):
+        logs_out_dir = self._runner_config.get_output_dir()
+        if not logs_out_dir.exists():
+            logs_out_dir.mkdir()
+        else:
+            for path in logs_out_dir.iterdir():
+                if path.is_file() or path.is_symlink():
+                    path.unlink(missing_ok=True)
+                elif path.is_dir():
+                    path.rmdir()
+
+    def _get_target_roles(self):
+        target_role = self._runner_config.get_target_role()
+        if target_role and (target_role not in self._roles_drivers.keys()):
+            raise SystemExit(
+                f"The selected role {target_role} does not exist"
+            )
+        elif target_role:
+            return [target_role]
+
+        return self._roles_drivers.keys()
+
+    def __get_role_driver(self, role_name):
+        for driver, roles_list in self._profile_config.get("pinned-roles", {}).items():
+            if role_name in roles_list:
+                return driver
+
+        if "default-driver" not in self._profile_config:
+            raise SystemExit(
+                f"Profile {self._name} has no default-driver and {role_name} is not pinned to a driver"
+            )
+
+        return self._profile_config["default-driver"]
+
+    def __load_roles(self):
+        roles_dir = self._base_dir.joinpath("roles")
+        if roles_dir.is_dir():
+            roles = [
+                path.name
+                for path in roles_dir.iterdir()
+                if path.is_dir() and not path.name.startswith(".")
+            ]
+
+        self._roles_drivers = {
+            role_name: self.__get_role_driver(role_name) for role_name in roles
+        }
+
+        for driver in set(self._roles_drivers.values()):
+            # If already added just skip
+            if driver in self._drivers_config_paths:
+                continue
+
+            driver_config_path = self._base_dir.joinpath(
+                ".config", "molecule", f"config_{self._name}_{driver}.yml"
+            )
+            if not driver_config_path.is_file():
+                raise SystemExit(
+                    f"Profile {self._name} uses the {driver} driver that has no configuration in .config/molecule dir"
+                )
+            self._drivers_config_paths[driver] = driver_config_path
+
+    # Running the final tests is always done by molecule based on the config file, should be common for every profile
+    def _run_role_molecule(self, role_name, command=None):
+        role_path = self._base_dir.joinpath("roles", role_name)
+        molecule_driver = self._roles_drivers[role_name]
+        rc, output = run_capture_command(
+            [
+                "molecule",
+                "-c",
+                str(self._drivers_config_paths[molecule_driver]),
+                command or "test",
+            ],
+            cwd=role_path.absolute(),
+        )
+
+        output_file_name = f"molecule_{molecule_driver}_{role_name}.log"
+        output_log_path = self._runner_config.get_output_dir().joinpath(
+            output_file_name
+        )
+        with open(output_log_path, "w") as out_file:
+            out_file.write(output)
+
+        if rc:
+            raise SystemExit(f"Role {role_name} molecule test failed to execute")
+
+    @abc.abstractmethod
+    def run(self) -> None:
+        pass
+
+
+class TestRunnerLocalProfile(TestRunnerBaseProfile):
+    def run(self) -> None:
+        for role in self._get_target_roles():
+            self._run_role_molecule(role)
+
+
+def __test_runner_profile_factory(
+    runner_config: TestRunnerConfig, base_dir: pathlib.Path
+) -> TestRunnerBaseProfile:
+    profile_name = runner_config.get_profile_name()
+    if TestRunnerConfig.CONFIG_PROFILE_LOCAL == profile_name:
+        return TestRunnerLocalProfile(runner_config, base_dir)
+
+    raise SystemExit(f"Unimplemented profile {profile_name}")
+
+
+def __find_repo_root(path):
+    for path in pathlib.Path(path).parents:
+        git_dir = path / ".git"
+        if git_dir.is_dir():
+            return path
+    return None
+
+
+def __init():
+    root_path = __find_repo_root(__file__)
+    if not root_path:
+        raise SystemExit(
+            "Cannot locate the repository root. Command should be called inside a valid repo"
+        )
+
+    runner_config_path = root_path.joinpath(".config", "testing.yml")
+    if not runner_config_path.exists():
+        raise SystemExit(
+            f"Cannot locate the runner configuration in {runner_config_path.absolute()}"
+        )
+
+    parser = argparse.ArgumentParser(
+        prog="ansible test-runner",
+        description="Manages the execution of tests of an Ansible repo",
+        epilog="Text at the bottom of help",
+    )
+
+    parser.add_argument(
+        "--profile",
+        choices=TestRunnerConfig.CONFIG_PROFILES,
+        help="Selected profile",
+        required=True,
+    )
+
+    parser.add_argument(
+        "--output",
+        help="Testing output directory",
+        default=str(root_path.joinpath("testing-output")),
+    )
+
+    parser.add_argument(
+        "--role",
+        help="Run testing only for the given role",
+    )
+
+    runner_config = TestRunnerConfig(runner_config_path, parser.parse_args())
+
+    return root_path, runner_config
+
+
+def main():
+    root_dir, runner_config = __init()
+    __test_runner_profile_factory(runner_config, root_dir).run()
+
+
+if __name__ == "__main__":
+    main()

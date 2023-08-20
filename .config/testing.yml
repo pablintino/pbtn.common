@@ -1,0 +1,7 @@
+profiles:
+  local:
+    default-driver: vagrant
+    pinned-roles:
+      podman:
+        - ca_install
+        - package_install

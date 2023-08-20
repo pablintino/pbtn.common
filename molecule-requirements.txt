@@ -1,3 +1,0 @@
-ansible==7.5.0
-molecule==5.0.1
-molecule-podman==2.0.3
