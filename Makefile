@@ -18,4 +18,5 @@ endif
 test_molecule: setup_test_env
 	$(eval $(call vars,$@))
 	./scripts/test-runner --profile ${TEST_PROFILE} \
-    	$(if $(TEST_ROLE),--role $(TEST_ROLE),)
+    	$(if $(TEST_ROLE),--role $(TEST_ROLE),) \
+		$(if $(MOLECULE_CMD),--molecule-command $(MOLECULE_CMD),)

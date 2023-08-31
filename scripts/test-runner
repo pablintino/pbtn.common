@@ -98,6 +98,9 @@ class TestRunnerConfig:
     def get_target_role(self) -> str:
         return self.__run_args.role
 
+    def get_molecule_cmd(self) -> str:
+        return self.__run_args.molecule_command
+
 
 class TestRunnerBaseProfile(metaclass=abc.ABCMeta):
     def __init__(self, runner_config: TestRunnerConfig, base_dir: pathlib.Path) -> None:
@@ -172,7 +175,7 @@ class TestRunnerBaseProfile(metaclass=abc.ABCMeta):
             self._drivers_config_paths[driver] = driver_config_path
 
     # Running the final tests is always done by molecule based on the config file, should be common for every profile
-    def _run_role_molecule(self, role_name, command=None):
+    def _run_role_molecule(self, role_name):
         role_path = self._base_dir.joinpath("roles", role_name)
         molecule_driver = self._roles_drivers[role_name]
         rc, output = run_capture_command(
@@ -180,7 +183,7 @@ class TestRunnerBaseProfile(metaclass=abc.ABCMeta):
                 "molecule",
                 "-c",
                 str(self._drivers_config_paths[molecule_driver]),
-                command or "test",
+                self._runner_config.get_molecule_cmd(),
             ],
             cwd=role_path.absolute(),
         )
@@ -259,6 +262,12 @@ def __init():
     parser.add_argument(
         "--role",
         help="Run testing only for the given role",
+    )
+
+    parser.add_argument(
+        "--molecule-command",
+        help="molecule test command to be run",
+        default="test",
     )
 
     runner_config = TestRunnerConfig(runner_config_path, parser.parse_args())
