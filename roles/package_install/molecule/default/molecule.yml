@@ -4,8 +4,6 @@ log: true
 provisioner:
   name: ansible
   log: true
-  env:
-    ANSIBLE_STDOUT_CALLBACK: yaml
   inventory:
     host_vars:
       rocky-9:
