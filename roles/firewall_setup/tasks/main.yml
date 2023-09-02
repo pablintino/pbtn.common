@@ -16,6 +16,14 @@
     name: package_install
     tasks_from: install_packages.yml
 
+# nftables is a single shot service that pushes rules to the kernel so
+# there is no need to start it. Enabling it allow pushing the rules on boot
+- name: Enable the nftables service
+  become: true
+  ansible.builtin.systemd:
+    name: nftables
+    enabled: true
+
 - name: Try loading the networking metadata
   ansible.builtin.include_role:
     name: networking_setup

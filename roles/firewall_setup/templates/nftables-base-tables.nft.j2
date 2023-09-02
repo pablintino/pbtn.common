@@ -1,3 +1,4 @@
+#jinja2: trim_blocks:False
 #!/usr/sbin/nft -f
 
 
@@ -11,18 +12,17 @@ table inet firewall {
         # Drop IPv6 support by explicetly dropping IPv6 traffic
         ip version 6 drop
 
-        {% for rule in pbi_fwstp_input_pre_rules | default([]) -%}
+{%- for rule in pbi_fwstp_input_pre_rules | default([]) %}
         {{ rule }}
-        {% endfor %}
+{%- endfor %}
 
-        {% for rule in pbi_fwstp_default_input_list | default([]) -%}
+{%- for rule in pbi_fwstp_default_input_list | default([]) %}
         {{ rule }}
-        {% endfor %}
+{%- endfor %}
 
-        {% for rule in pbi_fwstp_input_post_rules | default([]) -%}
+{%- for rule in pbi_fwstp_input_post_rules | default([]) %}
         {{ rule }}
-        {%- endfor %}
-
+{%- endfor %}
     }
 
     chain outbound {
@@ -31,18 +31,17 @@ table inet firewall {
         # Drop IPv6 support by explicetly dropping IPv6 traffic
         ip version 6 drop
 
-        {% for rule in pbi_fwstp_output_pre_rules | default([]) -%}
+{%- for rule in pbi_fwstp_output_pre_rules | default([]) %}
         {{ rule }}
-        {% endfor %}
+{%- endfor %}
 
-        {% for rule in pbi_fwstp_default_output_list | default([]) -%}
+{%- for rule in pbi_fwstp_default_output_list | default([]) %}
         {{ rule }}
-        {% endfor %}
+{%- endfor %}
 
-        {% for rule in pbi_fwstp_output_post_rules | default([]) -%}
+{%- for rule in pbi_fwstp_output_post_rules | default([]) %}
         {{ rule }}
-        {% endfor %}
-
+{%- endfor %}
     }
 
     chain forward {

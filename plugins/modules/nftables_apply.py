@@ -43,7 +43,7 @@ def __validate_candidate_rules(module, candidate_rules):
     fd, path = tempfile.mkstemp()
     try:
         with os.fdopen(fd, "w") as tmp:
-            tmp.writelines(candidate_rules)
+            tmp.write(candidate_rules)
         (rc, _, err) = __exec_cmd(module, f"nft -c -f {path}")
         if rc:
             raise ValidationError(
@@ -56,7 +56,7 @@ def __validate_candidate_rules(module, candidate_rules):
 def __write_apply_rules_content(module, path, content, clone_permissions=True):
     st = os.stat(path) if clone_permissions else None
     with open(path, "w") as f:
-        f.writelines(content)
+        f.write(content)
     if clone_permissions:
         os.chown(path, st.st_uid, st.st_gid)
 
