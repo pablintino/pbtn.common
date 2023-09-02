@@ -8,8 +8,8 @@ NMCLI_CONN_IP4_METHOD_FIELD = "ipv4_method"
 NMCLI_CONN_UUID_FIELD = "general_uuid"
 NMCLI_CONN_NAME_FIELD = "general_name"
 NMCLI_CONN_START_ON_BOOT_FIELD = "connection_autoconnect"
-NMCLI_DEVICE_ETHERNET_MTU_FIELD = "general_hwaddr"
-NMCLI_DEVICE_ETHERNET_MAC_FIELD = "general_mtu"
+NMCLI_DEVICE_ETHERNET_MTU_FIELD = "general_mtu"
+NMCLI_DEVICE_ETHERNET_MAC_FIELD = "general_hwaddr"
 # Don't use connection_interface_name. That, as all non'general' fields
 # is the target/desidered value, not the actual value. The 'general_devices'
 # points 1 to 1 to the correct interface, if present

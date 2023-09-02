@@ -26,19 +26,27 @@
             rejectattr('device', 'equalto', "lo")
           }}
       ansible.builtin.set_fact:
-        pbi_tst_nstp_device_1_mac: "{{ custom_net_ifaces_facts[0].macaddress }}"
-        pbi_tst_nstp_device_2_ifacename: "{{ custom_net_ifaces_facts[1].device }}"
+        pbi_tst_nstp_custom_net_ifaces_facts: "{{ custom_net_ifaces_facts }}"
+
+    - name: Save the interfaces names for further verification
+      vars:
+        pbi_test_ifaces:
+          internal1: "{{ pbi_tst_nstp_custom_net_ifaces_facts[0].device }}"
+          mngt: "{{ pbi_tst_nstp_custom_net_ifaces_facts[1].device }}"
+      ansible.builtin.copy:
+        content: "{{ pbi_test_ifaces | to_nice_yaml }}"
+        dest: "/tmp/test-ifaces.yaml"
 
     - name: "Include role under test"
       vars:
         pbi_nstp_connections:
           internal1:
             device-type: ethernet
-            mac: "{{ pbi_tst_nstp_device_1_mac }}"
+            mac: "{{ pbi_tst_nstp_custom_net_ifaces_facts[0].macaddress }}"
             mode: auto
           mngt:
             device-type: ethernet
-            iface: "{{ pbi_tst_nstp_device_2_ifacename }}"
+            iface: "{{ pbi_tst_nstp_custom_net_ifaces_facts[1].device }}"
             mode: auto
       ansible.builtin.include_role:
         name: "pablintino.base_infra.networking_setup"

@@ -1,10 +1,66 @@
 ---
-# This is an example playbook to execute Ansible tests.
-
 - name: Verify
   hosts: all
-  gather_facts: false
+  gather_facts: true
   tasks:
-    - name: Example assertion
+    - name: "Load ifaces test file"
+      ansible.builtin.slurp:
+        src: "/tmp/test-ifaces.yaml"
+      register: pbi_tst_nstp_ifaces_test_file_slurp
+
+    - name: Fetch mngt connection data from cli
+      ansible.builtin.shell:
+        cmd: "nmcli con show mngt"
+      register: pbi_tst_nstp_test_mngt_data_out
+
+    - name: Fetch internal connection data from cli
+      ansible.builtin.shell:
+        cmd: "nmcli con show internal1"
+      register: pbi_tst_nstp_test_internal_data_out
+
+    - name: Fetch internal connection data from cli
+      ansible.builtin.set_fact:
+        pbi_tst_nstp_test_internal_nmcli_data: >-
+          {{
+            pbi_tst_nstp_test_internal_data_out.stdout | community.general.jc('nmcli') | first
+          }}
+        pbi_tst_nstp_test_mngt_nmcli_data: >-
+          {{
+            pbi_tst_nstp_test_mngt_data_out.stdout | community.general.jc('nmcli') | first
+          }}
+
+    - name: Basic common assertions for both connections
       ansible.builtin.assert:
-        that: true
+        that:
+          - "item.ipv4_method == 'auto'"
+          - "item.ipv6_method == 'disabled'"
+          - "(item.ip4_address_1 | ansible.utils.ipaddr) != false"
+          - "(item.ip4_dns_1 | ansible.utils.ipaddr) != false"
+      loop:
+        - "{{ pbi_tst_nstp_test_internal_nmcli_data }}"
+        - "{{ pbi_tst_nstp_test_mngt_nmcli_data }}"
+
+    - name: Basic common assertions of the internal interface
+      vars:
+        interface_name: "{{ (pbi_tst_nstp_ifaces_test_file_slurp['content'] | b64decode | from_yaml).internal1 }}"
+      ansible.builtin.assert:
+        that:
+          - "pbi_tst_nstp_test_internal_nmcli_data.connection_interface_name == interface_name"
+
+    - name: Basic common assertions of the mngt interface
+      vars:
+        interface_name: "{{ (pbi_tst_nstp_ifaces_test_file_slurp['content'] | b64decode | from_yaml).mngt }}"
+      ansible.builtin.assert:
+        that:
+          - "pbi_tst_nstp_test_mngt_nmcli_data.connection_interface_name == interface_name"
+
+    - name: Verify the networking file content
+      vars:
+        connection_name: "{{ nmcli_data.connection_id }}"
+      ansible.builtin.include_tasks: validate_networking_file.yml
+      loop:
+        - "{{ pbi_tst_nstp_test_internal_nmcli_data }}"
+        - "{{ pbi_tst_nstp_test_mngt_nmcli_data }}"
+      loop_control:
+        label: "{{ connection_name }}"
+        loop_var: nmcli_data

@@ -1,0 +1,57 @@
+---
+- name: Fetch the interfaces file
+  ansible.builtin.slurp:
+    src: "{{ ansible_user_dir }}/.infra/networking.yaml"
+  register: pbi_tst_nstp_networking_file_slurp
+
+- name: Set file content for further assertions
+  ansible.builtin.set_fact:
+    pbi_tst_nstp_networking_file_data: "{{ pbi_tst_nstp_networking_file_slurp['content'] | b64decode | from_yaml }}"
+
+- name: Fetch the ip command output
+  ansible.builtin.command:
+    cmd: "ip -j addr list {{ nmcli_data.connection_interface_name }}"
+  register: pbi_tst_nstp_test_file_iface_ip_link_out
+
+- name: Assert basic data from the networking file
+  vars:
+    ip_link_data: "{{ pbi_tst_nstp_test_file_iface_ip_link_out.stdout | from_json | first }}"
+    file_connection_data: >-
+      {{
+        ((pbi_tst_nstp_networking_file_data.pbi_network_connections | default({}))[connection_name])
+        if (connection_name in pbi_tst_nstp_networking_file_data.pbi_network_connections) else {}
+      }}
+  ansible.builtin.assert:
+    that:
+      - "'pbi_network_connections' in pbi_tst_nstp_networking_file_data"
+      - "connection_name in pbi_tst_nstp_networking_file_data.pbi_network_connections"
+      - "'connection_info' in pbi_tst_nstp_networking_file_data.pbi_network_connections[connection_name]"
+      - "'device-type' in file_connection_data"
+      - "file_connection_data['device-type'] == 'ethernet'"
+      - "'iface' in file_connection_data"
+      - "file_connection_data['iface'] == nmcli_data.connection_interface_name"
+      - "'mode' in file_connection_data"
+      - "file_connection_data['mode'] == nmcli_data.ipv4_method"
+      - "'macaddr' in file_connection_data.connection_info"
+      - "file_connection_data['connection_info']['macaddr'] == ip_link_data.address"
+      - "'mtu' in file_connection_data.connection_info"
+      - "file_connection_data['connection_info']['mtu'] == ip_link_data.mtu"
+      - "'nm_conn_name' in file_connection_data.connection_info"
+      - "file_connection_data['connection_info']['nm_conn_name'] == connection_name"
+      - "'nm_conn_uuid' in file_connection_data.connection_info"
+      - "file_connection_data['connection_info']['nm_conn_uuid'] == nmcli_data.uuid"
+      - "'on_boot' in file_connection_data.connection_info"
+      - "file_connection_data['connection_info']['on_boot'] == (true if nmcli_data.connection_autoconnect == 'yes' else false)"
+
+- name: Assert that none static fields are not present if the interface is configured using DHCP
+  vars:
+    file_connection_data: "{{ pbi_tst_nstp_networking_file_data.pbi_network_connections[connection_name] }}"
+  when: "nmcli_data.ipv4_method == 'auto'"
+  ansible.builtin.assert:
+    that: field_name not in file_connection_data
+  loop:
+    - "ip4s"
+    - ip4_gw"
+    - "ip4_dns"
+  loop_control:
+    loop_var: field_name

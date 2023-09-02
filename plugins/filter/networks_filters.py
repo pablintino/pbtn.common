@@ -113,7 +113,7 @@ def __nstp_filter_cconn_static_fields_nm_device(nm_device_data):
     if NMCLI_DEVICE_ETHERNET_MAC_FIELD in nm_device_data:
         result[__NSTP_OUTPUT_FILE_FIELD_MAC] = nm_device_data[
             NMCLI_DEVICE_ETHERNET_MAC_FIELD
-        ]
+        ].lower()
     if NMCLI_DEVICE_ETHERNET_MTU_FIELD in nm_device_data:
         result[__NSTP_OUTPUT_FILE_FIELD_MTU] = nm_device_data[
             NMCLI_DEVICE_ETHERNET_MTU_FIELD
