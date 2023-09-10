@@ -51,7 +51,7 @@
     that: field_name not in file_connection_data
   loop:
     - "ip4s"
-    - ip4_gw"
+    - "ip4_gw"
     - "ip4_dns"
   loop_control:
     loop_var: field_name
