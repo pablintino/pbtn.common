@@ -1,0 +1,48 @@
+---
+- name: Gather roles variables per SO
+  ansible.builtin.include_vars:
+    file: "{{ role_path }}/vars/{{ ansible_os_family | lower }}_vars.yml"
+
+- name: Get the list of services
+  service_facts:
+
+- name: Disable other NTP services if they exist
+  when:
+    - "(item + '.service') in ansible_facts.services"
+    - "ansible_facts.services[item + '.service'].source == 'systemd'"
+    - "ansible_facts.services[item + '.service'].status != 'not-found'"
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: no
+    state: stopped
+  loop: "{{ pbi_ntstp_disable_services}}"
+
+- name: Install NTP related packages
+  vars:
+    pbi_pknst_packages_install_list: "{{ pbi_ntstp_packages }}"
+    pbi_pknst_install_exec_condition: chronyc
+  ansible.builtin.include_role:
+    name: package_install
+    tasks_from: install_packages.yml
+
+- name: Render the configuration file
+  become: true
+  ansible.builtin.template:
+    src: "chrony.conf.j2"
+    dest: "{{ pbi_ntstp_chrony_config_file }}"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Set the timezone if provided
+  become: true
+  when: "pbi_ntstp_timezone is defined"
+  community.general.timezone:
+    name: "{{ pbi_ntstp_timezone }}"
+
+- name: Start and enable chrony
+  become: true
+  ansible.builtin.systemd:
+    state: started
+    enabled: true
+    name: chronyd

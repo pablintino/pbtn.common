@@ -1,0 +1,12 @@
+---
+pbi_ntstp_drift_file: /var/lib/chrony/chrony.drift
+pbi_ntstp_log_dir: /var/log/chrony
+pbi_ntstp_disable_services:
+  - "systemd-timesyncd"
+  - "ntpd"
+
+pbi_ntstp_pools:
+  - "0.pool.ntp.org"
+  - "1.pool.ntp.org"
+  - "2.pool.ntp.org"
+  - "3.pool.ntp.org"

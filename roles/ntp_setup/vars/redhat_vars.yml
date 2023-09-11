@@ -1,0 +1,5 @@
+---
+pbi_ntstp_packages:
+  - chrony
+
+pbi_ntstp_chrony_config_file: "/etc/chrony.conf"

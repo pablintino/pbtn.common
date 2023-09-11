@@ -1,0 +1,10 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: "Include role under test"
+      vars:
+        pbi_ntstp_timezone: "Europe/Madrid"
+      ansible.builtin.include_role:
+        name: "pablintino.base_infra.ntp_setup"

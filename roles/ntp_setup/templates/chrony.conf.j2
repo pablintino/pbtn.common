@@ -1,0 +1,13 @@
+{%- for ntp_server in pbi_ntstp_servers | default([]) %}
+server {{ ntp_server }}
+{%- endfor %}
+
+{%- for ntp_pool in pbi_ntstp_pools | default([]) %}
+pool {{ ntp_pool }}
+{%- endfor %}
+
+stratumweight 0
+makestep 10 3
+
+driftfile {{ pbi_ntstp_drift_file }}
+logdir {{ pbi_ntstp_log_dir }}

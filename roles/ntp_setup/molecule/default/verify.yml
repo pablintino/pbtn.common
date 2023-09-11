@@ -1,0 +1,68 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Get the list of services
+      service_facts:
+
+    - name: Assert that non-chrony daemons are off
+      vars:
+        service_name: "{{ item }}.service"
+      ansible.builtin.assert:
+        that: >-
+          (service_name not in ansible_facts.services) or
+          (
+            (
+              ansible_facts.services[service_name].state == 'inactive' or
+              ansible_facts.services[service_name].state == 'stopped'
+            ) and
+            (
+              ansible_facts.services[service_name].status == 'disabled' or
+              ansible_facts.services[service_name].status == 'masked' or
+              ansible_facts.services[service_name].status == 'not-found'
+            )
+          )
+      loop:
+        - "systemd-timesyncd"
+        - "ntpd"
+
+    - name: Assert that chronyd service is started and enabled
+      vars:
+        chrony_service: >-
+          {{
+            ansible_facts.services |
+            dict2items |
+            selectattr('key', 'search' ,'chronyd?.service$' ) |
+            selectattr('value.source', 'equalto', 'systemd') |
+            selectattr('value.status', 'ne', 'alias')
+          }}
+      ansible.builtin.assert:
+        that:
+          - chrony_service | length > 0
+          - >-
+            "
+              (chrony_service | first).value.state == 'active' or
+              (chrony_service | first).value.state == 'running'
+            "
+          - "(chrony_service | first).value.status == 'enabled'"
+
+    - name: Fetch timedatectl show output
+      ansible.builtin.command:
+        cmd: "timedatectl show"
+      register: timedatectl_show_out
+
+    - name: Assert that NTP is working
+      vars:
+        properties: "{{ dict(_keys|zip(_vals)) }}"
+        _arr: "{{ timedatectl_show_out.stdout_lines | map('trim')| select()|list }}"
+        _keys: "{{ _arr|map('regex_replace', '^(.*?)\\s?=\\s?(.*)$', '\\1')|map('trim')|list }}"
+        _vals: "{{ _arr|map('regex_replace', '^(.*?)\\s?=\\s?(.*)$', '\\2')|map('trim')|list }}"
+      ansible.builtin.assert:
+        that:
+          - "'NTP' in properties"
+          - "properties['NTP'] == 'yes'"
+          - "'NTPSynchronized' in properties"
+          - "properties['NTPSynchronized'] == 'yes'"
+          - "'Timezone' in properties"
+          - "properties['Timezone'] == 'Europe/Madrid'"
