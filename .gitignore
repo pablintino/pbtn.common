@@ -4,3 +4,4 @@ __pycache__/
 .idea
 testing-output/
 **/*.log
+ansible_collections/

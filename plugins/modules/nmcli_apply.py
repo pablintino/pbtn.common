@@ -14,13 +14,22 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.module_comma
 from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli_interface import (
     NmcliInterfaceException,
     NetworkManagerQuerier,
+    NetworkManagerConfigurerFactory,
 )
+
+
+def __parse_get_connections(module):
+    connections = module.params.get("connections", {})
+    if not isinstance(connections, dict):
+        module.fail_json(msg="connections must a dictionary")
+
+    return connections
 
 
 def main():
     module = AnsibleModule(
         argument_spec={
-            "connection": {"type": "str"},
+            "connections": {"type": "raw", "required": True},
         },
         supports_check_mode=False,
     )
@@ -37,16 +46,23 @@ def main():
         "success": False,
     }
 
-    device = module.params.get("device", None)
-    nmcli_interface = NetworkManagerQuerier(get_module_command_runner(module))
     try:
-        nm_result = (
-            nmcli_interface.get_device_details(device, check_exists=True)
-            if device
-            else nmcli_interface.get_devices()
-        )
+        command_runner = get_module_command_runner(module)
+        nmcli_querier = NetworkManagerQuerier(command_runner)
+        nmcli_factory = NetworkManagerConfigurerFactory(command_runner, nmcli_querier)
+
+        connections = __parse_get_connections(module)
+
+        conn_result = {}
+        for conn_name, conn_data in connections.items():
+            config_res, changed = nmcli_factory.build_configurer(
+                conn_name, conn_data
+            ).configure(conn_name, conn_data)
+            conn_result[conn_name] = config_res
+            result["changed"] = result["changed"] or changed
+
         result["success"] = True
-        result["result"] = nm_result
+        result["result"] = conn_result
         module.exit_json(**result)
     except NmcliInterfaceException as err:
         result.update(err.to_dict())
