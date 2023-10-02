@@ -1,0 +1,13 @@
+---
+- name: Apply the connections configuration
+  pablintino.base_infra.nmcli_apply:
+    connections: "{{ pbi_nstp_connections }}"
+
+- name: Refresh network related facts for further usage
+  ansible.builtin.setup:
+    gather_subset:
+      - all_ipv4_addresses
+      - all_ipv6_addresses
+      - network
+      - default_ipv4
+      - default_ipv6

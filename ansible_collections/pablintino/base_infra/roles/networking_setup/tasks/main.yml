@@ -27,23 +27,10 @@
     path: "{{ ansible_user_dir }}/.infra"
     state: directory
 
-- name: Prepare role file content
-  ansible.builtin.set_fact:
-    pbi_nstp_role_file_content: >-
-      {{
-        pbi_nstp_role_file_content |
-        default({}) |
-        combine(
-          {
-            item.key: item.value | pablintino.base_infra.nstp_filter_cconn_static_fields
-          }, recursive=True
-        )
-      }}
-  loop: "{{ pbi_network_connections | dict2items }}"
-  loop_control:
-    label: "{{ item.key }}"
-
 - name: Copy role related vars to the infra directory
+  vars:
+    pbi_nstp_role_file_content:
+      pbi_nstp_connections: "{{ pbi_nstp_connections }}"
   ansible.builtin.copy:
     content: >-
       {{

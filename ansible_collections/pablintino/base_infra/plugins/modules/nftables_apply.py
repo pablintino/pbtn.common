@@ -31,7 +31,7 @@ def __parse_validation_errors(path, validation_message):
             if message:
                 messages.append(message)
             message = {"error": err_line}
-        elif message != None and "detail" not in message:
+        elif message is not None and "detail" not in message:
             message["detail"] = err_line.strip()
     if message:
         messages.append(message)
