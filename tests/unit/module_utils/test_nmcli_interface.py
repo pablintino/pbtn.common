@@ -10,13 +10,7 @@ from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_util
     MockCall,
 )
 
-from ansible_collections.pablintino.base_infra.plugins.module_utils.module_command_utils import (
-    CommandRunException,
-)
-
-
-from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli_interface import (
-    NmcliInterfaceException,
+from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli_querier import (
     NetworkManagerQuerier,
 )
 
@@ -71,5 +65,3 @@ def test_network_manager_queier_get_connections_simple_ok(command_mocker_builder
 
     nmq_1 = NetworkManagerQuerier(command_mocker.run)
     result = nmq_1.get_connections()
-
-    print(result)

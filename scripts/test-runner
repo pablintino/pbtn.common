@@ -161,7 +161,7 @@ class TestRunnerBaseProfile(metaclass=abc.ABCMeta):
         }
 
         for driver in set(self._roles_drivers.values()):
-            # If already added just skip
+            # If already added, just skip
             if driver in self._drivers_config_paths:
                 continue
 

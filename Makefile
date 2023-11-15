@@ -1,5 +1,4 @@
 TEST_PROFILE ?= "local"
-TEST_UNITS_DIR ?= "ansible_collections/pablintino/base_infra"
 define vars
 ${1}: export PATH=$(PWD)/.venv/bin:$(PATH)
 endef
@@ -28,10 +27,9 @@ test_molecule: setup_test_env
 .PHONY: test_unit
 test_unit: setup_test_env
 	$(eval $(call vars,$@))
-	cd ${TEST_UNITS_DIR} && ansible-test units --requirements -v
+	ansible-test units --requirements -v
 
 .PHONY: test_sanity
 test_sanity: setup_test_env
 	$(eval $(call vars,$@))
-	cd ${TEST_UNITS_DIR} && ansible-test sanity --requirements -v
-
+	ansible-test sanity --requirements -v
