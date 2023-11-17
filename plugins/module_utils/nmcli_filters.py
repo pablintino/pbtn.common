@@ -47,7 +47,7 @@ def is_main_connection_of(candidate_main_conn_data, candidate_slave_conn_data) -
     ]
     select_field = nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID
     try:
-        _ = uuid.UUID(main_conn_id)
+        uuid.UUID(main_conn_id)
     except ValueError:
         select_field = nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_INTERFACE_NAME
 
@@ -63,8 +63,8 @@ def is_connection_related_to_interface(conn_data, interface_name):
     )
 
 
-def all_connections_without_uuids(connections, not_uuids):
-    not_uuids = not_uuids if isinstance(not_uuids, list) else [not_uuids]
+def all_connections_without_uuids(connections, not_uuids: typing.Container):
+    not_uuids = [not_uuids] if isinstance(not_uuids, str) else not_uuids
     connections = (
         connections.values()
         if isinstance(connections, collections.abc.Mapping)
@@ -73,7 +73,7 @@ def all_connections_without_uuids(connections, not_uuids):
     return [
         conn_data
         for conn_data in connections
-        if not conn_data[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID] in not_uuids
+        if conn_data[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID] not in not_uuids
     ]
 
 

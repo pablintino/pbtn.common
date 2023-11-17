@@ -1,4 +1,4 @@
-from __future__ import annotations, absolute_import, division, print_function
+from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
@@ -17,11 +17,15 @@ class TargetLinksData:
     master_link: typing.Union[typing.Dict[str, typing.Any], None]
 
 
+@dataclasses.dataclass
+class NetworkManagerConfiguratorOptions:
+    strict_connections_ownership: bool = True
+
+
 class ConnectionConfigurationResult:
-    uuid: str
-    changed: bool
-    applied_config: nmcli_interface_config.BaseConnectionConfig
-    status: typing.Dict[str, typing.Any]
+    FIELD_RESULT_UUID = "uuid"
+    FIELD_RESULT_CHANGED = "changed"
+    FIELD_RESULT_STATUS = "status"
 
     def __init__(
         self,
@@ -50,11 +54,11 @@ class ConnectionConfigurationResult:
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         result = {
-            "uuid": self.__uuid,
-            "changed": self.__changed,
+            self.FIELD_RESULT_UUID: self.__uuid,
+            self.FIELD_RESULT_CHANGED: self.__changed,
         }
         if self.status:
-            result["status"] = self.status
+            result[self.FIELD_RESULT_STATUS] = self.status
 
         return result
 
@@ -66,7 +70,7 @@ class ConnectionConfigurationResult:
         uuid: str,
         changed: bool,
         applied_config: nmcli_interface_config.BaseConnectionConfig,
-    ) -> ConnectionConfigurationResult:
+    ) -> "ConnectionConfigurationResult":
         return ConnectionConfigurationResult(uuid, changed, applied_config)
 
     def __eq__(self, other: object) -> bool:
@@ -79,7 +83,12 @@ class ConnectionConfigurationResult:
         return hash(self.uuid)
 
 
-class ConfigurationResult:
+class MainConfigurationResult:
+    FIELD_RESULT_UUID = "uuid"
+    FIELD_RESULT_CHANGED = "changed"
+    FIELD_RESULT_STATUS = "status"
+    FIELD_RESULT_SLAVES = "slaves"
+
     def __init__(self, result: ConnectionConfigurationResult):
         self.__result: ConnectionConfigurationResult = result
         self.__slaves: typing.List[ConnectionConfigurationResult] = []
@@ -90,19 +99,21 @@ class ConfigurationResult:
         uuid: str,
         changed: bool,
         applied_config: nmcli_interface_config.BaseConnectionConfig,
-    ) -> ConfigurationResult:
-        return ConfigurationResult(
+    ) -> "MainConfigurationResult":
+        return MainConfigurationResult(
             ConnectionConfigurationResult.from_required(uuid, changed, applied_config)
         )
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         result = {
-            "uuid": self.__result.uuid,
-            "changed": self.__changed,
-            "slaves": [slaves_data.to_dict() for slaves_data in self.__slaves],
+            self.FIELD_RESULT_UUID: self.__result.uuid,
+            self.FIELD_RESULT_CHANGED: self.__changed,
+            self.FIELD_RESULT_SLAVES: [
+                slaves_data.to_dict() for slaves_data in self.__slaves
+            ],
         }
         if self.result.status:
-            result["status"] = self.__result.status
+            result[self.FIELD_RESULT_STATUS] = self.__result.status
 
         return result
 
@@ -125,10 +136,6 @@ class ConfigurationResult:
     def slaves(self) -> typing.List[ConnectionConfigurationResult]:
         return self.__slaves
 
-    @result.setter
-    def result(self, result: ConnectionConfigurationResult):
-        self.__result = result
-
     def update_slave(self, slave_result: ConnectionConfigurationResult):
         try:
             self.__slaves[self.__slaves.index(slave_result)] = slave_result
@@ -145,8 +152,13 @@ class ConfigurationResult:
             ConnectionConfigurationResult.from_required(uuid, changed, applied_config)
         )
 
+    def get_uuids(self):
+        return [self.__result.uuid] + [
+            slave_result.uuid for slave_result in self.__slaves
+        ]
+
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, ConfigurationResult):
+        if not isinstance(other, MainConfigurationResult):
             return False
 
         return (
@@ -159,6 +171,27 @@ class ConfigurationResult:
         return hash((self.__result, self.__slaves, self.__changed))
 
 
-@dataclasses.dataclass
-class NetworkManagerConfiguratorOptions:
-    strict_connections_ownership: bool = True
+class ConfigurationSession:
+    def __init__(
+        self,
+    ):
+        self.__conn_config_results: typing.Dict[str, MainConfigurationResult] = {}
+        self.__uuids = set()
+
+    def add_result(self, conn_config_result: MainConfigurationResult):
+        self.__conn_config_results[
+            conn_config_result.result.applied_config.name
+        ] = conn_config_result
+        self.__uuids.update(conn_config_result.get_uuids())
+
+    def get_session_conn_uuids(self) -> typing.Set[str]:
+        return self.__uuids
+
+    def get_result(self) -> typing.Tuple[typing.Dict[str, typing.Any], bool]:
+        result = {}
+        changed = False
+        for conn_name, conn_config_result in self.__conn_config_results.items():
+            result[conn_name] = conn_config_result.to_dict()
+            changed = changed or conn_config_result.changed
+
+        return result, changed

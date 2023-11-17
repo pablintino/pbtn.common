@@ -1,0 +1,212 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: "Set utility facts"
+      vars:
+        # Do not trust ansible_facts to determine the ssh config as
+        # it varies in consecutive runs as interfaces/conns are added
+        mngt_ip_addr: "{{ (ansible_env.SSH_CONNECTION | split(' '))[2]}}"
+        ssh_connection_iface: >-
+          {{
+              (
+                hostvars[inventory_hostname].values() |
+                selectattr('macaddress', 'defined') |
+                selectattr('device', 'defined') |
+                selectattr('ipv4.address', 'defined') |
+                selectattr('ipv4.address', 'equalto', mngt_ip_addr) |
+                first
+              ).device
+          }}
+      ansible.builtin.set_fact:
+        custom_net_ifaces_facts: >-
+          {{
+            hostvars[inventory_hostname].values() |
+            selectattr('macaddress', 'defined') |
+            selectattr('device', 'defined') |
+            rejectattr('device', 'equalto', ssh_connection_iface) |
+            rejectattr('device', 'equalto', "lo")
+          }}
+    - name: Create a first plain Ethernet connection
+      vars:
+        pbi_nstp_connections:
+          ether-conn-1:
+            type: ethernet
+            iface: "{{ custom_net_ifaces_facts[0].device }}"
+            state: up
+            ipv4:
+              mode: auto
+      ansible.builtin.include_role:
+        name: "pablintino.base_infra.networking_setup"
+
+    - name: Fetch the connection Ethernet connection UUID
+      ansible.builtin.command:
+        cmd: >-
+          nmcli -g GENERAL.UUID connection show ether-conn-1
+      register: pbi_tst_nstp_reuse_ether_conn_1_uuid_out
+
+    - name: Reuse the previous connection in a bridge connection
+      vars:
+        pbi_nstp_connections:
+          bridged-conn-1:
+            iface: br33
+            type: bridge
+            state: up
+            ipv4:
+              mode: auto
+            slaves:
+              ether-conn-2:
+                type: ethernet
+                iface: "{{ custom_net_ifaces_facts[0].device }}"
+      ansible.builtin.include_role:
+        name: "pablintino.base_infra.networking_setup"
+
+    - name: Fetch the connection bridge connection UUID
+      ansible.builtin.command:
+        cmd: >-
+          nmcli -g GENERAL.UUID connection show bridged-conn-1
+      register: pbi_tst_nstp_reuse_bridged_conn_1_uuid_out
+      failed_when: pbi_tst_nstp_reuse_bridged_conn_1_uuid_out.rc != 0
+
+    - name: Fetch the connection Ethernet connection UUID
+      ansible.builtin.command:
+        cmd: >-
+          nmcli -g GENERAL.UUID connection show ether-conn-2
+      register: pbi_tst_nstp_reuse_ether_conn_2_uuid_out
+
+    - name: Assert that the Ethernet connection has been reused
+      ansible.builtin.assert:
+        that: >-
+          pbi_tst_nstp_reuse_ether_conn_2_uuid_out.stdout ==
+          pbi_tst_nstp_reuse_ether_conn_1_uuid_out.stdout
+
+    - name: Go back to a single Ethernet connection
+      vars:
+        pbi_nstp_connections:
+          ether-conn-3:
+            type: ethernet
+            iface: "{{ custom_net_ifaces_facts[0].device }}"
+            state: up
+            ipv4:
+              mode: auto
+      ansible.builtin.include_role:
+        name: "pablintino.base_infra.networking_setup"
+
+    - name: Fetch the connection Ethernet connection UUID
+      ansible.builtin.command:
+        cmd: >-
+          nmcli -g GENERAL.UUID connection show ether-conn-3
+      register: pbi_tst_nstp_reuse_ether_conn_3_uuid_out
+
+    # Slave connections cannot be reused as the main one
+    - name: Assert that the Ethernet connection has NOT been reused
+      ansible.builtin.assert:
+        that: >-
+          pbi_tst_nstp_reuse_ether_conn_3_uuid_out.stdout !=
+          pbi_tst_nstp_reuse_ether_conn_1_uuid_out.stdout
+
+    - name: Fetch the connection Ethernet connection UUID
+      ansible.builtin.command:
+        cmd: >-
+          nmcli -g GENERAL.UUID connection show bridged-conn-1
+      register: pbi_tst_nstp_reuse_bridged_conn_1_post_delete_uuid_out
+      failed_when: pbi_tst_nstp_reuse_bridged_conn_1_post_delete_uuid_out.rc != 10 # 10 == deleted
+
+    - name: Create a VLAN connection
+      vars:
+        pbi_nstp_connections:
+          vlan-conn-1:
+            type: vlan
+            iface: "{{ custom_net_ifaces_facts[0].device }}.20"
+            state: up
+            ipv4:
+              mode: manual
+              ip: 10.177.20.40/24
+            vlan:
+              parent: "{{ custom_net_ifaces_facts[0].device }}"
+              id: 20
+      ansible.builtin.include_role:
+        name: "pablintino.base_infra.networking_setup"
+
+    - name: Fetch the connection VLAN connection UUID
+      ansible.builtin.command:
+        cmd: >-
+          nmcli -g GENERAL.UUID connection show vlan-conn-1
+      register: pbi_tst_nstp_reuse_vlan_conn_1_uuid_out
+
+    - name: Reuse the VLAN connection in a bridge
+      vars:
+        pbi_nstp_connections:
+          bridged-conn-2:
+            iface: br33
+            type: bridge
+            state: up
+            ipv4:
+              mode: auto
+            slaves:
+              vlan-conn-2:
+                type: vlan
+                iface: "{{ custom_net_ifaces_facts[0].device }}.20"
+                vlan:
+                  parent: "{{ custom_net_ifaces_facts[0].device }}"
+                  id: 20
+      ansible.builtin.include_role:
+        name: "pablintino.base_infra.networking_setup"
+
+    - name: Fetch the connection bridge connection UUID
+      ansible.builtin.command:
+        cmd: >-
+          nmcli -g GENERAL.UUID connection show bridged-conn-2
+      register: pbi_tst_nstp_reuse_bridged_conn_2_uuid_out
+      failed_when: pbi_tst_nstp_reuse_bridged_conn_2_uuid_out.rc != 0
+
+    - name: Fetch the connection VLAN connection UUID
+      ansible.builtin.command:
+        cmd: >-
+          nmcli -g GENERAL.UUID connection show vlan-conn-2
+      register: pbi_tst_nstp_reuse_vlan_conn_2_uuid_out
+
+    - name: Assert that the VLAN connection has been reused
+      ansible.builtin.assert:
+        that: >-
+          pbi_tst_nstp_reuse_vlan_conn_1_uuid_out.stdout ==
+          pbi_tst_nstp_reuse_vlan_conn_2_uuid_out.stdout
+
+
+    - name: Go back to a single VLAN connection
+      vars:
+        pbi_nstp_connections:
+          vlan-conn-3:
+            type: ethernet
+            iface: "{{ custom_net_ifaces_facts[0].device }}"
+            state: up
+            ipv4:
+              mode: manual
+              ip: 10.177.20.40/24
+            vlan:
+              parent: "{{ custom_net_ifaces_facts[0].device }}"
+              id: 20
+      ansible.builtin.include_role:
+        name: "pablintino.base_infra.networking_setup"
+
+    - name: Fetch the connection VLAN connection UUID
+      ansible.builtin.command:
+        cmd: >-
+          nmcli -g GENERAL.UUID connection show vlan-conn-3
+      register: pbi_tst_nstp_reuse_vlan_conn_3_uuid_out
+
+    # Slave connections cannot be reused as the main one
+    - name: Assert that the Ethernet connection has NOT been reused
+      ansible.builtin.assert:
+        that: >-
+          pbi_tst_nstp_reuse_vlan_conn_3_uuid_out.stdout !=
+          pbi_tst_nstp_reuse_vlan_conn_1_uuid_out.stdout
+
+
+    - name: Fetch the connection bridged connection UUID
+      ansible.builtin.command:
+        cmd: >-
+          nmcli -g GENERAL.UUID connection show bridged-conn-2
+      register: pbi_tst_nstp_reuse_bridged_conn_2_post_delete_uuid_out
+      failed_when: pbi_tst_nstp_reuse_bridged_conn_2_post_delete_uuid_out.rc != 10 # 10 == deleted

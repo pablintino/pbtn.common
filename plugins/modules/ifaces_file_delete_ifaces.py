@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 
 from __future__ import absolute_import, division, print_function
 
@@ -95,7 +95,7 @@ def prepare_lines(file_lines, ifaces_to_skip):
 
         else:
             # Mostly for non tab/spaced lines
-            __append_line(resulting_lines, line, iface_to_delete != None)
+            __append_line(resulting_lines, line, iface_to_delete is not None)
             __append_option_to_iface(removed_interfaces, iface_to_delete, stripped_line)
 
     return (

@@ -12,7 +12,6 @@ provisioner:
   name: ansible
   connection_options:
     ansible_ssh_user: vagrant
-    ansible_become: true
   config_options:
     ssh_connection:
       pipelining: true
@@ -76,7 +75,6 @@ verifier:
   name: ansible
 
 scenario:
-  name: default
   test_sequence:
     - destroy
     - create

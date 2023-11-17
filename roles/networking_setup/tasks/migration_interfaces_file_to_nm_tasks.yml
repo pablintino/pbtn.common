@@ -75,12 +75,14 @@
 
 - name: Ensure connections are configured to autoconnect and activate them
   become: true
+  vars:
+      connection_uuid: "{{ item.value['connection.uuid'] }}"
   ansible.builtin.shell:
     # Perform this in a single shell call cause the modify will cause interruption of the connection that won't be
     # recovered if connection activation is not properly done
     cmd: >-
-      nmcli connection modify {{ item.value.connection_uuid }} connection.autoconnect yes &&
-      nmcli connection up {{ item.value.connection_uuid }}
+      nmcli connection modify {{ connection_uuid }} connection.autoconnect yes &&
+      nmcli connection up {{ connection_uuid }}
   loop: >-
     {{
       _pbi_nstp_nm_connections_after_migration.result |

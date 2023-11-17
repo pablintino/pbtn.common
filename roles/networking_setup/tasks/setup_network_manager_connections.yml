@@ -1,7 +1,9 @@
 ---
 - name: Apply the connections configuration
+  become: true
   pablintino.base_infra.nmcli_apply:
     connections: "{{ pbi_nstp_connections }}"
+  register: _pbi_nstp_nmcli_apply_result
 
 - name: Refresh network related facts for further usage
   ansible.builtin.setup:
@@ -11,3 +13,8 @@
       - network
       - default_ipv4
       - default_ipv6
+
+- name: Create the main networking fact of the role
+  ansible.builtin.set_fact:
+    pbi_network_connections: "{{ pbi_nstp_connections | default({}) }}"
+    cacheable: true

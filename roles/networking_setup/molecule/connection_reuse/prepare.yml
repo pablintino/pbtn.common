@@ -1,0 +1,35 @@
+---
+- name: Prepare
+  hosts: all
+  gather_facts: true
+  tasks:
+
+    # Observed that some VMs may contain inactive connections for
+    # devices that are not even present. Try to start from a clean
+    # NM state if NM is present
+    - name: Check is nm is installed
+      shell: command -v nmcli >/dev/null 2>&1
+      register: pbi_tst_nstp_prep_nm_exits
+      failed_when: false
+
+    - name: Perform NM cleanup
+      when: "pbi_tst_nstp_prep_nm_exits.rc == 0"
+      block:
+        - name: Fetch connections statuses
+          ansible.builtin.command:
+            cmd: "nmcli -t -f UUID,STATE conn show"
+          register: pbi_tst_nstp_connections_statuses
+
+        - name: Clean inactive connections
+          vars:
+            to_delete_uuids: >-
+              {{
+                pbi_tst_nstp_connections_statuses.stdout_lines |
+                reject("search", "activ") |
+                map("split", ":") |
+                map("first")
+              }}
+          become: true
+          ansible.builtin.command:
+            cmd: "nmcli conn delete {{ item }}"
+          loop: "{{ to_delete_uuids }}"

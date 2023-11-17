@@ -14,8 +14,8 @@ class NmcliInterfaceException(Exception):
         super().__init__()
         self.msg = msg
 
-    def to_dict(self):
-        return vars(self)
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        return {"msg": self.msg}
 
 
 class NmcliInterfaceParseException(NmcliInterfaceException):
@@ -41,6 +41,12 @@ class NmcliExecuteCommandException(NmcliInterfaceException):
         self.error = error.strip("\n").strip() if error else None
         self.cmd = cmd
 
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        res = super().to_dict()
+        res["cmd"] = self.cmd
+        res["error"] = self.error
+        return res
+
 
 class NmcliInterfaceApplyException(NmcliExecuteCommandException):
     def __init__(
@@ -54,3 +60,9 @@ class NmcliInterfaceApplyException(NmcliExecuteCommandException):
         super().__init__(msg, error=error, cmd=cmd)
         self.conn_uuid = conn_uuid
         self.conn_name = conn_name
+
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        res = super().to_dict()
+        res["conn_uuid"] = self.conn_uuid
+        res["conn_name"] = self.conn_name
+        return res

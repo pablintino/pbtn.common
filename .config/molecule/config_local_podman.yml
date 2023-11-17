@@ -28,7 +28,6 @@ verifier:
   name: ansible
 
 scenario:
-  name: default
   test_sequence:
     - destroy
     - create

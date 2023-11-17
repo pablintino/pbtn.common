@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 
 from __future__ import absolute_import, division, print_function
 
@@ -11,9 +11,9 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.module_comma
     get_module_command_runner,
 )
 
-from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli_interface import (
-    NmcliInterfaceException,
-    NetworkManagerQuerier,
+from ansible_collections.pablintino.base_infra.plugins.module_utils import (
+    nmcli_interface_exceptions,
+    nmcli_querier,
 )
 
 
@@ -38,7 +38,9 @@ def main():
     }
 
     connection = module.params.get("connection", None)
-    nmcli_interface = NetworkManagerQuerier(get_module_command_runner(module))
+    nmcli_interface = nmcli_querier.NetworkManagerQuerier(
+        get_module_command_runner(module)
+    )
     try:
         nm_result = (
             nmcli_interface.get_connection_details(connection, check_exists=True)
@@ -48,7 +50,7 @@ def main():
         result["success"] = True
         result["result"] = nm_result
         module.exit_json(**result)
-    except NmcliInterfaceException as err:
+    except nmcli_interface_exceptions.NmcliInterfaceException as err:
         result.update(err.to_dict())
         module.fail_json(**result)
 

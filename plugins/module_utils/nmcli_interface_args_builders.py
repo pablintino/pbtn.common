@@ -1,4 +1,4 @@
-from __future__ import annotations, absolute_import, division, print_function
+from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
@@ -13,7 +13,7 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils import (
 
 
 class BaseBuilder(metaclass=abc.ABCMeta):
-    def __init__(self, next_handler: BaseBuilder = None):
+    def __init__(self, next_handler: "BaseBuilder" = None):
         self.__next_handler = next_handler
 
     @staticmethod
@@ -63,7 +63,7 @@ class CommonConnectionArgsBuilder(BaseBuilder):
     def __build_connection_id(
         conn_config: nmcli_interface_config.BaseConnectionConfig,
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
-    ) -> typing.Tuple[str, str]:
+    ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
         if (not current_connection) or (
             current_connection.get(nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_ID, None)
             != conn_config.name
@@ -76,8 +76,8 @@ class CommonConnectionArgsBuilder(BaseBuilder):
     def __build_connection_iface(
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
         ifname: typing.Union[str, None],
-    ) -> typing.Tuple[str, str]:
-        # Some connection types doesn't require the interface to be set
+    ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
+        # Some connection types don't require the interface to be set
         if ifname and (
             (not current_connection)
             or (
@@ -98,13 +98,13 @@ class CommonConnectionArgsBuilder(BaseBuilder):
     def __build_autoconnect(
         conn_config: nmcli_interface_config.BaseConnectionConfig,
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
-    ) -> typing.Tuple[str, str]:
+    ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
         target_value = "yes" if conn_config.startup else "no"
         if conn_config.startup and (
             (not current_connection)
-            or current_connection[
-                nmcli_interface_config.NMCLI_INTERFACE_CONNECTION_DATA_FIELD_ON_STARTUP
-            ]
+            or current_connection.get(
+                nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_AUTOCONNECT, None
+            )
             != target_value
         ):
             return (
@@ -118,7 +118,7 @@ class CommonConnectionArgsBuilder(BaseBuilder):
     def __build_connection_type(
         conn_config: nmcli_interface_config.BaseConnectionConfig,
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
-    ) -> typing.Tuple[str, str]:
+    ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
         if not current_connection:
             return (
                 nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_TYPE,
@@ -145,7 +145,7 @@ class CommonConnectionArgsBuilder(BaseBuilder):
 class IPv4ConnectionArgsBuilder(BaseBuilder):
     @staticmethod
     def __get_ipv4_target_method(
-        ipv4_candidate_config: typing.Tuple[nmcli_interface_config.IPv4Config, None],
+        ipv4_candidate_config: typing.Union[nmcli_interface_config.IPv4Config, None],
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
     ):
         if not ipv4_candidate_config:
@@ -178,7 +178,7 @@ class IPv4ConnectionArgsBuilder(BaseBuilder):
         cls,
         conn_config: nmcli_interface_config.MainConnectionConfig,
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
-    ) -> typing.Tuple[str, str]:
+    ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
         target_method, change = cls.__get_ipv4_target_method(
             conn_config.ipv4, current_connection
         )
@@ -192,7 +192,7 @@ class IPv4ConnectionArgsBuilder(BaseBuilder):
         cls,
         conn_config: nmcli_interface_config.MainConnectionConfig,
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
-    ) -> typing.Tuple[str, str]:
+    ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
         target_method, method_change = cls.__get_ipv4_target_method(
             conn_config.ipv4, current_connection
         )
@@ -243,11 +243,11 @@ class IPv4ConnectionArgsBuilder(BaseBuilder):
         cls,
         conn_config: nmcli_interface_config.MainConnectionConfig,
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
-    ) -> typing.Tuple[str, str]:
+    ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
         target_method, method_change = cls.__get_ipv4_target_method(
             conn_config.ipv4, current_connection
         )
-        # If IPv4 addressing is going to be disabled just set the GW to none
+        # If IPv4 addressing is going to be disabled, just set the GW to none
         # Same applies when transitioning to AUTO from other methods
         if method_change and (
             target_method
@@ -283,7 +283,7 @@ class IPv4ConnectionArgsBuilder(BaseBuilder):
         cls,
         conn_config: nmcli_interface_config.MainConnectionConfig,
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
-    ) -> typing.Tuple[str, str]:
+    ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
         target_method, method_change = cls.__get_ipv4_target_method(
             conn_config.ipv4, current_connection
         )
@@ -323,7 +323,7 @@ class IPv4ConnectionArgsBuilder(BaseBuilder):
         cls,
         conn_config: nmcli_interface_config.MainConnectionConfig,
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
-    ) -> typing.Tuple[str, str]:
+    ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
         target_method, method_change = cls.__get_ipv4_target_method(
             conn_config.ipv4, current_connection
         )
@@ -379,7 +379,7 @@ class IPv6ConnectionArgsBuilder(BaseBuilder):
     @staticmethod
     def __build_ip6_method(
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
-    ) -> typing.Tuple[str, str]:
+    ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
         if not current_connection or (
             current_connection.get(nmcli_constants.NMCLI_CONN_FIELD_IPV6_METHOD, None)
             != nmcli_constants.NMCLI_CONN_FIELD_IPV6_METHOD_VAL_DISABLED
@@ -408,7 +408,7 @@ class VlanConnectionArgsBuilder(BaseBuilder):
     def __build_vlan_parent_iface(
         conn_config: nmcli_interface_config.VlanConnectionConfigMixin,
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
-    ) -> typing.Tuple[str, str]:
+    ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
         if (not current_connection) or (
             current_connection.get(
                 nmcli_constants.NMCLI_CONN_FIELD_VLAN_VLAN_PARENT, None
@@ -426,12 +426,14 @@ class VlanConnectionArgsBuilder(BaseBuilder):
     def __build_vlan_id(
         conn_config: nmcli_interface_config.VlanConnectionConfigMixin,
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
-    ) -> typing.Tuple[str, str]:
+    ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
         if (not current_connection) or (
             current_connection.get(nmcli_constants.NMCLI_CONN_FIELD_VLAN_VLAN_ID, None)
             != conn_config.vlan_id
         ):
-            return nmcli_constants.NMCLI_CONN_FIELD_VLAN_VLAN_ID, conn_config.vlan_id
+            return nmcli_constants.NMCLI_CONN_FIELD_VLAN_VLAN_ID, str(
+                conn_config.vlan_id
+            )
 
         return None, None
 
@@ -460,7 +462,7 @@ class SlaveConnectionArgsBuilder(BaseBuilder):
     def __build_slave_type(
         conn_config: nmcli_interface_config.SlaveConnectionConfig,
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
-    ) -> typing.Tuple[str, str]:
+    ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
         target_type = nmcli_constants.map_config_to_nmcli_type_field(
             conn_config.main_connection_config
         )
@@ -478,7 +480,7 @@ class SlaveConnectionArgsBuilder(BaseBuilder):
     def __build_main_conn_id(
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
         main_conn_uuid: typing.Union[str, None],
-    ) -> typing.Tuple[str, str]:
+    ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
         if (not current_connection) or (
             current_connection.get(
                 nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_MASTER, None
@@ -509,7 +511,7 @@ class SlaveConnectionArgsBuilder(BaseBuilder):
 
 NmcliArgsBuilderFactoryType = typing.Callable[
     [
-        typing.Dict[str, typing.Any],
+        nmcli_interface_config.BaseConnectionConfig,
     ],
     BaseBuilder,
 ]

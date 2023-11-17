@@ -1,3 +1,7 @@
+from __future__ import absolute_import, division, print_function
+
+__metaclass__ = type
+
 import typing
 import uuid
 
@@ -28,7 +32,12 @@ NMCLI_CONN_FIELD_CONNECTION_TYPE_VAL_BRIDGE = "bridge"
 NMCLI_CONN_FIELD_CONNECTION_TYPE_VAL_BOND = "bond"
 
 # NMCLI Connection IP4 section fields (IP4, not IPv4)
+# This section is read-only
 NMCLI_CONN_FIELD_IP4_ADDRESS = "ip4.address"
+
+# NMCLI Connection IP6 section fields (IP6, not IPv6)
+# This section is read-only
+NMCLI_CONN_FIELD_IP6_ADDRESS = "ip6.address"
 
 # NMCLI Connection IPv4 section fields
 NMCLI_CONN_FIELD_IPV4_METHOD = "ipv4.method"
@@ -39,6 +48,7 @@ NMCLI_CONN_FIELD_IPV4_ADDRESSES = "ipv4.addresses"
 NMCLI_CONN_FIELD_IPV4_GATEWAY = "ipv4.gateway"
 NMCLI_CONN_FIELD_IPV4_DNS = "ipv4.dns"
 NMCLI_CONN_FIELD_IPV4_ROUTES = "ipv4.routes"
+
 
 # NMCLI Connection IPv6 section fields
 NMCLI_CONN_FIELD_IPV6_METHOD = "ipv6.method"

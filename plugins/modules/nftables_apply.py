@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 
 from __future__ import absolute_import, division, print_function
 
@@ -44,7 +44,7 @@ def __validate_candidate_rules(module, candidate_rules):
     try:
         with os.fdopen(fd, "w") as tmp:
             tmp.write(candidate_rules)
-        (rc, _, err) = __exec_cmd(module, f"nft -c -f {path}")
+        (rc, __, err) = __exec_cmd(module, f"nft -c -f {path}")
         if rc:
             raise ValidationError(
                 "Error validating the given rules", __parse_validation_errors(path, err)
@@ -60,7 +60,7 @@ def __write_apply_rules_content(module, path, content, clone_permissions=True):
     if clone_permissions:
         os.chown(path, st.st_uid, st.st_gid)
 
-    (rc, _, err) = __exec_cmd(module, f"nft -f {path}")
+    (rc, __, err) = __exec_cmd(module, f"nft -f {path}")
     if rc:
         raise Exception(f"Error applying the target rules. {err}")
 

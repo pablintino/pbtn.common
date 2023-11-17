@@ -29,13 +29,22 @@
 
 - name: Copy role related vars to the infra directory
   vars:
-    pbi_nstp_role_file_content:
-      pbi_nstp_connections: "{{ pbi_nstp_connections }}"
+    _pbi_nstp_role_file_base_content:
+      pbi_network_connections: "{{ pbi_network_connections }}"
   ansible.builtin.copy:
     content: >-
       {{
-        {
-          'pbi_network_connections': pbi_nstp_role_file_content
-        } | to_nice_yaml
+        _pbi_nstp_role_file_base_content |
+        combine(
+          {
+            'pbi_nstp_mngt_connection': pbi_nstp_mngt_connection,
+          } if pbi_nstp_mngt_connection is defined else {}
+        ) |
+        combine(
+          {
+            'pbi_nstp_mngt_interface': pbi_nstp_mngt_interface,
+          } if pbi_nstp_mngt_interface is defined else {}
+        ) | to_nice_yaml
       }}
+
     dest: "{{ pbi_nstp_networking_output_file_path }}"

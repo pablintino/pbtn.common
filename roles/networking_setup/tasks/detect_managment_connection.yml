@@ -1,45 +1,36 @@
 ---
-- name: Fetch management connection
-  vars:
-    _pbi_nstp_mngt_connections: >-
-      {{
-        pbi_network_connections |
-        dict2items |
-        selectattr('value.is_mngt_connection', 'defined') |
-        selectattr(
-            'value.is_mngt_connection',
-            'equalto',
-            true
-        )
-      }}
-  ansible.builtin.set_fact:
-    pbi_nstp_mngt_connection: >-
-      {{
-        _pbi_nstp_mngt_connections if pbi_network_connections | length == 1 else ""
-      }}
-    cacheable: true
-
+# Important: We only take into consideration the interfaces
+# and connections we manage. Connections outside of the scope
+# of the role are not part of the apply output and won't be
+# considered
 - name: Get SSH connection target IP
-  when: pbi_nstp_mngt_connection == '' and 'SSH_CONNECTION' in ansible_env
+  when:
+    - "'SSH_CONNECTION' in ansible_env"
+    - >-
+      (pbi_nstp_mngt_connection is not defined) or
+      (pbi_nstp_mngt_interface is not defined)
   ansible.builtin.set_fact:
-    pbi_nstp_ssh_target_connection: >-
+    _pbi_nstp_mngt_connection_data: >-
       {{
-        ((ansible_env.SSH_CONNECTION | split(' '))[2]) |
-        pablintino.base_infra.nstp_filter_ip2cconn(pbi_network_connections)
+        _pbi_nstp_nmcli_apply_result |
+        pablintino.base_infra.nstp_filter_applyres2conns |
+        pablintino.base_infra.nstp_filter_ip2conn(
+          ((ansible_env.SSH_CONNECTION | split(' '))[2])
+        )
       }}
 
 - name: Set management connection if infered
-  when: pbi_nstp_mngt_connection != ''
+  when: >-
+    _pbi_nstp_mngt_connection_data |
+    default({}) |
+    length > 0
   ansible.builtin.set_fact:
-    pbi_network_connections: >-
+    pbi_nstp_mngt_connection: >-
       {{
-          pbi_network_connections |
-          combine(
-          {
-            pbi_nstp_ssh_target_connection: {
-              'is_mngt_connection': true
-            }
-          }
-          , recursive=True)
+        _pbi_nstp_mngt_connection_data['general.name']
+      }}
+    pbi_nstp_mngt_interface: >-
+      {{
+        _pbi_nstp_mngt_connection_data['general.ip-iface']
       }}
     cacheable: true

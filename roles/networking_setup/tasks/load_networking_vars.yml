@@ -16,10 +16,25 @@
 
     - name: Load the static file information
       when: "'content' in _pbi_nstp_output_file_slrup"
-      ansible.builtin.set_fact:
-        pbi_network_connections: >-
+      var:
+        _pbi_nstp_output_file_content: >-
           {{
             (_pbi_nstp_output_file_slrup['content'] | b64decode) |
             from_yaml
+          }}
+      ansible.builtin.set_fact:
+        pbi_network_connections: >-
+          {{
+            _pbi_nstp_output_file_content['pbi_network_connections']
+          }}
+        pbi_nstp_mngt_connection: >-
+          {{
+            _pbi_nstp_output_file_content.pbi_nstp_mngt_connection |
+            default(omit)
+          }}
+        pbi_nstp_mngt_interface: >-
+          {{
+            _pbi_nstp_output_file_content.pbi_nstp_mngt_interface |
+            default(omit)
           }}
         cacheable: true

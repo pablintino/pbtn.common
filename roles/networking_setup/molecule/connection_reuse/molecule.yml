@@ -1,0 +1,17 @@
+---
+log: true
+
+provisioner:
+  name: ansible
+  log: true
+
+scenario:
+  test_sequence:
+    - destroy
+    - create
+    - prepare
+    - converge
+# This test is not idempotent
+#    - idempotence
+    - verify
+    - destroy

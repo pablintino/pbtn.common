@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 
 from __future__ import absolute_import, division, print_function
 
@@ -11,24 +11,14 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.module_comma
     get_module_command_runner,
 )
 
-from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli_interface_exceptions import (
-    NmcliInterfaceException,
-)
 
-from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli_querier import (
-    NetworkManagerQuerier,
-)
-
-from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli_interface import (
-    NetworkManagerConfiguratorFactory,
-)
-
-from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli_interface_args_builders import (
-    nmcli_args_builder_factory,
-)
-
-from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli_interface_config import (
-    ConnectionsConfigurationHandler,
+from ansible_collections.pablintino.base_infra.plugins.module_utils import (
+    nmcli_interface,
+    nmcli_interface_args_builders,
+    nmcli_interface_config,
+    nmcli_interface_exceptions,
+    nmcli_querier,
+    nmcli_interface_types,
 )
 
 
@@ -62,36 +52,30 @@ def main():
 
     try:
         command_runner = get_module_command_runner(module)
-        nmcli_querier = NetworkManagerQuerier(command_runner)
-
-        nmcli_factory = NetworkManagerConfiguratorFactory(
-            command_runner,
-            nmcli_querier,
-            nmcli_args_builder_factory,
-        )
-
-        config_handler = ConnectionsConfigurationHandler(
+        config_handler = nmcli_interface_config.ConnectionsConfigurationHandler(
             __parse_get_connections(module), command_runner
         )
+        nmcli_factory = nmcli_interface.NetworkManagerConfiguratorFactory(
+            command_runner,
+            nmcli_querier.NetworkManagerQuerier(command_runner),
+            nmcli_interface_args_builders.nmcli_args_builder_factory,
+            config_handler,
+        )
 
-        #import pydevd_pycharm
-
-        #pydevd_pycharm.settrace(
-        #    "localhost", port=5555, stdoutToServer=True, stderrToServer=True
-        #)
         config_handler.parse()
-        conn_result = {}
+        config_session = nmcli_interface_types.ConfigurationSession()
         for conn_config in config_handler.connections:
             conn_config_result = nmcli_factory.build_configurator(
                 conn_config
-            ).configure(conn_config)
-            conn_result[conn_config.name] = conn_config_result.to_dict()
-            result["changed"] = result["changed"] or conn_config_result.changed
+            ).configure(conn_config, config_session)
+            config_session.add_result(conn_config_result)
 
+        session_result, changed = config_session.get_result()
         result["success"] = True
-        result["result"] = conn_result
+        result["changed"] = changed
+        result["result"] = session_result
         module.exit_json(**result)
-    except NmcliInterfaceException as err:
+    except nmcli_interface_exceptions.NmcliInterfaceException as err:
         result.update(err.to_dict())
         module.fail_json(**result)
 

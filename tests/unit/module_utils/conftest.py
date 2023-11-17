@@ -1,7 +1,6 @@
-import os
-import pytest
 import pathlib
 
+import pytest
 from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_utils.command_mocker import (
     CommandMockerBuilder,
 )

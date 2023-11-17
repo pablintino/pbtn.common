@@ -22,11 +22,15 @@
       loop_control:
         label: "{{ item.key }}"
 
+
     - name: Fetch connection data from cli
       ansible.builtin.shell:
         cmd: "nmcli con show {{ item }}"
       register: pbi_tst_nstp_molecule_data_out
-      loop: "{{ pbi_tst_nstp_connections_config.keys() | list }}"
+      loop: >-
+        {{
+          (pbi_tst_nstp_connections_config.keys() | list)
+        }}
       changed_when: false
 
     - name: Parse connections data
@@ -45,11 +49,11 @@
       loop_control:
         label: "{{ item.item }}"
 
-    - name: Basic  assertions for the molecule connection
+    - name: Basic common assertions for both connections
       vars:
         connection_data: >-
           {{
-            pbi_tst_nstp_test_nmcli_data['molecule']
+            pbi_tst_nstp_test_nmcli_data[item]
           }}
       ansible.builtin.assert:
         that:
@@ -61,39 +65,38 @@
           - "(connection_data.ip4_dns_1 | ansible.utils.ipaddr) != false"
         quiet: true
 
-    - name: Basic assertions for the internal connection
+      loop:
+        - molecule
+        - internal
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Basic common assertions for the internal-20 connection
       vars:
         connection_data: >-
           {{
-            pbi_tst_nstp_test_nmcli_data['internal']
+            pbi_tst_nstp_test_nmcli_data['internal-20']
           }}
       ansible.builtin.assert:
         that:
           - "connection_data.state == 'activated'"
-          - "connection_data.connection_type == '802-3-ethernet'"
+          - "connection_data.connection_type == 'vlan'"
           - "connection_data.ipv4_method == 'manual'"
           - "connection_data.ipv6_method == 'disabled'"
           - "(connection_data.ip4_address_1 | ansible.utils.ipaddr) != false"
-          - "connection_data.ip4_address_1 == '10.177.21.40/24'"
+          - "connection_data.ip4_address_1 == '10.177.20.40/24'"
           - "connection_data.ipv4_addresses == connection_data.ip4_address_1"
-          - "connection_data.ipv4_gateway == '10.177.21.41'"
-          - "connection_data.ip4_gateway == connection_data.ipv4_gateway"
           - "connection_data.ipv4_dns == '8.8.8.8'"
           - "connection_data.ip4_dns_1 == connection_data.ipv4_dns"
+          - "connection_data.vlan_id | int == 20"
+          - "connection_data.vlan_parent == pbi_tst_nstp_vlan_ifaces_parents['internal-20']"
         quiet: true
 
-    - name: Basic  assertions for the external connection
+    - name: Basic common assertions for the external connection
       vars:
         connection_data: >-
           {{
             pbi_tst_nstp_test_nmcli_data['external']
-          }}
-        dns_nameservers: >-
-          {{
-            connection_data |
-            dict2items |
-            selectattr("key", "search", "^ip4_dns") |
-            map(attribute="value")
           }}
         extra_route: >-
           {{
@@ -101,23 +104,24 @@
             dict2items |
             selectattr("value.dst", "defined") |
             selectattr("value.nh", "defined") |
-            selectattr("value.dst", "equalto", "10.111.111.0/24") |
+            selectattr("value.dst", "equalto", "10.222.222.0/24") |
             selectattr("value.nh", "equalto", "10.177.100.100")
           }}
       ansible.builtin.assert:
         that:
           - "connection_data.state == 'activated'"
-          - "connection_data.connection_type == '802-3-ethernet'"
-          - "connection_data.ipv4_method == 'auto'"
+          - "connection_data.connection_type == 'vlan'"
+          - "connection_data.ipv4_method == 'manual'"
           - "connection_data.ipv6_method == 'disabled'"
           - "(connection_data.ip4_address_1 | ansible.utils.ipaddr) != false"
-          - "connection_data.ipv4_addresses == None"
+          - "connection_data.ip4_address_1 == '10.177.100.40/24'"
+          - "connection_data.ipv4_addresses == connection_data.ip4_address_1"
           - "connection_data.ipv4_dns == '1.1.1.1'"
-          - "connection_data.ipv4_dns in dns_nameservers"
-          # Ensure DHCP routes to the net and 0.0.0.0 are added
+          - "connection_data.ip4_dns_1 == connection_data.ipv4_dns"
+          - "connection_data.vlan_id | int == 100"
+          - "connection_data.vlan_parent == pbi_tst_nstp_vlan_ifaces_parents['external']"
           - "connection_data.ip4_route_1 is defined"
           - "connection_data.ip4_route_2 is defined"
-          # Ensure that the custom route was added
           - "extra_route | length == 1"
         quiet: true
 

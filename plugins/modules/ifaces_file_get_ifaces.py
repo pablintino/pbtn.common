@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 
 from __future__ import absolute_import, division, print_function
 
@@ -99,7 +99,7 @@ def main():
         ifaces_files = ifaces_file_utils_read_interfaces_file(
             interfaces_path, ignore_non_existent=ignore_non_existent
         )
-        for _, file_lines in ifaces_files.items():
+        for file_lines in ifaces_files.values():
             file_interfaces, err = parse_interfaces_file(file_lines)
             interfaces_dict = {**interfaces_dict, **file_interfaces}
             if err:

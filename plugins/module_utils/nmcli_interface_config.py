@@ -1,12 +1,12 @@
-from __future__ import annotations, absolute_import, division, print_function
+from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
+import dataclasses
 import ipaddress
 import json
 import re
 import typing
-
 
 from ansible_collections.pablintino.base_infra.plugins.module_utils import (
     module_command_utils,
@@ -23,6 +23,33 @@ ValidateConnectionConfigurationFnType = typing.Callable[
 ]
 
 
+class NmcliLinkResolutionException(nmcli_interface_exceptions.NmcliInterfaceException):
+    def __init__(
+        self,
+        msg: str,
+        candidates: typing.List["LinkData"] = None,
+    ) -> None:
+        super().__init__(msg)
+        self.candidates = candidates
+
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        res = super().to_dict()
+        res["candidates"] = [candidate.to_dict() for candidate in self.candidates or []]
+        return res
+
+
+@dataclasses.dataclass(frozen=True)
+class LinkData:
+    iface: str
+    mac: str
+    link: typing.Union[str, None] = None
+    link_type: str = None
+
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        return vars(self)
+
+
+@dataclasses.dataclass
 class IPv4RouteConfig:
     dst: ipaddress.IPv4Network
     gw: ipaddress.IPv4Address
@@ -51,8 +78,8 @@ class IPv4Config:
     def __init__(self, raw_config: typing.Dict[str, typing.Any]):
         self.__raw_config = raw_config
         self.__mode = None
-        self.__ip: ipaddress.IPv4Interface = None
-        self.__gw: ipaddress.IPv4Address = None
+        self.__ip: typing.Union[ipaddress.IPv4Interface, None] = None
+        self.__gw: typing.Union[ipaddress.IPv4Interface, None] = None
         self.__dns: typing.List[ipaddress.IPv4Address] = []
         self.__routes: typing.List[IPv4RouteConfig] = []
         self.__parse_config()
@@ -62,11 +89,11 @@ class IPv4Config:
         return self.__mode
 
     @property
-    def ip(self) -> ipaddress.IPv4Interface:
+    def ip(self) -> typing.Union[ipaddress.IPv4Interface, None]:
         return self.__ip
 
     @property
-    def gw(self) -> ipaddress.IPv4Address:
+    def gw(self) -> typing.Union[ipaddress.IPv4Interface, None]:
         return self.__gw
 
     @property
@@ -114,7 +141,11 @@ class IPv4Config:
                 )
             self.__gw = ipv4_gw
 
-        for nameserver in set(self.__raw_config.get(self.__FIELD_IPV4_NS, [])):
+        # Remove duplicated NSs without altering the order
+        nameservers = list(
+            dict.fromkeys(self.__raw_config.get(self.__FIELD_IPV4_NS, []))
+        )
+        for nameserver in nameservers:
             self.__dns.append(
                 nmcli_interface_utils.parse_validate_ipv4_addr(nameserver)
             )
@@ -142,23 +173,35 @@ class IPv4Config:
                     "mandatory field for a IPv4 route"
                 )
             gw_addr = nmcli_interface_utils.parse_validate_ipv4_addr(gw_str)
-            metric = route_data.get(self.__FIELD_IPV4_ROUTE_METRIC, None)
-            if metric:
+            metric_raw = route_data.get(self.__FIELD_IPV4_ROUTE_METRIC, None)
+            if metric_raw:
                 try:
-                    value = int(metric, 10)
-                    if value < 1:
+                    metric = int(metric_raw)
+                    if metric < 1:
                         raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
                             f"{self.__FIELD_IPV4_ROUTE_METRIC} must be a positive number"
                         )
+                    self.__routes.append(
+                        IPv4RouteConfig(dst_net, gw_addr, metric=metric)
+                    )
                 except ValueError as err:
                     raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
                         f"{self.__FIELD_IPV4_ROUTE_METRIC} must be a number"
                     ) from err
-            self.__routes.append(IPv4RouteConfig(dst_net, gw_addr, metric=metric))
+
+        # VLANs must point to a base interface to avoid InterfaceIdentifier resolve
+        # the interface name wrongly when MAC addresses are used. In that case,
+        # there is a possibility; after at least one run, that the mac points
+        # to the VLAN iface instead of the parent one. That's because, by default,
+        # VLANs inherits the parent MAC
 
 
 class InterfaceIdentifier:
-    def __init__(self, str_identifier, links_hw_addresses_cache: typing.Dict[str, str]):
+    def __init__(
+        self,
+        str_identifier,
+        links_hw_addresses_cache: typing.List[LinkData],
+    ):
         self.__str_identifier = str_identifier
         self.__links_hw_addresses_cache = links_hw_addresses_cache
         self.__str_is_mac = nmcli_interface_utils.is_mac_addr(self.__str_identifier)
@@ -178,12 +221,33 @@ class InterfaceIdentifier:
             )
 
     def __resolve_from_mac(self) -> str:
-        result = self.__links_hw_addresses_cache.get(self.__str_identifier.lower, None)
-        if not result:
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                f"{self.__str_identifier} cannot be resolved to an existing link"
+        target_mac = self.__str_identifier.lower()
+
+        results = [
+            link_data
+            for link_data in self.__links_hw_addresses_cache
+            if link_data.mac == target_mac and self.__is_mac_resolvable_link(link_data)
+        ]
+        if len(results) != 1:
+            raise NmcliLinkResolutionException(
+                f"{self.__str_identifier} cannot be resolved to an existing link",
+                candidates=results,
             )
-        return result
+
+        return results[0].iface
+
+    @staticmethod
+    def __is_mac_resolvable_link(link_data: LinkData) -> bool:
+        # Protect about not being able to determine the iface
+        # Keep in mind; that when playing with interfaces like
+        # VLAN trunks, MACs may not be unique, as the entire set
+        # of child interfaces may (or not) clone parent's one.
+        # There is no way to distinguish between child types
+        # seeing only the links; thus, we only support mac
+        # referencing for base interfaces like Ethernets
+        # VLANs has the link field, and, as example, bridges
+        # the link_type set to bridge
+        return link_data.link is None and link_data.link_type is None
 
     @property
     def iface_name(self) -> str:
@@ -209,8 +273,8 @@ class BaseConnectionConfig:
         self._raw_config: typing.Dict[str, typing.Any] = kwargs["raw_config"]
         self._interface: InterfaceIdentifier = None
 
-        self._state: str = None
-        self._startup: bool = None
+        self._state: typing.Union[str, None] = None
+        self._startup: typing.Union[bool, None] = None
         self._depends_on: typing.List[str] = []
         self._related_interfaces: typing.Set[str] = set()
         self.__parse_config(kwargs["links_hw_addresses_cache"])
@@ -224,11 +288,11 @@ class BaseConnectionConfig:
         return self._interface
 
     @property
-    def state(self) -> typing.Tuple[str, None]:
+    def state(self) -> typing.Union[str, None]:
         return self._state
 
     @property
-    def startup(self) -> typing.Tuple[bool, None]:
+    def startup(self) -> typing.Union[bool, None]:
         return self._startup
 
     @property
@@ -247,10 +311,10 @@ class BaseConnectionConfig:
 
     def __parse_config(
         self,
-        links_hw_addresses_cache: typing.Dict[str, str],
+        links_hw_addresses_cache: typing.List[LinkData],
     ):
         # There is no real constraint about the name, but some basic
-        # rules seem to be sane:
+        # rules seem correct:
         #   - At least 4 chars
         #   - All alphanumeric except: _-.
         if not re.match(r"([a-zA-Z0-9_.-]){4,}", self._conn_name):
@@ -294,19 +358,19 @@ class MainConnectionConfig(BaseConnectionConfig):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self._ipv4: IPv4Config = typing.Tuple[IPv4Config, None]
-        self._slaves_config: typing.List[BridgeSlaveConnectionConfig] = []
+        self._ipv4: IPv4Config = typing.Union[IPv4Config, None]
+        self._slaves_config: typing.List[SlaveConnectionConfig] = []
         self.__parse_config(kwargs["connection_config_factory"])
 
     @property
-    def ipv4(self) -> typing.Tuple[IPv4Config, None]:
+    def ipv4(self) -> typing.Union[IPv4Config, None]:
         return self._ipv4
 
     @property
-    def slaves(self) -> typing.List[BridgeSlaveConnectionConfig]:
+    def slaves(self) -> typing.List["SlaveConnectionConfig"]:
         return self._slaves_config
 
-    def __parse_config(self, connection_config_factory: _ConnectionConfigFactory):
+    def __parse_config(self, connection_config_factory: "_ConnectionConfigFactory"):
         ipv4_data = self._raw_config.get(self.__FIELD_IPV4, None)
         if ipv4_data:
             self._ipv4 = IPv4Config(ipv4_data)
@@ -363,7 +427,7 @@ class VlanConnectionConfigMixin(BaseConnectionConfig):
 
     def __parse_config(
         self,
-        links_hw_addresses_cache: typing.Dict[str, str],
+        links_hw_addresses_cache: typing.List[LinkData],
     ):
         vlan_config = self._raw_config.get(self.__FIELD_VLAN, None)
         if not vlan_config:
@@ -455,7 +519,7 @@ class _ConnectionConfigFactory:
         __FIELD_TYPE_VAL_BRIDGE: BridgeConnectionConfig,
     }
 
-    def __init__(self, links_hw_addresses: typing.Dict[str, str]):
+    def __init__(self, links_hw_addresses: typing.List[LinkData]):
         self.__links_hw_addresses = links_hw_addresses
 
     def build_slave_connection(
@@ -503,8 +567,6 @@ class _ConnectionConfigFactory:
             connection_config_factory=self,
         )
 
-        return config
-
 
 class ConnectionsConfigurationHandler:
     def __init__(
@@ -520,14 +582,22 @@ class ConnectionsConfigurationHandler:
             self.__links_hw_addresses
         )
 
-    def __fetch_links_hw_addresses(self) -> typing.Dict[str, str]:
-        result = self.__runner_fn(["ip", "-br", "-j", "link"], check=True)
-        links_hw_addresses = {}
+    def __fetch_links_hw_addresses(self) -> typing.List[LinkData]:
+        result = self.__runner_fn(["ip", "-detail", "-j", "link"], check=True)
+        links_hw_addresses = []
         for link_data in json.loads(result.stdout):
             if_name = link_data.get("ifname", None)
+            # Interfaces link VLANs uses the link field
+            # to point to it's parent
+            if_link = link_data.get("link", None)
             address = link_data.get("address", None)
-            if if_name and address and (if_name not in links_hw_addresses):
-                links_hw_addresses[address.lower()] = if_name
+            link_type = link_data.get("linkinfo", {}).get("info_kind", None)
+            if if_name and address:
+                links_hw_addresses.append(
+                    LinkData(
+                        if_name, address.lower(), link=if_link, link_type=link_type
+                    )
+                )
 
         return links_hw_addresses
 
@@ -537,12 +607,10 @@ class ConnectionsConfigurationHandler:
                 "The provided configuration is not a dictionary of connections"
             )
 
-        mapped_connections = {
-            conn_name: self.__connection_config_factory.build_connection(
-                conn_name, conn_data
-            )
+        mapped_connections = [
+            self.__connection_config_factory.build_connection(conn_name, conn_data)
             for conn_name, conn_data in self.__raw_config.items()
-        }
+        ]
         self.__conn_configs = self.__sort_connections(mapped_connections)
 
     @property
@@ -557,11 +625,11 @@ class ConnectionsConfigurationHandler:
         visited.append(graph_iface)
 
         for element in interfaces_dependencies_graph[graph_iface]:
-            if graph_iface not in visited:
+            if element not in visited:
                 cls.__sort_conn_ifaces(
                     interfaces_dependencies_graph, element, visited, ifaces_stack
                 )
-        ifaces_stack.insert(0, graph_iface)
+        ifaces_stack.append(graph_iface)
 
     @classmethod
     def __sort_connections(cls, conn_configs: typing.List[MainConnectionConfig]):
@@ -574,7 +642,7 @@ class ConnectionsConfigurationHandler:
         # It's not mandatory and, if not provided, that connection
         # cannot be used as a dependency, which is fine.
         non_iface_connections = []
-        for conn_config in conn_configs.values():
+        for conn_config in conn_configs:
             # All connections that have no interface field are created at the
             # very end. The shorting algorithm doesn't apply to them
             if not conn_config.interface:

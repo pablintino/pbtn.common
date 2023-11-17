@@ -2,15 +2,20 @@ from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
-from ansible.errors import AnsibleFilterError, AnsibleFilterTypeError
 
-from ansible_collections.pablintino.base_infra.plugins.module_utils import nmcli_filters
+import ipaddress
+
+from ansible.errors import AnsibleFilterError, AnsibleFilterTypeError
+from ansible_collections.pablintino.base_infra.plugins.module_utils import (
+    nmcli_filters,
+    nmcli_constants,
+)
 from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli_constants import (
     NMCLI_CONN_FIELD_GENERAL_DEVICES,
-    NMCLI_CONN_FIELD_IP4_ADDRESS,
 )
-
-__CONFIG_CONNECTION_NM_DATA_FIELD = "nm_connection_info"
+from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli_interface_types import (
+    MainConfigurationResult,
+)
 
 
 def __filter_iface(ifaces, conn_data):
@@ -31,25 +36,32 @@ def __filter_iface(ifaces, conn_data):
     return any(name == conn_data[NMCLI_CONN_FIELD_GENERAL_DEVICES] for name in values)
 
 
-def nstp_filter_ip2cconn(data, connections):
-    if not connections:
-        raise AnsibleFilterError("connections parameter is mandatory")
-    if not data:
-        return None
+def nstp_filter_ip2conn(data, ip):
+    if (not data) or (not ip):
+        return {}
 
-    if not isinstance(data, str):
-        raise AnsibleFilterError("data IP should be a string")
+    if not isinstance(data, dict):
+        raise AnsibleFilterTypeError(f"data expected to be a dict {type(data)}")
 
-    for conn, conn_data in connections.items():
-        # Connections contains proper NM information
-        if __CONFIG_CONNECTION_NM_DATA_FIELD in conn_data:
-            raw_ips = conn_data[__CONFIG_CONNECTION_NM_DATA_FIELD].get(
-                NMCLI_CONN_FIELD_IP4_ADDRESS, []
+    try:
+        if "/" in str(ip):
+            ip = ipaddress.ip_interface(ip).ip
+        else:
+            ip = ipaddress.ip_address(ip)
+    except ValueError as err:
+        raise AnsibleFilterError(f"Invalid IP: {err}") from err
+
+    for conn_data in data.values():
+        if any(
+            ipaddress.ip_interface(str_ip).ip == ip
+            for str_ip in (
+                conn_data.get(nmcli_constants.NMCLI_CONN_FIELD_IP4_ADDRESS, [])
+                + conn_data.get(nmcli_constants.NMCLI_CONN_FIELD_IP6_ADDRESS, [])
             )
-            if data in [ip_str.split("/")[0] for ip_str in raw_ips]:
-                return conn
+        ):
+            return conn_data
 
-    return None
+    return {}
 
 
 def nmcli_connections_filter(data, ifaces=None, active=None):
@@ -66,9 +78,26 @@ def nmcli_connections_filter(data, ifaces=None, active=None):
     return results
 
 
+def nstp_filter_applyres2conns(data):
+    if not data:
+        return {}
+
+    if not isinstance(data, dict):
+        raise AnsibleFilterTypeError(f"data expected to be a dict {type(data)}")
+
+    result = {}
+    for conn_name, conn_data in data.get("result", {}).items():
+        conn_status = conn_data.get(MainConfigurationResult.FIELD_RESULT_STATUS, None)
+        if conn_status:
+            result[conn_name] = conn_status
+
+    return result
+
+
 class FilterModule(object):
     def filters(self):
         return {
-            "nstp_filter_ip2cconn": nstp_filter_ip2cconn,
+            "nstp_filter_ip2conn": nstp_filter_ip2conn,
+            "nstp_filter_applyres2conns": nstp_filter_applyres2conns,
             "nmcli_filters_connections_by": nmcli_connections_filter,
         }
