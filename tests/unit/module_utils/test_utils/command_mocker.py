@@ -1,11 +1,14 @@
 import dataclasses
-import os.path
 import pathlib
 import subprocess
 import typing
 
 from ansible_collections.pablintino.base_infra.plugins.module_utils.module_command_utils import (
     CommandRunException,
+)
+
+from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_utils import (
+    file_manager,
 )
 
 
@@ -46,20 +49,9 @@ def find_upwards(cwd: pathlib.Path, name: str) -> pathlib.Path | None:
 
 
 class CommandMocker:
-    def __init__(self, test_name, base_path: pathlib.Path, test_dir: pathlib.Path):
-        self.__base_path = base_path
-        self.__test_dir = test_dir
+    def __init__(self, file_manager: file_manager.FileManager):
+        self.__file_manager = file_manager
         self.__call_stack: typing.List[typing.Tuple[MockCall, MockedReturnData]] = []
-        self.__test_files_dirs: typing.List[pathlib.Path] = self.__find_dirs_upwards(
-            self.__test_dir,
-            [
-                os.path.join(
-                    "test_files",
-                    test_name,
-                ),
-                "test_files",
-            ],
-        )
 
     def add_call_definition(
         self,
@@ -82,8 +74,16 @@ class CommandMocker:
         exception=None,
         fn: typing.Callable[[typing.List], subprocess.CompletedProcess] = None,
     ):
-        stdout = self.__load_from_file(stdout_file_name) if stdout_file_name else None
-        stderr = self.__load_from_file(stderr_file_name) if stderr_file_name else None
+        stdout = (
+            self.__file_manager.get_file_text_content(stdout_file_name)
+            if stdout_file_name
+            else None
+        )
+        stderr = (
+            self.__file_manager.get_file_text_content(stderr_file_name)
+            if stderr_file_name
+            else None
+        )
         self.add_call_definition(
             expected, stdout=stdout, stderr=stderr, rc=rc, exception=exception, fn=fn
         )
@@ -113,42 +113,10 @@ class CommandMocker:
             cmd, call_data.rc, call_data.stdout, call_data.stderr
         )
 
-    def __load_from_file(self, file_name) -> str:
-        for path in self.__test_files_dirs:
-            target_path = path.joinpath(file_name)
-            if target_path.is_file():
-                return target_path.read_text(encoding="utf-8")
-        raise FileNotFoundError(f"{file_name} not found")
-
-    def __find_dirs_upwards(
-        self,
-        cwd: pathlib.Path,
-        names: typing.List[str],
-        paths: typing.List[pathlib.Path] = None,
-    ) -> pathlib.Path | None:
-        paths = paths or []
-        for name in names:
-            fullpath = cwd.joinpath(name)
-            if fullpath.is_dir():
-                paths.append(fullpath)
-
-        if (
-            cwd == pathlib.Path(cwd.root)
-            or cwd == cwd.parent
-            or cwd == self.__base_path
-        ):
-            return paths
-
-        return self.__find_dirs_upwards(cwd.parent, names, paths=paths)
-
 
 class CommandMockerBuilder:
-    def __init__(self, test_name, test_dir):
-        self.__test_dir = test_dir
-        self.__test_name = test_name
-        self.__base_path = find_upwards(test_dir, "unit")
-        if not self.__base_path:
-            raise FileNotFoundError("Cannot locate the tests base path")
+    def __init__(self, file_manager: file_manager.FileManager):
+        self.__file_manager = file_manager
 
     def build(self):
-        return CommandMocker(self.__test_name, self.__base_path, self.__test_dir)
+        return CommandMocker(self.__file_manager)

@@ -120,7 +120,7 @@ class IPv4Config:
         self.__mode = mode
         if self.__mode == self.FIELD_IPV4_MODE_VAL_MANUAL:
             ipv4_str = self.__raw_config.get(self.__FIELD_IPV4_IP, None)
-            if not self.__FIELD_IPV4_IP:
+            if not ipv4_str:
                 raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
                     f"{self.__FIELD_IPV4_IP} is a mandatory field for a connection "
                     "using IPv4 static addressing"
@@ -340,7 +340,7 @@ class BaseConnectionConfig:
 
         iface_str = self._raw_config.get(self._FIELD_IFACE, None)
         # Interface is always optional. Some interfaces (almost all, but specially useful
-        # for someone like vpns) do create this one dynamically, and no one cares
+        # for someone like VPNs) do create this one dynamically, and no one cares
         # about the final name of the interface
         if iface_str:
             self._interface = InterfaceIdentifier(iface_str, links_hw_addresses_cache)

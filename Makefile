@@ -2,7 +2,7 @@ TEST_PROFILE ?= "local"
 ISOLATED_ENV ?= true
 DEBUG ?= false
 define vars
-${1}: export PATH=$(PWD)/.venv/bin:$(PATH)
+${1}: export PATH=$(shell pwd)/.venv/bin:$(PATH)
 endef
 
 error:

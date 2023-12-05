@@ -11,24 +11,33 @@ from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_util
     MockCall,
 )
 
-
 __MANDATORY_FIELDS_AND_TYPES = {
     "general.name": str,
     "general.state": str,
     "general.uuid": str,
 }
 
+__OPTIONAL_FIELDS_AND_TYPES = {
+    "ipv4.method": str,
+    "ipv6.method": str,
+}
 
-def __check_mandatory_fields(conn_data: typing.Dict[str, typing.Any]):
+
+def __check_field_types(conn_data: typing.Dict[str, typing.Any]):
     for field_name, field_type in __MANDATORY_FIELDS_AND_TYPES.items():
         assert field_name in conn_data
+        assert isinstance(conn_data[field_name], field_type)
+
+    for field_name, field_type in __OPTIONAL_FIELDS_AND_TYPES.items():
+        if field_name not in conn_data:
+            continue
         assert isinstance(conn_data[field_name], field_type)
 
 
 def __validate_connection_fields(
     conn_name: str, conn_data: typing.Dict[str, typing.Any]
 ):
-    __check_mandatory_fields(conn_data)
+    __check_field_types(conn_data)
     assert conn_data["general.name"] == conn_name
 
 
@@ -84,6 +93,12 @@ def test_nmcli_querier_get_connections_simple_ok(command_mocker_builder):
     result = nmq_1.get_connections()
     assert result
     assert len(result) == 5
-    for conn_name in ["virbr1", "docker0", "br-4a80d63bffdd", "virbr0", "bridge-slave-enp6s0"]:
+    for conn_name in [
+        "virbr1",
+        "docker0",
+        "br-4a80d63bffdd",
+        "virbr0",
+        "bridge-slave-enp6s0",
+    ]:
         assert conn_name in result
         __validate_connection_fields(conn_name, result[conn_name])
