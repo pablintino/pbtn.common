@@ -10,7 +10,7 @@ from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_util
 @pytest.fixture
 def test_file_manager(request):
     return file_manager.FileManager(
-        request.node.name, pathlib.Path(request.module.__file__).parent
+        request.node.originalname, pathlib.Path(request.module.__file__).parent
     )
 
 

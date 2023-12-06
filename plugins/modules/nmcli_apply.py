@@ -13,6 +13,7 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.module_comma
 
 
 from ansible_collections.pablintino.base_infra.plugins.module_utils import (
+    ip_interface,
     nmcli_interface,
     nmcli_interface_args_builders,
     nmcli_interface_config,
@@ -52,8 +53,10 @@ def main():
 
     try:
         command_runner = get_module_command_runner(module)
+        ip_iface = ip_interface.IPInterface(command_runner)
+        config_factory = nmcli_interface_config.ConnectionConfigFactory(ip_iface)
         config_handler = nmcli_interface_config.ConnectionsConfigurationHandler(
-            __parse_get_connections(module), command_runner
+            __parse_get_connections(module), config_factory
         )
         nmcli_factory = nmcli_interface.NetworkManagerConfiguratorFactory(
             command_runner,

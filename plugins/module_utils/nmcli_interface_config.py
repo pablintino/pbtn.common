@@ -4,12 +4,11 @@ __metaclass__ = type
 
 import dataclasses
 import ipaddress
-import json
 import re
 import typing
 
 from ansible_collections.pablintino.base_infra.plugins.module_utils import (
-    module_command_utils,
+    ip_interface,
     nmcli_interface_exceptions,
     nmcli_interface_utils,
 )
@@ -27,26 +26,15 @@ class NmcliLinkResolutionException(nmcli_interface_exceptions.NmcliInterfaceExce
     def __init__(
         self,
         msg: str,
-        candidates: typing.List["LinkData"] = None,
+        candidates: typing.List[ip_interface.IPLinkData] = None,
     ) -> None:
         super().__init__(msg)
         self.candidates = candidates
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         res = super().to_dict()
-        res["candidates"] = [candidate.to_dict() for candidate in self.candidates or []]
+        res["candidates"] = self.candidates or []
         return res
-
-
-@dataclasses.dataclass(frozen=True)
-class LinkData:
-    iface: str
-    mac: str
-    link: typing.Union[str, None] = None
-    link_type: str = None
-
-    def to_dict(self) -> typing.Dict[str, typing.Any]:
-        return vars(self)
 
 
 @dataclasses.dataclass
@@ -200,10 +188,10 @@ class InterfaceIdentifier:
     def __init__(
         self,
         str_identifier,
-        links_hw_addresses_cache: typing.List[LinkData],
+        ip_links: typing.List[ip_interface.IPLinkData],
     ):
         self.__str_identifier = str_identifier
-        self.__links_hw_addresses_cache = links_hw_addresses_cache
+        self.__ip_links = ip_links
         self.__str_is_mac = nmcli_interface_utils.is_mac_addr(self.__str_identifier)
         self.__iface_name = None
         self.__parse_validate()
@@ -225,8 +213,9 @@ class InterfaceIdentifier:
 
         results = [
             link_data
-            for link_data in self.__links_hw_addresses_cache
-            if link_data.mac == target_mac and self.__is_mac_resolvable_link(link_data)
+            for link_data in self.__ip_links
+            if link_data.address == target_mac
+            and self.__is_mac_resolvable_link(link_data)
         ]
         if len(results) != 1:
             raise NmcliLinkResolutionException(
@@ -234,10 +223,10 @@ class InterfaceIdentifier:
                 candidates=results,
             )
 
-        return results[0].iface
+        return results[0].if_name
 
     @staticmethod
-    def __is_mac_resolvable_link(link_data: LinkData) -> bool:
+    def __is_mac_resolvable_link(link_data: ip_interface.IPLinkData) -> bool:
         # Protect about not being able to determine the iface
         # Keep in mind; that when playing with interfaces like
         # VLAN trunks, MACs may not be unique, as the entire set
@@ -247,7 +236,7 @@ class InterfaceIdentifier:
         # referencing for base interfaces like Ethernets
         # VLANs has the link field, and, as example, bridges
         # the link_type set to bridge
-        return link_data.link is None and link_data.link_type is None
+        return link_data.link is None and link_data.link_kind is None
 
     @property
     def iface_name(self) -> str:
@@ -277,7 +266,7 @@ class BaseConnectionConfig:
         self._startup: typing.Union[bool, None] = None
         self._depends_on: typing.List[str] = []
         self._related_interfaces: typing.Set[str] = set()
-        self.__parse_config(kwargs["links_hw_addresses_cache"])
+        self.__parse_config(kwargs["ip_links"])
 
     @property
     def name(self) -> str:
@@ -311,7 +300,7 @@ class BaseConnectionConfig:
 
     def __parse_config(
         self,
-        links_hw_addresses_cache: typing.List[LinkData],
+        ip_links: typing.List[ip_interface.IPLinkData],
     ):
         # There is no real constraint about the name, but some basic
         # rules seem correct:
@@ -343,7 +332,7 @@ class BaseConnectionConfig:
         # for someone like VPNs) do create this one dynamically, and no one cares
         # about the final name of the interface
         if iface_str:
-            self._interface = InterfaceIdentifier(iface_str, links_hw_addresses_cache)
+            self._interface = InterfaceIdentifier(iface_str, ip_links)
             # By default, depends on the target interface. Other types may override this
             self._depends_on = [self._interface.iface_name]
             self._related_interfaces.add(self._interface.iface_name)
@@ -415,7 +404,7 @@ class VlanConnectionConfigMixin(BaseConnectionConfig):
         super().__init__(**kwargs)
         self._vlan_id: int = None
         self._parent_interface: InterfaceIdentifier = None
-        self.__parse_config(kwargs["links_hw_addresses_cache"])
+        self.__parse_config(kwargs["ip_links"])
 
     @property
     def parent_interface(self) -> InterfaceIdentifier:
@@ -427,7 +416,7 @@ class VlanConnectionConfigMixin(BaseConnectionConfig):
 
     def __parse_config(
         self,
-        links_hw_addresses_cache: typing.List[LinkData],
+        ip_links: typing.List[ip_interface.IPLinkData],
     ):
         vlan_config = self._raw_config.get(self.__FIELD_VLAN, None)
         if not vlan_config:
@@ -442,9 +431,7 @@ class VlanConnectionConfigMixin(BaseConnectionConfig):
                 f" field of {self.__FIELD_VLAN} section for a VLAN based connection"
             )
 
-        self._parent_interface = InterfaceIdentifier(
-            vlan_parent_iface, links_hw_addresses_cache
-        )
+        self._parent_interface = InterfaceIdentifier(vlan_parent_iface, ip_links)
 
         # VLANs dependency is not the interface name, it's the parent iface
         self._depends_on = [self._parent_interface.iface_name]
@@ -502,7 +489,7 @@ class BridgeConnectionConfig(MainConnectionConfig):
     pass
 
 
-class _ConnectionConfigFactory:
+class ConnectionConfigFactory:
     __FIELD_TYPE = "type"
     __FIELD_TYPE_VAL_ETHERNET = "ethernet"
     __FIELD_TYPE_VAL_VLAN = "vlan"
@@ -519,8 +506,8 @@ class _ConnectionConfigFactory:
         __FIELD_TYPE_VAL_BRIDGE: BridgeConnectionConfig,
     }
 
-    def __init__(self, links_hw_addresses: typing.List[LinkData]):
-        self.__links_hw_addresses = links_hw_addresses
+    def __init__(self, ip_iface: ip_interface.IPInterface):
+        self.__ip_links = ip_iface.get_ip_links()
 
     def build_slave_connection(
         self,
@@ -542,7 +529,7 @@ class _ConnectionConfigFactory:
         return self.__SLAVES_CONFIG_TYPES_MAP[conn_type](
             conn_name=conn_name,
             raw_config=conn_config,
-            links_hw_addresses_cache=self.__links_hw_addresses,
+            ip_links=self.__ip_links,
             main_connection_config=main_connection_config,
         )
 
@@ -563,7 +550,7 @@ class _ConnectionConfigFactory:
         return self.__CONFIG_TYPES_MAP[conn_type](
             conn_name=conn_name,
             raw_config=conn_config,
-            links_hw_addresses_cache=self.__links_hw_addresses,
+            ip_links=self.__ip_links,
             connection_config_factory=self,
         )
 
@@ -572,34 +559,11 @@ class ConnectionsConfigurationHandler:
     def __init__(
         self,
         raw_config: typing.Dict[str, typing.Any],
-        runner_fn: module_command_utils.CommandRunnerFn,
+        connection_config_factory: ConnectionConfigFactory,
     ):
         self.__raw_config = raw_config
-        self.__runner_fn = runner_fn
+        self.__connection_config_factory = connection_config_factory
         self.__conn_configs: typing.List[MainConnectionConfig] = []
-        self.__links_hw_addresses = self.__fetch_links_hw_addresses()
-        self.__connection_config_factory = _ConnectionConfigFactory(
-            self.__links_hw_addresses
-        )
-
-    def __fetch_links_hw_addresses(self) -> typing.List[LinkData]:
-        result = self.__runner_fn(["ip", "-detail", "-j", "link"], check=True)
-        links_hw_addresses = []
-        for link_data in json.loads(result.stdout):
-            if_name = link_data.get("ifname", None)
-            # Interfaces link VLANs uses the link field
-            # to point to it's parent
-            if_link = link_data.get("link", None)
-            address = link_data.get("address", None)
-            link_type = link_data.get("linkinfo", {}).get("info_kind", None)
-            if if_name and address:
-                links_hw_addresses.append(
-                    LinkData(
-                        if_name, address.lower(), link=if_link, link_type=link_type
-                    )
-                )
-
-        return links_hw_addresses
 
     def parse(self):
         if not isinstance(self.__raw_config, dict):

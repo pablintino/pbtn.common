@@ -4,6 +4,7 @@ import typing
 import pytest
 
 from ansible_collections.pablintino.base_infra.plugins.module_utils import (
+    ip_interface,
     nmcli_interface_config,
 )
 
@@ -41,16 +42,16 @@ def __build_config_helper(
     config_class: type,
     raw_config: typing.Dict[str, typing.Any],
     conn_name: str = "test-conn",
-    links_hw_addresses_cache: typing.List[nmcli_interface_config.LinkData] = None,
+    ip_links: typing.List[ip_interface.IPLinkData] = None,
 ) -> typing.Tuple[
     nmcli_interface_config.MainConnectionConfig,
-    nmcli_interface_config._ConnectionConfigFactory,
+    nmcli_interface_config.ConnectionConfigFactory,
 ]:
     connection_config_factory_mock = mocker.Mock()
     config_instance = config_class(
         conn_name=conn_name,
         raw_config=raw_config,
-        links_hw_addresses_cache=links_hw_addresses_cache or [],
+        ip_links=ip_links or [],
         connection_config_factory=connection_config_factory_mock,
     )
     assert config_instance
@@ -278,3 +279,29 @@ def test_nmcli_interface_single_vlan_static_ipv4_ok(mocker):
         nmcli_interface_config.VlanConnectionConfig,
         mocker,
     )
+
+
+@pytest.mark.parametrize(
+    "target_mac,links_file,expected_iface",
+    [
+        ("52:54:00:e6:f8:db", "ethernet_only_links", "eth1"),
+        ("d2:55:ee:86:11:24", "vlan_cloned_mac_links", "eth2"),
+        ("d2:55:ee:86:11:26", "vlan_bridge_cloned_mac_links", "eth2"),
+    ],
+)
+def test_nmcli_interface_interface_identifier_mac_ok(
+    test_file_manager, target_mac, links_file, expected_iface
+):
+    ip_links = [
+        ip_interface.IPLinkData(data)
+        for data in test_file_manager.get_file_yaml_content(f"{links_file}.json")
+    ]
+    for _ in range(len(ip_links)):
+        iface_identifier = nmcli_interface_config.InterfaceIdentifier(
+            target_mac, ip_links
+        )
+        assert iface_identifier
+        assert iface_identifier.iface_name == expected_iface
+
+        # Shift the list to ensure the order is not relevant
+        ip_links.append(ip_links.pop(0))
