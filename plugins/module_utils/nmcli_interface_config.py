@@ -359,7 +359,7 @@ class MainConnectionConfig(BaseConnectionConfig):
     def slaves(self) -> typing.List["SlaveConnectionConfig"]:
         return self._slaves_config
 
-    def __parse_config(self, connection_config_factory: "_ConnectionConfigFactory"):
+    def __parse_config(self, connection_config_factory: "ConnectionConfigFactory"):
         ipv4_data = self._raw_config.get(self.__FIELD_IPV4, None)
         if ipv4_data:
             self._ipv4 = IPv4Config(ipv4_data)

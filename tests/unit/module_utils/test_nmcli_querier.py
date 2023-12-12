@@ -11,6 +11,7 @@ from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_util
     MockCall,
 )
 
+# TODO: Add a test for each used field (nmcli_constants)
 __MANDATORY_FIELDS_AND_TYPES = {
     "general.name": str,
     "general.state": str,
