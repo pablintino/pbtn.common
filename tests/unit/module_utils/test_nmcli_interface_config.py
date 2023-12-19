@@ -8,6 +8,7 @@ import pytest
 from ansible_collections.pablintino.base_infra.plugins.module_utils import (
     ip_interface,
     nmcli_interface_config,
+    nmcli_interface_utils,
 )
 
 from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_utils import (
@@ -74,7 +75,25 @@ def __build_parameters_matrix():
     ]
 
 
+def __build_handler_sorting_matrix():
+    test_config_1 = pytest.param(
+        {
+            "conn-1": {
+                "type": "vlan",
+                "iface": "eth0.20",
+                "vlan": {"id": 20, "parent": "eth0"},
+            },
+            "conn-2": {"type": "ethernet", "iface": "eth0"},
+            "conn-3": {"type": "ethernet", "iface": "eth1"},
+        },
+        ("conn-2", "conn-1"),
+        id="basic-vlan-sorting",
+    )
+    return [test_config_1]
+
+
 __TEST_IPV4_PARAMETERS_MATRIX = __build_parameters_matrix()
+__TEST_CONNECTIONS_HANDLER_CONFIG_SORTING_MATRIX = __build_handler_sorting_matrix()
 
 __CONFIG_TYPES = {
     "ethernet": nmcli_interface_config.EthernetConnectionConfig,
@@ -115,9 +134,43 @@ def __build_config_helper(
     return config_instance
 
 
-def __validate_connection_data_iface_dependencies(config_instance, raw_config):
-    target_iface = raw_config["iface"]
+def __validate_connection_is_after_connection(
+    connections_list: typing.List[nmcli_interface_config.BaseConnectionConfig],
+    fist_connection: str,
+    second_connection: str,
+):
+    conn_1 = next(
+        (conn for conn in connections_list if conn.name == fist_connection), None
+    )
+    assert conn_1
+    conn_2 = next(
+        (conn for conn in connections_list if conn.name == second_connection), None
+    )
+    assert conn_2
+    assert connections_list.index(conn_2) > connections_list.index(conn_1)
 
+
+def __validate_util_generate_all_conn_dict_combinations(raw_conns_config):
+    config_dicts = []
+    for conn_names in itertools.permutations(
+        raw_conns_config.keys(), len(raw_conns_config.keys())
+    ):
+        config_dicts.append(
+            {conn_name: raw_conns_config[conn_name] for conn_name in conn_names}
+        )
+
+    return config_dicts
+
+
+def __validate_util_get_target_iface(raw_config):
+    target_iface = raw_config["iface"]
+    if nmcli_interface_utils.is_mac_addr(target_iface):
+        assert target_iface in config_stub_data.TEST_IP_LINK_MAC_TO_IFACE_TABLE
+        return config_stub_data.TEST_IP_LINK_MAC_TO_IFACE_TABLE[target_iface]
+    return target_iface
+
+
+def __validate_connection_data_iface_dependencies(config_instance, raw_config):
     # Ensure depends-on is properly filled
     if isinstance(
         config_instance, nmcli_interface_config.VlanConnectionConfig
@@ -136,18 +189,23 @@ def __validate_connection_data_iface_dependencies(config_instance, raw_config):
     ):
         # Plain basic interfaces like ethernet points to themselves
         # as the only dependency
-        assert config_instance.depends_on == [target_iface]
+        assert config_instance.depends_on == [
+            __validate_util_get_target_iface(raw_config)
+        ]
     else:
         pytest.fail("Unexpected connection config type")
 
 
-def __validate_connection_data_iface(config_instance, raw_config):
-    target_iface = raw_config.get("iface", None)
-    if target_iface:
+def __validate_connection_data_iface(
+    config_instance, raw_config, ip_links: typing.List[ip_interface.IPLinkData] = None
+):
+    target_raw_iface = raw_config.get("iface", None)
+    if target_raw_iface:
         assert isinstance(
             config_instance.interface, nmcli_interface_config.InterfaceIdentifier
         )
-        assert target_iface == config_instance.interface.iface_name
+        target_iface = __validate_util_get_target_iface(raw_config)
+        assert config_instance.interface.iface_name == target_iface
 
         __validate_connection_data_iface_dependencies(config_instance, raw_config)
 
@@ -197,6 +255,14 @@ def __validate_connection_data_ipv4(config_instance, raw_config):
     __validate_connection_data_ipv4_routes(config_instance, ipv4_target_data)
 
 
+def __validate_connection_data_startup(
+    config_instance: nmcli_interface_config.BaseConnectionConfig, raw_config
+):
+    target_startup = raw_config.get("startup", None)
+    assert isinstance(config_instance.startup, (bool, type(None)))
+    assert config_instance.startup == target_startup
+
+
 def __validate_connection_data_state(config_instance, raw_config):
     target_state = raw_config.get("state", None)
     assert config_instance.state == target_state
@@ -235,7 +301,26 @@ def __validate_connection_data_slaves(config_instance, raw_config):
         assert isinstance(slave_config, nmcli_interface_config.SlaveConnectionConfig)
         __validate_connection_data_slave_type(slave_config, target_slave_config)
         __validate_connection_data_state(slave_config, target_slave_config)
+        __validate_connection_data_startup(slave_config, target_slave_config)
         __validate_connection_data_iface(slave_config, target_slave_config)
+        __validate_connection_data_vlan(slave_config, target_slave_config)
+
+
+def __validate_connection_data_vlan(
+    config_instance: nmcli_interface_config.BaseConnectionConfig, raw_config
+):
+    vlan_target_data = raw_config.get("vlan", {})
+    if raw_config["type"] == "vlan" and vlan_target_data:
+        assert isinstance(
+            config_instance, nmcli_interface_config.VlanConnectionConfigMixin
+        )
+        assert config_instance.vlan_id == int(vlan_target_data.get("id", None))
+        assert isinstance(
+            config_instance.parent_interface, nmcli_interface_config.InterfaceIdentifier
+        )
+        assert config_instance.parent_interface.iface_name == vlan_target_data.get(
+            "parent", None
+        )
 
 
 def __test_config_add_dns4(raw_config: typing.Dict[str, typing.Any]):
@@ -319,18 +404,24 @@ def __test_validate_nmcli_valid_configs(
     conn_configs: typing.Iterable[typing.Dict[str, typing.Any]],
     config_type: type,
     connection_config_factory: nmcli_interface_config.ConnectionConfigFactory,
+    ip_links: typing.List[ip_interface.IPLinkData] = None,
 ):
     for conn_config in conn_configs:
         config_instance = __build_config_helper(
             config_type,
             conn_config,
             connection_config_factory,
+            ip_links=ip_links,
         )
-        __validate_connection_data_iface(config_instance, conn_config)
+        __validate_connection_data_iface(
+            config_instance, conn_config, ip_links=ip_links
+        )
         __validate_connection_data_type(config_instance, conn_config)
         __validate_connection_data_state(config_instance, conn_config)
+        __validate_connection_data_startup(config_instance, conn_config)
         __validate_connection_data_ipv4(config_instance, conn_config)
         __validate_connection_data_slaves(config_instance, conn_config)
+        __validate_connection_data_vlan(config_instance, conn_config)
 
 
 @pytest.mark.parametrize(
@@ -346,12 +437,17 @@ def test_nmcli_interface_config_single_ethernet_ipv4_ok(
     }
     __test_config_set_param_fields(raw_config_manual, test_parameters)
 
+    raw_config_manual_by_mac = {
+        "type": "ethernet",
+        "iface": config_stub_data.TEST_IP_LINK_ETHER_1_MAC,
+    }
+    __test_config_set_param_fields(raw_config_manual_by_mac, test_parameters)
+
     __test_validate_nmcli_valid_configs(
-        [
-            raw_config_manual,
-        ],
+        [raw_config_manual, raw_config_manual_by_mac],
         nmcli_interface_config.EthernetConnectionConfig,
         mocker.Mock(),
+        ip_links=config_stub_data.TEST_IP_LINKS,
     )
 
 
@@ -524,3 +620,26 @@ def test_nmcli_interface_config_interface_identifier_mac_ok(
 
         # Shift the list to ensure the order is not relevant
         ip_links.append(ip_links.pop(0))
+
+
+@pytest.mark.parametrize(
+    "test_config,test_validation_tuple",
+    __TEST_CONNECTIONS_HANDLER_CONFIG_SORTING_MATRIX,
+)
+def test_connection_config_handler_ok(
+    mocker,
+    test_config: typing.Dict[str, typing.Any],
+    test_validation_tuple: typing.Tuple[str, str],
+):
+    all_configs_combinations = __validate_util_generate_all_conn_dict_combinations(
+        test_config
+    )
+    for conn_configs in all_configs_combinations:
+        handler = nmcli_interface_config.ConnectionsConfigurationHandler(
+            conn_configs, __build_testing_config_factory(mocker)
+        )
+        assert handler
+        handler.parse()
+        __validate_connection_is_after_connection(
+            handler.connections, test_validation_tuple[0], test_validation_tuple[1]
+        )

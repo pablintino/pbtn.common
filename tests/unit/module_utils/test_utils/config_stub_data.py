@@ -27,24 +27,33 @@ TEST_ROUTE_2_IP4 = {
 }
 TEST_ROUTES_IP4 = [TEST_ROUTE_1_IP4, TEST_ROUTE_2_IP4]
 
-TEST_IP_LINK_ETHER_1 = ip_interface.IPLinkData(
+TEST_IP_LINK_ETHER_0_MAC = "52:54:00:ab:80:ee"
+TEST_IP_LINK_ETHER_0 = ip_interface.IPLinkData(
     {
         "ifname": "eth0",
-        "address": "52:54:00:ab:80:ee",
+        "address": TEST_IP_LINK_ETHER_0_MAC,
     }
 )
-TEST_IP_LINK_ETHER_2 = ip_interface.IPLinkData(
+
+TEST_IP_LINK_ETHER_1_MAC = "52:54:00:e6:f8:db"
+TEST_IP_LINK_ETHER_1 = ip_interface.IPLinkData(
     {
         "ifname": "eth1",
-        "address": "52:54:00:e6:f8:db",
+        "address": TEST_IP_LINK_ETHER_1_MAC,
     }
 )
-TEST_IP_LINK_ETHER_3 = ip_interface.IPLinkData(
+
+TEST_IP_LINK_ETHER_2_MAC = "d2:55:ee:86:11:24"
+TEST_IP_LINK_ETHER_2 = ip_interface.IPLinkData(
     {
         "ifname": "eth2",
-        "address": "d2:55:ee:86:11:24",
+        "address": TEST_IP_LINK_ETHER_2_MAC,
     }
 )
 
-
-TEST_IP_LINKS = [TEST_IP_LINK_ETHER_1, TEST_IP_LINK_ETHER_2, TEST_IP_LINK_ETHER_3]
+TEST_IP_LINK_MAC_TO_IFACE_TABLE = {
+    TEST_IP_LINK_ETHER_0_MAC: TEST_IP_LINK_ETHER_0["ifname"],
+    TEST_IP_LINK_ETHER_1_MAC: TEST_IP_LINK_ETHER_1["ifname"],
+    TEST_IP_LINK_ETHER_2_MAC: TEST_IP_LINK_ETHER_2["ifname"],
+}
+TEST_IP_LINKS = [TEST_IP_LINK_ETHER_0, TEST_IP_LINK_ETHER_1, TEST_IP_LINK_ETHER_2]

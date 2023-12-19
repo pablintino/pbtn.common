@@ -13,14 +13,6 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils import (
     nmcli_interface_utils,
 )
 
-ValidateConnectionConfigurationFnType = typing.Callable[
-    [
-        str,
-        typing.Dict[str, typing.Any],
-    ],
-    None,
-]
-
 
 class NmcliLinkResolutionException(nmcli_interface_exceptions.NmcliInterfaceException):
     def __init__(
