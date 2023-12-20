@@ -78,6 +78,8 @@ def __build_parameters_matrix():
 def __build_handler_sorting_matrix():
     test_config_1 = pytest.param(
         {
+            "conn-5": {"type": "bridge"},
+            "conn-0": {"type": "ethernet", "iface": "eth3"},
             "conn-1": {
                 "type": "vlan",
                 "iface": "eth0.20",
@@ -86,7 +88,7 @@ def __build_handler_sorting_matrix():
             "conn-2": {"type": "ethernet", "iface": "eth0"},
             "conn-3": {"type": "ethernet", "iface": "eth1"},
         },
-        ("conn-2", "conn-1"),
+        [("conn-2", "conn-1"), ("conn-1", "conn-5")],
         id="basic-vlan-sorting",
     )
     return [test_config_1]
@@ -623,13 +625,13 @@ def test_nmcli_interface_config_interface_identifier_mac_ok(
 
 
 @pytest.mark.parametrize(
-    "test_config,test_validation_tuple",
+    "test_config,test_validation_tuples",
     __TEST_CONNECTIONS_HANDLER_CONFIG_SORTING_MATRIX,
 )
 def test_connection_config_handler_ok(
     mocker,
     test_config: typing.Dict[str, typing.Any],
-    test_validation_tuple: typing.Tuple[str, str],
+    test_validation_tuples: typing.List[typing.Tuple[str, str]],
 ):
     all_configs_combinations = __validate_util_generate_all_conn_dict_combinations(
         test_config
@@ -640,6 +642,7 @@ def test_connection_config_handler_ok(
         )
         assert handler
         handler.parse()
-        __validate_connection_is_after_connection(
-            handler.connections, test_validation_tuple[0], test_validation_tuple[1]
-        )
+        for validation_tuple in test_validation_tuples:
+            __validate_connection_is_after_connection(
+                handler.connections, validation_tuple[0], validation_tuple[1]
+            )

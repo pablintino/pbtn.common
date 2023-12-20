@@ -370,6 +370,15 @@ class MainConnectionConfig(BaseConnectionConfig):
             # Add child connection's interfaces as related to the main connection
             self._related_interfaces.update(slave_config.related_interfaces)
 
+            # Slave dependencies are always dependencies of it's master
+            self._depends_on.extend(
+                [
+                    slave_dep
+                    for slave_dep in slave_config.depends_on
+                    if slave_dep not in self._depends_on
+                ]
+            )
+
 
 class SlaveConnectionConfig(BaseConnectionConfig):
     def __init__(self, **kwargs):
