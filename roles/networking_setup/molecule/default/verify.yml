@@ -55,9 +55,11 @@
         that:
           - "connection_data.state == 'activated'"
           - "connection_data.connection_type == '802-3-ethernet'"
-          - "connection_data.ipv4_method == 'auto'"
+          - "connection_data.ipv4_method == 'manual'"
           - "connection_data.ipv6_method == 'disabled'"
+          - "connection_data.ipv4_never_default == 'no'"
           - "(connection_data.ip4_address_1 | ansible.utils.ipaddr) != false"
+          - "(connection_data.ip4_gateway | ansible.utils.ipaddr) != false"
           - "(connection_data.ip4_dns_1 | ansible.utils.ipaddr) != false"
         quiet: true
 
@@ -75,11 +77,12 @@
           - "connection_data.ipv6_method == 'disabled'"
           - "(connection_data.ip4_address_1 | ansible.utils.ipaddr) != false"
           - "connection_data.ip4_address_1 == '10.177.21.40/24'"
-          - "connection_data.ipv4_addresses == connection_data.ip4_address_1"
-          - "connection_data.ipv4_gateway == '10.177.21.41'"
           - "connection_data.ip4_gateway == connection_data.ipv4_gateway"
+          - "connection_data.ip4_gateway == None"
+          - "connection_data.ipv4_addresses == connection_data.ip4_address_1"
           - "connection_data.ipv4_dns == '8.8.8.8'"
           - "connection_data.ip4_dns_1 == connection_data.ipv4_dns"
+          - "connection_data.ipv4_never_default == 'yes'"
         quiet: true
 
     - name: Basic  assertions for the external connection
@@ -112,6 +115,8 @@
           - "connection_data.ipv6_method == 'disabled'"
           - "(connection_data.ip4_address_1 | ansible.utils.ipaddr) != false"
           - "connection_data.ipv4_addresses == None"
+          - "connection_data.ipv4_gateway == None"
+          - "connection_data.ip4_gateway == connection_data.ipv4_gateway"
           - "connection_data.ipv4_dns == '1.1.1.1'"
           - "connection_data.ipv4_dns in dns_nameservers"
           # Ensure DHCP routes to the net and 0.0.0.0 are added

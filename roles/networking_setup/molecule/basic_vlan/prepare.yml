@@ -40,6 +40,7 @@
             state: up
             ipv4:
               mode: auto
+              disable-default-route: true
           internal-20:
             type: vlan
             iface: "{{ custom_net_ifaces_facts[0].device }}.20"
@@ -49,6 +50,7 @@
               ip: 10.177.20.40/24
               dns:
                 - 8.8.8.8
+              disable-default-route: true
             vlan:
               id: 20
               parent: "{{ custom_net_ifaces_facts[0].device }}"
@@ -65,6 +67,7 @@
                   metric: 100
               dns:
                 - 1.1.1.1
+              disable-default-route: true
             vlan:
               id: 100
               parent: "{{ custom_net_ifaces_facts[1].macaddress }}"

@@ -2,7 +2,7 @@ profiles:
   local:
     molecule-timeout: 300
     molecules-timeouts:
-        networking_setup: 1200
+        networking_setup: 3600
     default-driver: vagrant
     pinned-roles:
       podman:

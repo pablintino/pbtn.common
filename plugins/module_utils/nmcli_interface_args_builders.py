@@ -99,17 +99,16 @@ class CommonConnectionArgsBuilder(BaseBuilder):
         conn_config: nmcli_interface_config.BaseConnectionConfig,
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
     ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
-        target_value = "yes" if conn_config.startup else "no"
-        if conn_config.startup and (
+        if conn_config.startup is not None and (
             (not current_connection)
             or current_connection.get(
                 nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_AUTOCONNECT, None
             )
-            != target_value
+            != conn_config.startup
         ):
             return (
                 nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_AUTOCONNECT,
-                target_value,
+                "yes" if conn_config.startup else "no",
             )
 
         return None, None
@@ -235,6 +234,48 @@ class IPv4ConnectionArgsBuilder(BaseBuilder):
                     nmcli_constants.NMCLI_CONN_FIELD_IPV4_ADDRESSES,
                     target_ip_str,
                 )
+
+        return None, None
+
+    @classmethod
+    def __build_ip4_default_route_disable(
+        cls,
+        conn_config: nmcli_interface_config.MainConnectionConfig,
+        current_connection: typing.Union[typing.Dict[str, typing.Any], None],
+    ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
+        target_method, method_change = cls.__get_ipv4_target_method(
+            conn_config.ipv4, current_connection
+        )
+
+        # If IPv4 addressing is going to be disabled, set IPv4 default route
+        # generation to the empty default
+        # This property only makes sense for DHCP or static.
+        # Disable it for the remaining modes
+        if method_change and (
+            target_method
+            not in [
+                nmcli_constants.NMCLI_CONN_FIELD_IPV4_METHOD_VAL_MANUAL,
+                nmcli_constants.NMCLI_CONN_FIELD_IPV4_METHOD_VAL_AUTO,
+            ]
+        ):
+            return nmcli_constants.NMCLI_CONN_FIELD_IPV4_NEVER_DEFAULT, ""
+
+        current_setting = (
+            current_connection.get(
+                nmcli_constants.NMCLI_CONN_FIELD_IPV4_NEVER_DEFAULT, None
+            )
+            if current_connection
+            else None
+        )
+
+        if conn_config.ipv4.disable_default_route is not None and (
+            not current_connection
+            or current_setting != conn_config.ipv4.disable_default_route
+        ):
+            return (
+                nmcli_constants.NMCLI_CONN_FIELD_IPV4_NEVER_DEFAULT,
+                "yes" if conn_config.ipv4.disable_default_route else "no",
+            )
 
         return None, None
 
@@ -372,6 +413,7 @@ class IPv4ConnectionArgsBuilder(BaseBuilder):
             self.__build_ip4_gw(conn_config, current_connection),
             self.__build_ip4_dns(conn_config, current_connection),
             self.__build_ip4_routes(conn_config, current_connection),
+            self.__build_ip4_default_route_disable(conn_config, current_connection),
         ]
 
 

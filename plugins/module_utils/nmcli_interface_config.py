@@ -44,6 +44,7 @@ class IPv4Config:
     __FIELD_IPV4_IP = "ip"
     __FIELD_IPV4_GW = "gw"
     __FIELD_IPV4_NS = "dns"
+    __FIELD_IPV4_DISABLE_DEFAULT_ROUTE = "disable-default-route"
     __FIELD_IPV4_ROUTES = "routes"
     __FIELD_IPV4_ROUTE_DST = "dst"
     __FIELD_IPV4_ROUTE_GW = "gw"
@@ -62,6 +63,7 @@ class IPv4Config:
         self.__gw: typing.Union[ipaddress.IPv4Interface, None] = None
         self.__dns: typing.List[ipaddress.IPv4Address] = []
         self.__routes: typing.List[IPv4RouteConfig] = []
+        self.__disable_default_route: bool = False
         self.__parse_config()
 
     @property
@@ -83,6 +85,10 @@ class IPv4Config:
     @property
     def routes(self) -> typing.List[IPv4RouteConfig]:
         return self.__routes
+
+    @property
+    def disable_default_route(self) -> bool:
+        return self.__disable_default_route
 
     def __parse_config(self):
         if self.__FIELD_IPV4_MODE not in self.__raw_config:
@@ -129,6 +135,15 @@ class IPv4Config:
             self.__dns.append(
                 nmcli_interface_utils.parse_validate_ipv4_addr(nameserver)
             )
+
+        disable_default_route = self.__raw_config.get(
+            self.__FIELD_IPV4_DISABLE_DEFAULT_ROUTE, False
+        )
+        if not isinstance(disable_default_route, bool):
+            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
+                f"{self.__FIELD_IPV4_DISABLE_DEFAULT_ROUTE} is not a proper boolean value"
+            )
+        self.__disable_default_route = disable_default_route
 
         self.__parse_routes_config()
 

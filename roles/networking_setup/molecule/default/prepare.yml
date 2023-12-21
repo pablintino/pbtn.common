@@ -8,32 +8,38 @@
         # Do not trust ansible_facts to determine the ssh config as
         # it varies in consecutive runs as interfaces/conns are added
         mngt_ip_addr: "{{ (ansible_env.SSH_CONNECTION | split(' '))[2]}}"
-        ssh_connection_iface: >-
-            {{
-                (
-                  hostvars[inventory_hostname].values() |
-                  selectattr('macaddress', 'defined') |
-                  selectattr('device', 'defined') |
-                  selectattr('ipv4.address', 'defined') |
-                  selectattr('ipv4.address', 'equalto', mngt_ip_addr) |
-                  first
-                ).device
-            }}
+        ssh_connection: >-
+          {{
+              hostvars[inventory_hostname].values() |
+              selectattr('macaddress', 'defined') |
+              selectattr('device', 'defined') |
+              selectattr('ipv4.address', 'defined') |
+              selectattr('ipv4.address', 'equalto', mngt_ip_addr) |
+              first
+          }}
         custom_net_ifaces_facts: >-
           {{
             hostvars[inventory_hostname].values() |
             selectattr('macaddress', 'defined') |
             selectattr('device', 'defined') |
-            rejectattr('device', 'equalto', ssh_connection_iface) |
+            rejectattr('device', 'equalto', ssh_connection.device) |
             rejectattr('device', 'equalto', "lo")
           }}
         module_connections_config:
           molecule:
             type: ethernet
-            iface: "{{ ssh_connection_iface }}"
+            iface: "{{ ssh_connection.device }}"
             state: up
             ipv4:
-              mode: auto
+              # Test manual GW here since testing in molecule with a GW in the rest of
+              # the connections means adding a default route that breaks idempotence
+              # as the next run won't be able to pull packages as internet connection
+              # is lost due those wrong default connections
+              mode: manual
+              ip: "{{ ssh_connection.ipv4.address }}/{{ ssh_connection.ipv4.prefix }}"
+              gw: "{{ ssh_connection.ipv4.network | ansible.utils.ipmath(1) }}"
+              dns:
+                - "{{ ssh_connection.ipv4.network | ansible.utils.ipmath(1) }}"
           internal:
             type: ethernet
             iface: "{{ custom_net_ifaces_facts[0].macaddress }}"
@@ -41,9 +47,9 @@
             ipv4:
               mode: manual
               ip: 10.177.21.40/24
-              gw: 10.177.21.41
               dns:
                 - 8.8.8.8
+              disable-default-route: true
           external:
             type: ethernet
             iface: "{{ custom_net_ifaces_facts[1].device }}"
@@ -56,13 +62,14 @@
                 - dst: 10.111.111.0/24
                   gw: 10.177.100.100
                   metric: 100
+              disable-default-route: true
         content:
           pbi_tst_nstp_ifaces:
             internal: "{{ custom_net_ifaces_facts[0].device }}"
             external: "{{ custom_net_ifaces_facts[1].device }}"
-            molecule: "{{  ssh_connection_iface }}"
+            molecule: "{{  ssh_connection.device }}"
           pbi_tst_nstp_connections_config: "{{ module_connections_config }}"
-          pbi_tst_nstp_ssh_interface: "{{ ssh_connection_iface }}"
+          pbi_tst_nstp_ssh_interface: "{{ ssh_connection.device }}"
 
       ansible.builtin.copy:
         content: "{{ content | to_nice_yaml }}"

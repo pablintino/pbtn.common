@@ -79,7 +79,7 @@
           - "(connection_data.ip4_address_1 | ansible.utils.ipaddr) != false"
           - "connection_data.ip4_address_1 == '10.197.197.40/24'"
           - "connection_data.ipv4_addresses == connection_data.ip4_address_1"
-          - "connection_data.ip4_gateway == '10.197.197.41'"
+          - "connection_data.ip4_gateway == None"
           - "connection_data.ipv4_gateway == connection_data.ip4_gateway"
           - "connection_data.ipv4_dns == '1.1.1.1,8.8.8.8'"
           - "connection_data.ip4_dns_1 == connection_data.ipv4_dns | split(',') | first"

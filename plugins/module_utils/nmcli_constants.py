@@ -48,6 +48,7 @@ NMCLI_CONN_FIELD_IPV4_ADDRESSES = "ipv4.addresses"
 NMCLI_CONN_FIELD_IPV4_GATEWAY = "ipv4.gateway"
 NMCLI_CONN_FIELD_IPV4_DNS = "ipv4.dns"
 NMCLI_CONN_FIELD_IPV4_ROUTES = "ipv4.routes"
+NMCLI_CONN_FIELD_IPV4_NEVER_DEFAULT = "ipv4.never-default"
 
 
 # NMCLI Connection IPv6 section fields

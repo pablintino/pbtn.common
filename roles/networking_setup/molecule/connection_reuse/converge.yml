@@ -59,6 +59,7 @@
               ether-conn-2:
                 type: ethernet
                 iface: "{{ custom_net_ifaces_facts[0].device }}"
+                disable-default-route: true
       ansible.builtin.include_role:
         name: "pablintino.base_infra.networking_setup"
 
@@ -144,6 +145,7 @@
             state: up
             ipv4:
               mode: auto
+              disable-default-route: true
             slaves:
               vlan-conn-2:
                 type: vlan
