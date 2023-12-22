@@ -241,7 +241,7 @@ def __validate_connection_data_ipv4(config_instance, raw_config):
     if not ipv4_target_data:
         return
 
-    assert isinstance(config_instance.ipv4, nmcli_interface_config.IPv4Config)
+    assert isinstance(config_instance.ipv4, nmcli_interface_config.IPConfig)
     assert ipv4_target_data["mode"] == config_instance.ipv4.mode
     if ipv4_target_data["mode"] == "manual":
         assert config_instance.ipv4.ip == ipaddress.ip_interface(ipv4_target_data["ip"])

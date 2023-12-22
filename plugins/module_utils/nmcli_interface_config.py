@@ -2,7 +2,6 @@ from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
-import dataclasses
 import ipaddress
 import re
 import typing
@@ -12,6 +11,10 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils import (
     nmcli_interface_exceptions,
     nmcli_interface_utils,
 )
+
+TAdd = typing.TypeVar("TAdd")
+TInt = typing.TypeVar("TInt")
+TNet = typing.TypeVar("TNet")
 
 
 class NmcliLinkResolutionException(nmcli_interface_exceptions.NmcliInterfaceException):
@@ -29,41 +32,92 @@ class NmcliLinkResolutionException(nmcli_interface_exceptions.NmcliInterfaceExce
         return res
 
 
-@dataclasses.dataclass
-class IPv4RouteConfig:
-    dst: ipaddress.IPv4Network
-    gw: ipaddress.IPv4Address
-    metric: int = None
+class IPRouteConfig(typing.Generic[TAdd, TNet]):
+    __FIELD_IP_ROUTE_DST = "dst"
+    __FIELD_IP_ROUTE_GW = "gw"
+    __FIELD_IP_ROUTE_METRIC = "metric"
+
+    def __init__(self, raw_config: typing.Dict[str, typing.Any], version: int):
+        self.__dst = None
+        self.__gw = None
+        self.__metric = None
+        self.__version = version
+        self.__parse_config(raw_config)
+
+    @property
+    def dst(self) -> TNet:
+        return self.__dst
+
+    @property
+    def gw(self) -> TAdd:
+        return self.__gw
+
+    @property
+    def metric(self) -> int:
+        return self.__metric
+
+    def __parse_config(self, raw_config: typing.Dict[str, typing.Any]):
+        if not isinstance(raw_config, dict):
+            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
+                f"A route entry should be a dictionary"
+            )
+
+        dst_str = raw_config.get(self.__FIELD_IP_ROUTE_DST, None)
+        if not dst_str:
+            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
+                f"{self.__FIELD_IP_ROUTE_DST} is a "
+                f"mandatory field for a IPv{self.__version} route"
+            )
+        self.__dst = nmcli_interface_utils.parse_validate_ip_net(
+            dst_str, self.__version
+        )
+        gw_str = raw_config.get(self.__FIELD_IP_ROUTE_GW, None)
+        if not gw_str:
+            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
+                f"{self.__FIELD_IP_ROUTE_GW} is a "
+                f"mandatory field for a IPv{self.__version} route"
+            )
+        self.__gw = nmcli_interface_utils.parse_validate_ip_addr(gw_str, self.__version)
+        metric_raw = raw_config.get(self.__FIELD_IP_ROUTE_METRIC, None)
+        if metric_raw:
+            try:
+                self.__metric = int(metric_raw)
+                if self.__metric < 1:
+                    raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
+                        f"{self.__FIELD_IP_ROUTE_METRIC} must be a positive number"
+                    )
+            except ValueError as err:
+                raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
+                    f"{self.__FIELD_IP_ROUTE_METRIC} must be a number"
+                ) from err
 
 
-class IPv4Config:
-    FIELD_IPV4_MODE_VAL_AUTO = "auto"
-    FIELD_IPV4_MODE_VAL_DISABLED = "disabled"
-    FIELD_IPV4_MODE_VAL_MANUAL = "manual"
+class IPConfig(typing.Generic[TAdd, TNet, TInt]):
+    FIELD_IP_MODE_VAL_AUTO = "auto"
+    FIELD_IP_MODE_VAL_DISABLED = "disabled"
+    FIELD_IP_MODE_VAL_MANUAL = "manual"
 
-    __FIELD_IPV4_IP = "ip"
-    __FIELD_IPV4_GW = "gw"
-    __FIELD_IPV4_NS = "dns"
-    __FIELD_IPV4_DISABLE_DEFAULT_ROUTE = "disable-default-route"
-    __FIELD_IPV4_ROUTES = "routes"
-    __FIELD_IPV4_ROUTE_DST = "dst"
-    __FIELD_IPV4_ROUTE_GW = "gw"
-    __FIELD_IPV4_ROUTE_METRIC = "metric"
+    __FIELD_IP_IP = "ip"
+    __FIELD_IP_GW = "gw"
+    __FIELD_IP_NS = "dns"
+    __FIELD_IP_DISABLE_DEFAULT_ROUTE = "disable-default-route"
+    __FIELD_IP_ROUTES = "routes"
 
-    __FIELD_IPV4_MODE = "mode"
-    __FIELD_IPV4_VALS = [
-        FIELD_IPV4_MODE_VAL_AUTO,
-        FIELD_IPV4_MODE_VAL_MANUAL,
+    __FIELD_IP_MODE = "mode"
+    __FIELD_IP_VALS = [
+        FIELD_IP_MODE_VAL_AUTO,
+        FIELD_IP_MODE_VAL_MANUAL,
     ]
 
-    def __init__(self, raw_config: typing.Dict[str, typing.Any]):
+    def __init__(self, raw_config: typing.Dict[str, typing.Any], version: int):
         self.__raw_config = raw_config
         self.__mode = None
-        self.__ip: typing.Union[ipaddress.IPv4Interface, None] = None
-        self.__gw: typing.Union[ipaddress.IPv4Interface, None] = None
-        self.__dns: typing.List[ipaddress.IPv4Address] = []
-        self.__routes: typing.List[IPv4RouteConfig] = []
+        self.__ip: typing.Optional[TInt] = None
+        self.__gw: typing.Optional[TAdd] = None
+        self.__dns: typing.List[TAdd] = []
+        self.__routes: typing.List[IPRouteConfig[TAdd, TNet]] = []
         self.__disable_default_route: bool = False
+        self.__version = version
         self.__parse_config()
 
     @property
@@ -71,19 +125,19 @@ class IPv4Config:
         return self.__mode
 
     @property
-    def ip(self) -> typing.Union[ipaddress.IPv4Interface, None]:
+    def ip(self) -> typing.Optional[TInt]:
         return self.__ip
 
     @property
-    def gw(self) -> typing.Union[ipaddress.IPv4Interface, None]:
+    def gw(self) -> typing.Optional[TAdd]:
         return self.__gw
 
     @property
-    def dns(self) -> typing.List[ipaddress.IPv4Address]:
+    def dns(self) -> typing.List[TAdd]:
         return self.__dns
 
     @property
-    def routes(self) -> typing.List[IPv4RouteConfig]:
+    def routes(self) -> typing.List[IPRouteConfig[TAdd, TNet]]:
         return self.__routes
 
     @property
@@ -91,104 +145,76 @@ class IPv4Config:
         return self.__disable_default_route
 
     def __parse_config(self):
-        if self.__FIELD_IPV4_MODE not in self.__raw_config:
+        if self.__FIELD_IP_MODE not in self.__raw_config:
             raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                f"{self.__FIELD_IPV4_MODE} is a" " mandatory field for a connection"
+                f"{self.__FIELD_IP_MODE} is a" " mandatory field for a connection"
             )
-        mode = self.__raw_config[self.__FIELD_IPV4_MODE]
-        if mode not in self.__FIELD_IPV4_VALS:
+        mode = self.__raw_config[self.__FIELD_IP_MODE]
+        if mode not in self.__FIELD_IP_VALS:
             raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
                 f"{mode} is not a supported"
-                f" {self.__FIELD_IPV4_MODE}."
-                f" Supported:{', '.join(self.__FIELD_IPV4_VALS)}"
+                f" {self.__FIELD_IP_MODE}."
+                f" Supported:{', '.join(self.__FIELD_IP_VALS)}"
             )
 
         self.__mode = mode
-        if self.__mode == self.FIELD_IPV4_MODE_VAL_MANUAL:
-            ipv4_str = self.__raw_config.get(self.__FIELD_IPV4_IP, None)
-            if not ipv4_str:
+        if self.__mode == self.FIELD_IP_MODE_VAL_MANUAL:
+            ip_str = self.__raw_config.get(self.__FIELD_IP_IP, None)
+            if not ip_str:
                 raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                    f"{self.__FIELD_IPV4_IP} is a mandatory field for a connection "
-                    "using IPv4 static addressing"
+                    f"{self.__FIELD_IP_IP} is a mandatory field for a connection "
+                    f"using IP{self.__version} static addressing"
                 )
 
-            self.__ip = nmcli_interface_utils.parse_validate_ipv4_interface_addr(
-                ipv4_str
+            self.__ip = nmcli_interface_utils.parse_validate_ip_interface_addr(
+                ip_str, self.__version
             )
-            ipv4_gw_str = self.__raw_config.get(self.__FIELD_IPV4_GW, None)
-            ipv4_gw = (
-                nmcli_interface_utils.parse_validate_ipv4_addr(ipv4_gw_str)
-                if ipv4_gw_str
+            ip_gw_str = self.__raw_config.get(self.__FIELD_IP_GW, None)
+            ip_gw = (
+                nmcli_interface_utils.parse_validate_ip_addr(ip_gw_str, self.__version)
+                if ip_gw_str
                 else None
             )
-            if ipv4_gw and (ipv4_gw not in self.__ip.network):
+            if ip_gw and (ip_gw not in self.__ip.network):
                 raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                    f"{self.__FIELD_IPV4_GW} is not in the {self.__ip} range"
+                    f"{self.__FIELD_IP_GW} is not in the {self.__ip} range"
                 )
-            self.__gw = ipv4_gw
+            self.__gw = ip_gw
 
         # Remove duplicated NSs without altering the order
-        nameservers = list(
-            dict.fromkeys(self.__raw_config.get(self.__FIELD_IPV4_NS, []))
-        )
+        nameservers = list(dict.fromkeys(self.__raw_config.get(self.__FIELD_IP_NS, [])))
         for nameserver in nameservers:
             self.__dns.append(
-                nmcli_interface_utils.parse_validate_ipv4_addr(nameserver)
+                nmcli_interface_utils.parse_validate_ip_addr(nameserver, self.__version)
             )
 
         disable_default_route = self.__raw_config.get(
-            self.__FIELD_IPV4_DISABLE_DEFAULT_ROUTE, False
+            self.__FIELD_IP_DISABLE_DEFAULT_ROUTE, False
         )
         if not isinstance(disable_default_route, bool):
             raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                f"{self.__FIELD_IPV4_DISABLE_DEFAULT_ROUTE} is not a proper boolean value"
+                f"{self.__FIELD_IP_DISABLE_DEFAULT_ROUTE} is not a proper boolean value"
             )
         self.__disable_default_route = disable_default_route
 
         self.__parse_routes_config()
 
     def __parse_routes_config(self):
-        routes_list = self.__raw_config.get(self.__FIELD_IPV4_ROUTES, [])
+        routes_list = self.__raw_config.get(self.__FIELD_IP_ROUTES, [])
         if not isinstance(routes_list, list):
             raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                f"{self.__FIELD_IPV4_ROUTES} should be a list of IPv4 routes"
+                f"{self.__FIELD_IP_ROUTES} should be a list of IPv{self.__version} routes"
             )
         for route_data in routes_list:
-            dst_str = route_data.get(self.__FIELD_IPV4_ROUTE_DST, None)
-            if not dst_str:
-                raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                    f"{self.__FIELD_IPV4_ROUTE_DST} is a "
-                    "mandatory field for a IPv4 route"
-                )
-            dst_net = nmcli_interface_utils.parse_validate_ipv4_net(dst_str)
-            gw_str = route_data.get(self.__FIELD_IPV4_ROUTE_GW, None)
-            if not gw_str:
-                raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                    f"{self.__FIELD_IPV4_ROUTE_GW} is a "
-                    "mandatory field for a IPv4 route"
-                )
-            gw_addr = nmcli_interface_utils.parse_validate_ipv4_addr(gw_str)
-            metric_raw = route_data.get(self.__FIELD_IPV4_ROUTE_METRIC, None)
-            if metric_raw:
-                try:
-                    metric = int(metric_raw)
-                    if metric < 1:
-                        raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                            f"{self.__FIELD_IPV4_ROUTE_METRIC} must be a positive number"
-                        )
-                    self.__routes.append(
-                        IPv4RouteConfig(dst_net, gw_addr, metric=metric)
-                    )
-                except ValueError as err:
-                    raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                        f"{self.__FIELD_IPV4_ROUTE_METRIC} must be a number"
-                    ) from err
+            self.__routes.append(IPRouteConfig[TAdd, TNet](route_data, self.__version))
 
-        # VLANs must point to a base interface to avoid InterfaceIdentifier resolve
-        # the interface name wrongly when MAC addresses are used. In that case,
-        # there is a possibility; after at least one run, that the mac points
-        # to the VLAN iface instead of the parent one. That's because, by default,
-        # VLANs inherits the parent MAC
+
+IPv4Config = IPConfig[
+    ipaddress.IPv4Address, ipaddress.IPv4Network, ipaddress.IPv4Interface
+]
+IPv6Config = IPConfig[
+    ipaddress.IPv6Address, ipaddress.IPv6Network, ipaddress.IPv6Interface
+]
 
 
 class InterfaceIdentifier:
@@ -347,6 +373,7 @@ class BaseConnectionConfig:
 
 class MainConnectionConfig(BaseConnectionConfig):
     __FIELD_IPV4 = "ipv4"
+    __FIELD_IPV6 = "ipv6"
     __FIELD_SLAVES = "slaves"
 
     def __init__(
@@ -354,13 +381,22 @@ class MainConnectionConfig(BaseConnectionConfig):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self._ipv4: IPv4Config = typing.Union[IPv4Config, None]
+        self._ipv4: typing.Optional[IPv4Config] = None
+        self._ipv6: typing.Optional[IPv6Config] = None
         self._slaves_config: typing.List[SlaveConnectionConfig] = []
         self.__parse_config(kwargs["connection_config_factory"])
 
     @property
-    def ipv4(self) -> typing.Union[IPv4Config, None]:
+    def ipv4(
+        self,
+    ) -> typing.Optional[IPv4Config]:
         return self._ipv4
+
+    @property
+    def ipv6(
+        self,
+    ) -> typing.Optional[IPv6Config]:
+        return self._ipv6
 
     @property
     def slaves(self) -> typing.List["SlaveConnectionConfig"]:
@@ -369,7 +405,11 @@ class MainConnectionConfig(BaseConnectionConfig):
     def __parse_config(self, connection_config_factory: "ConnectionConfigFactory"):
         ipv4_data = self._raw_config.get(self.__FIELD_IPV4, None)
         if ipv4_data:
-            self._ipv4 = IPv4Config(ipv4_data)
+            self._ipv4 = IPv4Config(ipv4_data, 4)
+
+        ipv6_data = self._raw_config.get(self.__FIELD_IPV6, None)
+        if ipv6_data:
+            self._ipv6 = IPv6Config(ipv6_data, 6)
 
         slave_connections = self._raw_config.get(self.__FIELD_SLAVES, {})
         if not isinstance(slave_connections, dict):

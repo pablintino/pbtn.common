@@ -4,7 +4,7 @@ __metaclass__ = type
 
 import ipaddress
 import re
-
+import typing
 
 from ansible_collections.pablintino.base_infra.plugins.module_utils import (
     nmcli_interface_exceptions,
@@ -30,28 +30,44 @@ def is_mac_addr(string_data: str) -> bool:
     )
 
 
-def parse_validate_ipv4_interface_addr(ip_string) -> ipaddress.IPv4Interface:
+def parse_validate_ip_interface_addr(
+    ip_string: str, version: int = 4
+) -> typing.Union[ipaddress.IPv4Interface, ipaddress.IPv6Interface]:
     try:
-        return ipaddress.IPv4Interface(ip_string)
+        return (
+            ipaddress.IPv4Interface(ip_string)
+            if version == 4
+            else ipaddress.IPv6Interface(ip_string)
+        )
     except ValueError as err:
         raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-            f"{ip_string} is not a valid IPv4 prefixed value"
+            f"{ip_string} is not a valid IPv{version} prefixed value"
         ) from err
 
 
-def parse_validate_ipv4_addr(ip_string) -> ipaddress.IPv4Address:
+def parse_validate_ip_addr(
+    ip_string: str, version: int = 4
+) -> typing.Union[ipaddress.IPv4Address, ipaddress.IPv6Address]:
     try:
-        return ipaddress.IPv4Address(ip_string)
+        return (
+            ipaddress.IPv4Address(ip_string)
+            if version == 4
+            else ipaddress.IPv6Address(ip_string)
+        )
     except ValueError as err:
         raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-            f"{ip_string} is not a valid IPv4 value"
+            f"{ip_string} is not a valid IPv{version} value"
         ) from err
 
 
-def parse_validate_ipv4_net(ip_string) -> ipaddress.IPv4Network:
+def parse_validate_ip_net(ip_string: str, version: int = 4) -> ipaddress.IPv4Network:
     try:
-        return ipaddress.IPv4Network(ip_string)
+        return (
+            ipaddress.IPv4Network(ip_string)
+            if version == 4
+            else ipaddress.IPv6Network(ip_string)
+        )
     except ValueError as err:
         raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-            f"{ip_string} is not a valid IPv4 network value"
+            f"{ip_string} is not a valid IPv{version} network value"
         ) from err
