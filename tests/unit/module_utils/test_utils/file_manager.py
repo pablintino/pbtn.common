@@ -17,7 +17,6 @@ def find_upwards(cwd: pathlib.Path, name: str) -> typing.Optional[pathlib.Path]:
 class FileManager:
     def __init__(self, test_name: str, test_dir: pathlib.Path):
         self.__test_dir = test_dir
-        self.__test_name = test_name
         self.__base_path = find_upwards(test_dir, "unit")
         if not self.__base_path:
             raise FileNotFoundError("Cannot locate the tests base path")

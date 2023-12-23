@@ -50,7 +50,7 @@ class ConfigTestParameters:
 def __build_generate_ip_options_parameters(ip_mode: str, state: typing.Optional[str]):
     options_params = []
     # Generate all possible combinations of booleans
-    for opts_flags in [x for x in itertools.product([True, False], repeat=4)]:
+    for opts_flags in list(itertools.product([True, False], repeat=4)):
         options_params.append(
             ConfigTestParameters(
                 ip_mode,
@@ -613,7 +613,7 @@ def test_nmcli_interface_config_interface_identifier_mac_ok(
         ip_interface.IPLinkData(data)
         for data in test_file_manager.get_file_yaml_content(f"{links_file}.json")
     ]
-    for _ in range(len(ip_links)):
+    for _idx in range(len(ip_links)):
         iface_identifier = nmcli_interface_config.InterfaceIdentifier(
             target_mac, ip_links
         )

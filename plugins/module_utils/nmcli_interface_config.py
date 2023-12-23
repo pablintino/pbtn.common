@@ -59,7 +59,7 @@ class IPRouteConfig(typing.Generic[TAdd, TNet]):
     def __parse_config(self, raw_config: typing.Dict[str, typing.Any]):
         if not isinstance(raw_config, dict):
             raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                f"A route entry should be a dictionary"
+                "A route entry should be a dictionary"
             )
 
         dst_str = raw_config.get(self.__FIELD_IP_ROUTE_DST, None)
@@ -295,8 +295,8 @@ class BaseConnectionConfig:
         self._raw_config: typing.Dict[str, typing.Any] = kwargs["raw_config"]
         self._interface: InterfaceIdentifier = None
 
-        self._state: typing.Union[str, None] = None
-        self._startup: typing.Union[bool, None] = None
+        self._state: typing.Optional[str] = None
+        self._startup: typing.Optional[bool] = None
         self._depends_on: typing.List[str] = []
         self._related_interfaces: typing.Set[str] = set()
         self.__parse_config(kwargs["ip_links"])
@@ -310,11 +310,11 @@ class BaseConnectionConfig:
         return self._interface
 
     @property
-    def state(self) -> typing.Union[str, None]:
+    def state(self) -> typing.Optional[str]:
         return self._state
 
     @property
-    def startup(self) -> typing.Union[bool, None]:
+    def startup(self) -> typing.Optional[bool]:
         return self._startup
 
     @property
