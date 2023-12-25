@@ -6,15 +6,10 @@ __metaclass__ = type
 import ipaddress
 
 from ansible.errors import AnsibleFilterError, AnsibleFilterTypeError
-from ansible_collections.pablintino.base_infra.plugins.module_utils import (
-    nmcli_filters,
+from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
     nmcli_constants,
-)
-from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli_constants import (
-    NMCLI_CONN_FIELD_GENERAL_DEVICES,
-)
-from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli_interface_types import (
-    MainConfigurationResult,
+    nmcli_filters,
+    nmcli_interface_types,
 )
 
 
@@ -22,7 +17,9 @@ def __filter_iface(ifaces, conn_data):
     if ifaces is None:
         return True
 
-    if (NMCLI_CONN_FIELD_GENERAL_DEVICES not in conn_data) or not ifaces:
+    if (
+        nmcli_constants.NMCLI_CONN_FIELD_GENERAL_DEVICES not in conn_data
+    ) or not ifaces:
         return False
 
     values = ifaces
@@ -33,7 +30,10 @@ def __filter_iface(ifaces, conn_data):
     elif not isinstance(ifaces, list):
         raise AnsibleFilterTypeError("ifaces expected to be a dict, list or string")
 
-    return any(name == conn_data[NMCLI_CONN_FIELD_GENERAL_DEVICES] for name in values)
+    return any(
+        name == conn_data[nmcli_constants.NMCLI_CONN_FIELD_GENERAL_DEVICES]
+        for name in values
+    )
 
 
 def nstp_filter_ip2conn(data, ip):
@@ -87,7 +87,9 @@ def nstp_filter_applyres2conns(data):
 
     result = {}
     for conn_name, conn_data in data.get("result", {}).items():
-        conn_status = conn_data.get(MainConfigurationResult.FIELD_RESULT_STATUS, None)
+        conn_status = conn_data.get(
+            nmcli_interface_types.MainConfigurationResult.FIELD_RESULT_STATUS, None
+        )
         if conn_status:
             result[conn_name] = conn_status
 

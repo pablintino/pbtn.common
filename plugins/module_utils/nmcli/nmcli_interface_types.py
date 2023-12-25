@@ -6,8 +6,8 @@ __metaclass__ = type
 import dataclasses
 import typing
 
-from ansible_collections.pablintino.base_infra.plugins.module_utils import (
-    nmcli_interface_config,
+from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
+    net_config,
 )
 
 
@@ -31,13 +31,11 @@ class ConnectionConfigurationResult:
         self,
         uuid: str,
         changed: bool,
-        applied_config: nmcli_interface_config.BaseConnectionConfig,
+        applied_config: net_config.BaseConnectionConfig,
     ):
         self.__uuid: str = uuid
         self.__changed: bool = changed
-        self.__applied_config: nmcli_interface_config.BaseConnectionConfig = (
-            applied_config
-        )
+        self.__applied_config: net_config.BaseConnectionConfig = applied_config
         self.status: typing.Dict[str, typing.Any] = None
 
     @property
@@ -49,7 +47,7 @@ class ConnectionConfigurationResult:
         return self.__uuid
 
     @property
-    def applied_config(self) -> nmcli_interface_config.BaseConnectionConfig:
+    def applied_config(self) -> net_config.BaseConnectionConfig:
         return self.__applied_config
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
@@ -69,7 +67,7 @@ class ConnectionConfigurationResult:
     def from_required(
         uuid: str,
         changed: bool,
-        applied_config: nmcli_interface_config.BaseConnectionConfig,
+        applied_config: net_config.BaseConnectionConfig,
     ) -> "ConnectionConfigurationResult":
         return ConnectionConfigurationResult(uuid, changed, applied_config)
 
@@ -98,7 +96,7 @@ class MainConfigurationResult:
     def from_result_required_data(
         uuid: str,
         changed: bool,
-        applied_config: nmcli_interface_config.BaseConnectionConfig,
+        applied_config: net_config.BaseConnectionConfig,
     ) -> "MainConfigurationResult":
         return MainConfigurationResult(
             ConnectionConfigurationResult.from_required(uuid, changed, applied_config)
@@ -146,7 +144,7 @@ class MainConfigurationResult:
         self,
         uuid: str,
         changed: bool,
-        applied_config: nmcli_interface_config.BaseConnectionConfig,
+        applied_config: net_config.BaseConnectionConfig,
     ):
         self.update_slave(
             ConnectionConfigurationResult.from_required(uuid, changed, applied_config)

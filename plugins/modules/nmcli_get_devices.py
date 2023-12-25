@@ -6,13 +6,13 @@ __metaclass__ = type
 
 from ansible.module_utils.basic import AnsibleModule
 
-
+from ansible_collections.pablintino.base_infra.plugins.module_utils import (
+    exceptions,
+)
 from ansible_collections.pablintino.base_infra.plugins.module_utils.module_command_utils import (
     get_module_command_runner,
 )
-
-from ansible_collections.pablintino.base_infra.plugins.module_utils import (
-    nmcli_interface_exceptions,
+from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
     nmcli_querier,
 )
 
@@ -50,7 +50,7 @@ def main():
         result["success"] = True
         result["result"] = nm_result
         module.exit_json(**result)
-    except nmcli_interface_exceptions.NmcliInterfaceException as err:
+    except exceptions.BaseInfraException as err:
         result.update(err.to_dict())
         module.fail_json(**result)
 

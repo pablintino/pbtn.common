@@ -8,8 +8,11 @@ import typing
 
 from ansible_collections.pablintino.base_infra.plugins.module_utils import (
     ip_interface,
-    nmcli_interface_exceptions,
-    nmcli_interface_utils,
+    exceptions,
+)
+
+from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
+    net_utils,
 )
 
 TAdd = typing.TypeVar("TAdd")
@@ -17,7 +20,7 @@ TInt = typing.TypeVar("TInt")
 TNet = typing.TypeVar("TNet")
 
 
-class NmcliLinkResolutionException(nmcli_interface_exceptions.NmcliInterfaceException):
+class NmcliLinkResolutionException(exceptions.BaseInfraException):
     def __init__(
         self,
         msg: str,
@@ -25,11 +28,6 @@ class NmcliLinkResolutionException(nmcli_interface_exceptions.NmcliInterfaceExce
     ) -> None:
         super().__init__(msg)
         self.candidates = candidates
-
-    def to_dict(self) -> typing.Dict[str, typing.Any]:
-        res = super().to_dict()
-        res["candidates"] = self.candidates or []
-        return res
 
 
 class IPRouteConfig(typing.Generic[TAdd, TNet]):
@@ -58,37 +56,39 @@ class IPRouteConfig(typing.Generic[TAdd, TNet]):
 
     def __parse_config(self, raw_config: typing.Dict[str, typing.Any]):
         if not isinstance(raw_config, dict):
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                "A route entry should be a dictionary"
-            )
+            raise exceptions.ValueInfraException("A route entry should be a dictionary")
 
         dst_str = raw_config.get(self.__FIELD_IP_ROUTE_DST, None)
         if not dst_str:
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
+            raise exceptions.ValueInfraException(
                 f"{self.__FIELD_IP_ROUTE_DST} is a "
-                f"mandatory field for a IPv{self.__version} route"
+                f"mandatory field for a IPv{self.__version} route",
+                field=self.__FIELD_IP_ROUTE_DST,
             )
-        self.__dst = nmcli_interface_utils.parse_validate_ip_net(
-            dst_str, self.__version
-        )
+        self.__dst = net_utils.parse_validate_ip_net(dst_str, self.__version)
         gw_str = raw_config.get(self.__FIELD_IP_ROUTE_GW, None)
         if not gw_str:
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
+            raise exceptions.ValueInfraException(
                 f"{self.__FIELD_IP_ROUTE_GW} is a "
-                f"mandatory field for a IPv{self.__version} route"
+                f"mandatory field for a IPv{self.__version} route",
+                field=self.__FIELD_IP_ROUTE_GW,
             )
-        self.__gw = nmcli_interface_utils.parse_validate_ip_addr(gw_str, self.__version)
+        self.__gw = net_utils.parse_validate_ip_addr(gw_str, self.__version)
         metric_raw = raw_config.get(self.__FIELD_IP_ROUTE_METRIC, None)
         if metric_raw:
             try:
                 self.__metric = int(metric_raw)
                 if self.__metric < 1:
-                    raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                        f"{self.__FIELD_IP_ROUTE_METRIC} must be a positive number"
+                    raise exceptions.ValueInfraException(
+                        f"{self.__FIELD_IP_ROUTE_METRIC} must be a positive number",
+                        value=self.__metric,
+                        field=self.__FIELD_IP_ROUTE_METRIC,
                     )
             except ValueError as err:
-                raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                    f"{self.__FIELD_IP_ROUTE_METRIC} must be a number"
+                raise exceptions.ValueInfraException(
+                    f"{self.__FIELD_IP_ROUTE_METRIC} must be a number",
+                    value=metric_raw,
+                    field=self.__FIELD_IP_ROUTE_METRIC,
                 ) from err
 
 
@@ -146,38 +146,43 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
 
     def __parse_config(self):
         if self.__FIELD_IP_MODE not in self.__raw_config:
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                f"{self.__FIELD_IP_MODE} is a" " mandatory field for a connection"
+            raise exceptions.ValueInfraException(
+                f"{self.__FIELD_IP_MODE} is a" " mandatory field for a connection",
+                field=self.__FIELD_IP_MODE,
             )
         mode = self.__raw_config[self.__FIELD_IP_MODE]
         if mode not in self.__FIELD_IP_VALS:
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
+            raise exceptions.ValueInfraException(
                 f"{mode} is not a supported"
                 f" {self.__FIELD_IP_MODE}."
-                f" Supported:{', '.join(self.__FIELD_IP_VALS)}"
+                f" Supported:{', '.join(self.__FIELD_IP_VALS)}",
+                field=self.__FIELD_IP_MODE,
+                value=mode,
             )
 
         self.__mode = mode
         if self.__mode == self.FIELD_IP_MODE_VAL_MANUAL:
             ip_str = self.__raw_config.get(self.__FIELD_IP_IP, None)
             if not ip_str:
-                raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
+                raise exceptions.ValueInfraException(
                     f"{self.__FIELD_IP_IP} is a mandatory field for a connection "
-                    f"using IP{self.__version} static addressing"
+                    f"using IP{self.__version} static addressing",
+                    field=self.__FIELD_IP_IP,
                 )
 
-            self.__ip = nmcli_interface_utils.parse_validate_ip_interface_addr(
+            self.__ip = net_utils.parse_validate_ip_interface_addr(
                 ip_str, self.__version
             )
             ip_gw_str = self.__raw_config.get(self.__FIELD_IP_GW, None)
             ip_gw = (
-                nmcli_interface_utils.parse_validate_ip_addr(ip_gw_str, self.__version)
+                net_utils.parse_validate_ip_addr(ip_gw_str, self.__version)
                 if ip_gw_str
                 else None
             )
             if ip_gw and (ip_gw not in self.__ip.network):
-                raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                    f"{self.__FIELD_IP_GW} is not in the {self.__ip} range"
+                raise exceptions.ValueInfraException(
+                    f"{self.__FIELD_IP_GW} is not in the {self.__ip} range",
+                    field=self.__FIELD_IP_GW,
                 )
             self.__gw = ip_gw
 
@@ -185,15 +190,16 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
         nameservers = list(dict.fromkeys(self.__raw_config.get(self.__FIELD_IP_NS, [])))
         for nameserver in nameservers:
             self.__dns.append(
-                nmcli_interface_utils.parse_validate_ip_addr(nameserver, self.__version)
+                net_utils.parse_validate_ip_addr(nameserver, self.__version)
             )
 
         disable_default_route = self.__raw_config.get(
             self.__FIELD_IP_DISABLE_DEFAULT_ROUTE, False
         )
         if not isinstance(disable_default_route, bool):
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                f"{self.__FIELD_IP_DISABLE_DEFAULT_ROUTE} is not a proper boolean value"
+            raise exceptions.ValueInfraException(
+                f"{self.__FIELD_IP_DISABLE_DEFAULT_ROUTE} is not a proper boolean value",
+                field=self.__FIELD_IP_DISABLE_DEFAULT_ROUTE,
             )
         self.__disable_default_route = disable_default_route
 
@@ -202,8 +208,9 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
     def __parse_routes_config(self):
         routes_list = self.__raw_config.get(self.__FIELD_IP_ROUTES, [])
         if not isinstance(routes_list, list):
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                f"{self.__FIELD_IP_ROUTES} should be a list of IPv{self.__version} routes"
+            raise exceptions.ValueInfraException(
+                f"{self.__FIELD_IP_ROUTES} should be a list of IPv{self.__version} routes",
+                field=self.__FIELD_IP_ROUTES,
             )
         for route_data in routes_list:
             self.__routes.append(IPRouteConfig[TAdd, TNet](route_data, self.__version))
@@ -225,7 +232,7 @@ class InterfaceIdentifier:
     ):
         self.__str_identifier = str_identifier
         self.__ip_links = ip_links
-        self.__str_is_mac = nmcli_interface_utils.is_mac_addr(self.__str_identifier)
+        self.__str_is_mac = net_utils.is_mac_addr(self.__str_identifier)
         self.__iface_name = None
         self.__parse_validate()
 
@@ -237,7 +244,7 @@ class InterfaceIdentifier:
         elif self.__str_is_mac:
             self.__iface_name = self.__resolve_from_mac()
         else:
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
+            raise exceptions.ValueInfraException(
                 f"{self.__str_identifier} is an invalid value for an interface identifier"
             )
 
@@ -340,23 +347,28 @@ class BaseConnectionConfig:
         #   - At least 4 chars
         #   - All alphanumeric except: _-.
         if not re.match(r"([a-zA-Z0-9_.-]){4,}", self._conn_name):
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
+            raise exceptions.ValueInfraException(
                 f"Connection name {self._conn_name} is invalid. At least alphanumeric"
-                " chars are required (_-. allowed)"
+                " chars are required (_-. allowed)",
+                value=self._conn_name,
             )
 
         startup = self._raw_config.get(self.__FIELD_ON_STARTUP, None)
         if not isinstance(startup, (bool, type(None))):
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                f"{self.__FIELD_ON_STARTUP} is not a proper boolean value"
+            raise exceptions.ValueInfraException(
+                f"{self.__FIELD_ON_STARTUP} is not a proper boolean value",
+                field=self.__FIELD_ON_STARTUP,
+                value=startup,
             )
         self._startup = startup
 
         state = self._raw_config.get(self.__FIELD_STATE, None)
         if state and state not in self.__FIELD_STATE_VALUES:
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
+            raise exceptions.ValueInfraException(
                 f"{state} is not a supported {self.__FIELD_STATE}."
-                f" Supported:{', '.join(self.__FIELD_STATE_VALUES)}"
+                f" Supported:{', '.join(self.__FIELD_STATE_VALUES)}",
+                field=self.__FIELD_STATE,
+                value=state,
             )
         self._state = state
 
@@ -413,8 +425,9 @@ class MainConnectionConfig(BaseConnectionConfig):
 
         slave_connections = self._raw_config.get(self.__FIELD_SLAVES, {})
         if not isinstance(slave_connections, dict):
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                f"{self.__FIELD_SLAVES} should be a dict of slave connections"
+            raise exceptions.ValueInfraException(
+                f"{self.__FIELD_SLAVES} should be a dict of slave connections",
+                field=self.__FIELD_SLAVES,
             )
 
         for conn_name, raw_config in slave_connections.items():
@@ -476,15 +489,17 @@ class VlanConnectionConfigMixin(BaseConnectionConfig):
     ):
         vlan_config = self._raw_config.get(self.__FIELD_VLAN, None)
         if not vlan_config:
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                f"{self.__FIELD_VLAN} is a mandatory field for a VLAN based connection"
+            raise exceptions.ValueInfraException(
+                f"{self.__FIELD_VLAN} is a mandatory field for a VLAN based connection",
+                field=self.__FIELD_VLAN,
             )
 
         vlan_parent_iface = vlan_config.get(self.__FIELD_VLAN_PARENT_IFACE, None)
         if not vlan_parent_iface:
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
+            raise exceptions.ValueInfraException(
                 f"{self.__FIELD_VLAN_PARENT_IFACE} is a mandatory"
-                f" field of {self.__FIELD_VLAN} section for a VLAN based connection"
+                f" field of {self.__FIELD_VLAN} section for a VLAN based connection",
+                field=self.__FIELD_VLAN_PARENT_IFACE,
             )
 
         self._parent_interface = InterfaceIdentifier(vlan_parent_iface, ip_links)
@@ -500,27 +515,34 @@ class VlanConnectionConfigMixin(BaseConnectionConfig):
             self.interface
             and self._parent_interface.iface_name == self.interface.iface_name
         ):
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
+            raise exceptions.ValueInfraException(
                 f"{self.__FIELD_VLAN_PARENT_IFACE} field of "
                 f"{self.__FIELD_VLAN} cannot point to the same interface told by "
-                f"{self._FIELD_IFACE} ({self.interface.iface_name})"
+                f"{self._FIELD_IFACE} ({self.interface.iface_name})",
+                value=self._parent_interface.iface_name,
+                field=self.__FIELD_VLAN_PARENT_IFACE,
             )
 
         vlan_id = vlan_config.get(self.__FIELD_VLAN_ID, None)
         if not vlan_id:
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
+            raise exceptions.ValueInfraException(
                 f"{self.__FIELD_VLAN_ID} is a mandatory field of {self.__FIELD_VLAN} "
-                "section for a VLAN based connection"
+                "section for a VLAN based connection",
+                field=self.__FIELD_VLAN_ID,
             )
         if not isinstance(vlan_id, int):
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                f"{self.__FIELD_VLAN_ID}  field of {self.__FIELD_VLAN} section must be a number"
+            raise exceptions.ValueInfraException(
+                f"{self.__FIELD_VLAN_ID}  field of {self.__FIELD_VLAN} section must be a number",
+                field=self.__FIELD_VLAN_ID,
+                value=vlan_id,
             )
 
         if vlan_id <= 0:
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
+            raise exceptions.ValueInfraException(
                 f"{self.__FIELD_VLAN_ID} field of {self.__FIELD_VLAN} "
-                "section must be greater than zero"
+                "section must be greater than zero",
+                field=self.__FIELD_VLAN_ID,
+                value=vlan_id,
             )
         self._vlan_id = vlan_id
 
@@ -573,13 +595,16 @@ class ConnectionConfigFactory:
     ) -> SlaveConnectionConfig:
         conn_type = conn_config.get(self.__FIELD_TYPE, None)
         if not conn_type:
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                f"{self.__FIELD_TYPE} is a mandatory field for a slave connection"
+            raise exceptions.ValueInfraException(
+                f"{self.__FIELD_TYPE} is a mandatory field for a slave connection",
+                field=self.__FIELD_TYPE,
             )
 
         if conn_type not in self.__SLAVES_CONFIG_TYPES_MAP:
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                f"Unsupported slave connection type {conn_type} for connection {conn_name}"
+            raise exceptions.ValueInfraException(
+                f"Unsupported slave connection type {conn_type} for connection {conn_name}",
+                field=self.__FIELD_TYPE,
+                value=conn_type,
             )
 
         return self.__SLAVES_CONFIG_TYPES_MAP[conn_type](
@@ -594,13 +619,16 @@ class ConnectionConfigFactory:
     ) -> MainConnectionConfig:
         conn_type = conn_config.get(self.__FIELD_TYPE, None)
         if not conn_type:
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                f"{self.__FIELD_TYPE} is a mandatory field for a connection"
+            raise exceptions.ValueInfraException(
+                f"{self.__FIELD_TYPE} is a mandatory field for a connection",
+                field=self.__FIELD_TYPE,
             )
 
         if conn_type not in self.__CONFIG_TYPES_MAP:
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                f"Unsupported connection type {conn_type} for connection {conn_name}"
+            raise exceptions.ValueInfraException(
+                f"Unsupported connection type {conn_type} for connection {conn_name}",
+                field=self.__FIELD_TYPE,
+                value=conn_type,
             )
 
         return self.__CONFIG_TYPES_MAP[conn_type](
@@ -623,7 +651,7 @@ class ConnectionsConfigurationHandler:
 
     def parse(self):
         if not isinstance(self.__raw_config, dict):
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
+            raise exceptions.ValueInfraException(
                 "The provided configuration is not a dictionary of connections"
             )
 

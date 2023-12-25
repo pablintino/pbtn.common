@@ -7,21 +7,8 @@ import re
 import typing
 
 from ansible_collections.pablintino.base_infra.plugins.module_utils import (
-    nmcli_interface_exceptions,
+    exceptions,
 )
-
-
-def cast_as_list(value):
-    # In nmcli, when only one value is returned, there is no way to
-    # distinguish between a string and a list with a single element.
-    # The code calling this wants a list, so bring it a list (it's an
-    # implementation detail)
-    if isinstance(value, list):
-        return value
-    if isinstance(value, str):
-        return value.split(",")
-
-    raise ValueError(f"{value} cannot be casted to a list")
 
 
 def is_mac_addr(string_data: str) -> bool:
@@ -40,8 +27,9 @@ def parse_validate_ip_interface_addr(
             else ipaddress.IPv6Interface(ip_string)
         )
     except ValueError as err:
-        raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-            f"{ip_string} is not a valid IPv{version} prefixed value"
+        raise exceptions.ValueInfraException(
+            f"{ip_string} is not a valid IPv{version} prefixed value",
+            value=ip_string,
         ) from err
 
 
@@ -55,8 +43,9 @@ def parse_validate_ip_addr(
             else ipaddress.IPv6Address(ip_string)
         )
     except ValueError as err:
-        raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-            f"{ip_string} is not a valid IPv{version} value"
+        raise exceptions.ValueInfraException(
+            f"{ip_string} is not a valid IPv{version} value",
+            value=ip_string,
         ) from err
 
 
@@ -68,6 +57,7 @@ def parse_validate_ip_net(ip_string: str, version: int = 4) -> ipaddress.IPv4Net
             else ipaddress.IPv6Network(ip_string)
         )
     except ValueError as err:
-        raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-            f"{ip_string} is not a valid IPv{version} network value"
+        raise exceptions.ValueInfraException(
+            f"{ip_string} is not a valid IPv{version} network value",
+            value=ip_string,
         ) from err

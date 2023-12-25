@@ -5,8 +5,8 @@ __metaclass__ = type
 import typing
 import uuid
 
-from ansible_collections.pablintino.base_infra.plugins.module_utils import (
-    nmcli_interface_config,
+from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
+    net_config,
 )
 
 
@@ -65,22 +65,22 @@ NMCLI_DEVICE_CONNECTION_NAME = "general.connection"
 
 
 __NMCLI_TYPE_CONVERSION_TABLE = {
-    nmcli_interface_config.EthernetConnectionConfig: NMCLI_CONN_FIELD_CONNECTION_TYPE_VAL_ETHERNET,
-    nmcli_interface_config.VlanConnectionConfig: NMCLI_CONN_FIELD_CONNECTION_TYPE_VAL_VLAN,
-    nmcli_interface_config.BridgeConnectionConfig: NMCLI_CONN_FIELD_CONNECTION_TYPE_VAL_BRIDGE,
-    nmcli_interface_config.EthernetSlaveConnectionConfig: NMCLI_CONN_FIELD_CONNECTION_TYPE_VAL_ETHERNET,
-    nmcli_interface_config.VlanSlaveConnectionConfig: NMCLI_CONN_FIELD_CONNECTION_TYPE_VAL_VLAN,
+    net_config.EthernetConnectionConfig: NMCLI_CONN_FIELD_CONNECTION_TYPE_VAL_ETHERNET,
+    net_config.VlanConnectionConfig: NMCLI_CONN_FIELD_CONNECTION_TYPE_VAL_VLAN,
+    net_config.BridgeConnectionConfig: NMCLI_CONN_FIELD_CONNECTION_TYPE_VAL_BRIDGE,
+    net_config.EthernetSlaveConnectionConfig: NMCLI_CONN_FIELD_CONNECTION_TYPE_VAL_ETHERNET,
+    net_config.VlanSlaveConnectionConfig: NMCLI_CONN_FIELD_CONNECTION_TYPE_VAL_VLAN,
 }
 
 __NMCLI_IPV4_METHOD_CONVERSION_TABLE = {
-    nmcli_interface_config.IPConfig.FIELD_IP_MODE_VAL_AUTO: NMCLI_CONN_FIELD_IPV4_METHOD_VAL_AUTO,
-    nmcli_interface_config.IPConfig.FIELD_IP_MODE_VAL_MANUAL: NMCLI_CONN_FIELD_IPV4_METHOD_VAL_MANUAL,
-    nmcli_interface_config.IPConfig.FIELD_IP_MODE_VAL_DISABLED: NMCLI_CONN_FIELD_IPV4_METHOD_VAL_DISABLED,
+    net_config.IPConfig.FIELD_IP_MODE_VAL_AUTO: NMCLI_CONN_FIELD_IPV4_METHOD_VAL_AUTO,
+    net_config.IPConfig.FIELD_IP_MODE_VAL_MANUAL: NMCLI_CONN_FIELD_IPV4_METHOD_VAL_MANUAL,
+    net_config.IPConfig.FIELD_IP_MODE_VAL_DISABLED: NMCLI_CONN_FIELD_IPV4_METHOD_VAL_DISABLED,
 }
 
 
 def map_config_to_nmcli_type_field(
-    config: nmcli_interface_config.BaseConnectionConfig,
+    config: net_config.BaseConnectionConfig,
 ) -> str:
     nmcli_conn_type = __NMCLI_TYPE_CONVERSION_TABLE.get(type(config), None)
     if nmcli_conn_type:

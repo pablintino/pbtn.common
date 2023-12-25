@@ -16,14 +16,20 @@ import typing
 
 from ansible_collections.pablintino.base_infra.plugins.module_utils import (
     module_command_utils,
+)
+
+from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
     nmcli_constants,
     nmcli_filters,
     nmcli_querier,
     nmcli_interface_args_builders,
-    nmcli_interface_config,
     nmcli_interface_exceptions,
     nmcli_interface_target_connection,
     nmcli_interface_types,
+)
+
+from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
+    net_config,
 )
 
 
@@ -39,7 +45,7 @@ class NetworkManagerConfigurator(
         command_fn: module_command_utils.CommandRunnerFn,
         querier: nmcli_querier.NetworkManagerQuerier,
         builder_factory: nmcli_interface_args_builders.NmcliArgsBuilderFactoryType,
-        config_handler: nmcli_interface_config.ConnectionsConfigurationHandler,
+        config_handler: net_config.ConnectionsConfigurationHandler,
         options: nmcli_interface_types.NetworkManagerConfiguratorOptions = None,
     ):
         self._command_fn = command_fn
@@ -173,7 +179,7 @@ class NetworkManagerConfigurator(
         # Default implementation
         should_up = (
             connection_configuration_result.applied_config.state
-            == nmcli_interface_config.BaseConnectionConfig.FIELD_STATE_VAL_UP
+            == net_config.BaseConnectionConfig.FIELD_STATE_VAL_UP
         )
         is_active = nmcli_filters.is_connection_active(
             connection_configuration_result.status
@@ -211,7 +217,7 @@ class NetworkManagerConfigurator(
 
     @abc.abstractmethod
     def _fetch_links(
-        self, conn_config: nmcli_interface_config.MainConnectionConfig
+        self, conn_config: net_config.MainConnectionConfig
     ) -> nmcli_interface_types.TargetLinksData:
         pass
 
@@ -224,7 +230,7 @@ class NetworkManagerConfigurator(
 
     def configure(
         self,
-        conn_config: nmcli_interface_config.MainConnectionConfig,
+        conn_config: net_config.MainConnectionConfig,
         config_session: nmcli_interface_types.ConfigurationSession,
     ) -> nmcli_interface_types.MainConfigurationResult:
         target_connection_data = (
@@ -258,7 +264,7 @@ class IfaceBasedNetworkManagerConfigurator(
     NetworkManagerConfigurator
 ):  # pylint: disable=too-few-public-methods
     def _fetch_links(
-        self, conn_config: nmcli_interface_config.MainConnectionConfig
+        self, conn_config: net_config.MainConnectionConfig
     ) -> nmcli_interface_types.TargetLinksData:
         target_link = (
             self._get_link_by_ifname(conn_config.interface.iface_name)
@@ -324,7 +330,7 @@ class VlanNetworkManagerConfigurator(
 ):  # pylint: disable=too-few-public-methods
     @staticmethod
     def __get_iface_name(
-        conn_config: nmcli_interface_config.VlanConnectionConfig,
+        conn_config: net_config.VlanConnectionConfig,
     ) -> str:
         return (
             conn_config.interface.iface_name
@@ -333,11 +339,9 @@ class VlanNetworkManagerConfigurator(
         )
 
     def _fetch_links(
-        self, conn_config: nmcli_interface_config.MainConnectionConfig
+        self, conn_config: net_config.MainConnectionConfig
     ) -> nmcli_interface_types.TargetLinksData:
-        conn_config = typing.cast(
-            nmcli_interface_config.VlanConnectionConfig, conn_config
-        )
+        conn_config = typing.cast(net_config.VlanConnectionConfig, conn_config)
         vlan_iface_name = self.__get_iface_name(conn_config)
         target_link = self._get_link_by_ifname(vlan_iface_name)
         parent_link = self._get_link_by_ifname(conn_config.parent_interface.iface_name)
@@ -348,7 +352,7 @@ class VlanNetworkManagerConfigurator(
         target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
     ) -> nmcli_interface_types.MainConfigurationResult:
         conn_config = typing.cast(
-            nmcli_interface_config.VlanConnectionConfig,
+            net_config.VlanConnectionConfig,
             target_connection_data.conn_config,
         )
 
@@ -391,7 +395,7 @@ class VlanNetworkManagerConfigurator(
 
 class BridgeNetworkManagerConfigurator(NetworkManagerConfigurator):
     def _fetch_links(
-        self, conn_config: nmcli_interface_config.MainConnectionConfig
+        self, conn_config: net_config.MainConnectionConfig
     ) -> nmcli_interface_types.TargetLinksData:
         target_link = (
             self._get_link_by_ifname(conn_config.interface.iface_name)
@@ -415,7 +419,7 @@ class BridgeNetworkManagerConfigurator(NetworkManagerConfigurator):
         )
 
         conn_config = typing.cast(
-            nmcli_interface_config.SlaveConnectionConfig,
+            net_config.SlaveConnectionConfig,
             slave_connection_data.conn_config,
         )
 
@@ -450,7 +454,7 @@ class BridgeNetworkManagerConfigurator(NetworkManagerConfigurator):
         target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
     ) -> nmcli_interface_types.MainConfigurationResult:
         conn_config = typing.cast(
-            nmcli_interface_config.BridgeConnectionConfig,
+            net_config.BridgeConnectionConfig,
             target_connection_data.conn_config,
         )
 
@@ -486,7 +490,7 @@ class NetworkManagerConfiguratorFactory:  # pylint: disable=too-few-public-metho
         runner_fn: module_command_utils.CommandRunnerFn,
         querier: nmcli_querier.NetworkManagerQuerier,
         builder_factory: nmcli_interface_args_builders.NmcliArgsBuilderFactoryType,
-        config_handler: nmcli_interface_config.ConnectionsConfigurationHandler,
+        config_handler: net_config.ConnectionsConfigurationHandler,
     ):
         self.__runner_fn = runner_fn
         self.__nmcli_querier = querier
@@ -495,10 +499,10 @@ class NetworkManagerConfiguratorFactory:  # pylint: disable=too-few-public-metho
 
     def build_configurator(
         self,
-        conn_config: nmcli_interface_config.MainConnectionConfig,
+        conn_config: net_config.MainConnectionConfig,
         options: nmcli_interface_types.NetworkManagerConfiguratorOptions = None,
     ) -> NetworkManagerConfigurator:
-        if isinstance(conn_config, nmcli_interface_config.EthernetConnectionConfig):
+        if isinstance(conn_config, net_config.EthernetConnectionConfig):
             configurator = EthernetNetworkManagerConfigurator(
                 self.__runner_fn,
                 self.__nmcli_querier,
@@ -506,7 +510,7 @@ class NetworkManagerConfiguratorFactory:  # pylint: disable=too-few-public-metho
                 self.__config_handler,
                 options=options,
             )
-        elif isinstance(conn_config, nmcli_interface_config.VlanConnectionConfig):
+        elif isinstance(conn_config, net_config.VlanConnectionConfig):
             configurator = VlanNetworkManagerConfigurator(
                 self.__runner_fn,
                 self.__nmcli_querier,
@@ -514,7 +518,7 @@ class NetworkManagerConfiguratorFactory:  # pylint: disable=too-few-public-metho
                 self.__config_handler,
                 options=options,
             )
-        elif isinstance(conn_config, nmcli_interface_config.BridgeConnectionConfig):
+        elif isinstance(conn_config, net_config.BridgeConnectionConfig):
             configurator = BridgeNetworkManagerConfigurator(
                 self.__runner_fn,
                 self.__nmcli_querier,

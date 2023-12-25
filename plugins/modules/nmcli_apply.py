@@ -5,19 +5,19 @@ from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
 from ansible.module_utils.basic import AnsibleModule
-
-
+from ansible_collections.pablintino.base_infra.plugins.module_utils import (
+    ip_interface,
+    exceptions,
+)
 from ansible_collections.pablintino.base_infra.plugins.module_utils.module_command_utils import (
     get_module_command_runner,
 )
-
-
-from ansible_collections.pablintino.base_infra.plugins.module_utils import (
-    ip_interface,
+from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
+    net_config,
+)
+from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
     nmcli_interface,
     nmcli_interface_args_builders,
-    nmcli_interface_config,
-    nmcli_interface_exceptions,
     nmcli_querier,
     nmcli_interface_types,
 )
@@ -54,8 +54,8 @@ def main():
     try:
         command_runner = get_module_command_runner(module)
         ip_iface = ip_interface.IPInterface(command_runner)
-        config_factory = nmcli_interface_config.ConnectionConfigFactory(ip_iface)
-        config_handler = nmcli_interface_config.ConnectionsConfigurationHandler(
+        config_factory = net_config.ConnectionConfigFactory(ip_iface)
+        config_handler = net_config.ConnectionsConfigurationHandler(
             __parse_get_connections(module), config_factory
         )
         nmcli_factory = nmcli_interface.NetworkManagerConfiguratorFactory(
@@ -78,7 +78,7 @@ def main():
         result["changed"] = changed
         result["result"] = session_result
         module.exit_json(**result)
-    except nmcli_interface_exceptions.NmcliInterfaceException as err:
+    except exceptions.BaseInfraException as err:
         result.update(err.to_dict())
         module.fail_json(**result)
 

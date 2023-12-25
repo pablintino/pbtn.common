@@ -9,12 +9,15 @@ import copy
 import typing
 
 
-from ansible_collections.pablintino.base_infra.plugins.module_utils import (
+from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
     nmcli_constants,
     nmcli_filters,
     nmcli_querier,
-    nmcli_interface_config,
     nmcli_interface_types,
+)
+
+from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
+    net_config,
 )
 
 
@@ -22,13 +25,13 @@ class ConfigurableConnectionData(collections.abc.Mapping):
     def __init__(
         self,
         connection_data: typing.Dict[str, typing.Any],
-        conn_config: nmcli_interface_config.BaseConnectionConfig,
+        conn_config: net_config.BaseConnectionConfig,
     ):
         self.__conn_data = connection_data
         self.__conn_config = conn_config
 
     @property
-    def conn_config(self) -> nmcli_interface_config.BaseConnectionConfig:
+    def conn_config(self) -> net_config.BaseConnectionConfig:
         return self.__conn_config
 
     def as_dict(self) -> typing.Dict[str, typing.Any]:
@@ -63,7 +66,7 @@ class TargetConnectionData(ConfigurableConnectionData):
         def __init__(
             self,
             connection_data: typing.Dict[str, typing.Any],
-            conn_config: nmcli_interface_config.BaseConnectionConfig,
+            conn_config: net_config.BaseConnectionConfig,
         ):
             self.__connection_data = connection_data
             self.__conn_config = conn_config
@@ -88,7 +91,7 @@ class TargetConnectionData(ConfigurableConnectionData):
 
     def __init__(
         self,
-        conn_config: nmcli_interface_config.BaseConnectionConfig,
+        conn_config: net_config.BaseConnectionConfig,
         main_conn: typing.Dict[str, typing.Any],
         slave_connections: typing.List[ConfigurableConnectionData],
         connection_data: typing.Dict[str, typing.Any] = None,
@@ -130,17 +133,17 @@ class TargetConnectionDataFactory:
         self,
         querier: nmcli_querier.NetworkManagerQuerier,
         options: nmcli_interface_types.NetworkManagerConfiguratorOptions,
-        conn_config_handler: nmcli_interface_config.ConnectionsConfigurationHandler,
+        conn_config_handler: net_config.ConnectionsConfigurationHandler,
     ):
         self.__connections = querier.get_connections()
         self.__options = options
-        self.__conn_config_handler: nmcli_interface_config.ConnectionsConfigurationHandler = (
+        self.__conn_config_handler: net_config.ConnectionsConfigurationHandler = (
             conn_config_handler
         )
 
     def build_target_connection_data(
         self,
-        conn_config: nmcli_interface_config.MainConnectionConfig,
+        conn_config: net_config.MainConnectionConfig,
     ) -> TargetConnectionData:
         # Pickup oder:
         #   1) Connection name matches

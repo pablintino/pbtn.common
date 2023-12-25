@@ -4,7 +4,7 @@ __metaclass__ = type
 
 import typing
 
-from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli_querier import (
+from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli.nmcli_querier import (
     NetworkManagerQuerier,
 )
 from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_utils.command_mocker import (

@@ -7,10 +7,11 @@ import pytest
 
 from ansible_collections.pablintino.base_infra.plugins.module_utils import (
     ip_interface,
-    nmcli_interface_config,
-    nmcli_interface_utils,
 )
-
+from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
+    net_config,
+    net_utils,
+)
 from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_utils import (
     config_stub_data,
 )
@@ -98,32 +99,32 @@ __TEST_IPV4_PARAMETERS_MATRIX = __build_parameters_matrix()
 __TEST_CONNECTIONS_HANDLER_CONFIG_SORTING_MATRIX = __build_handler_sorting_matrix()
 
 __CONFIG_TYPES = {
-    "ethernet": nmcli_interface_config.EthernetConnectionConfig,
-    "vlan": nmcli_interface_config.VlanConnectionConfig,
-    "bridge": nmcli_interface_config.BridgeConnectionConfig,
+    "ethernet": net_config.EthernetConnectionConfig,
+    "vlan": net_config.VlanConnectionConfig,
+    "bridge": net_config.BridgeConnectionConfig,
 }
 
 __CONFIG_SLAVE_TYPES = {
-    "ethernet": nmcli_interface_config.EthernetSlaveConnectionConfig,
-    "vlan": nmcli_interface_config.VlanSlaveConnectionConfig,
+    "ethernet": net_config.EthernetSlaveConnectionConfig,
+    "vlan": net_config.VlanSlaveConnectionConfig,
 }
 
 
 def __build_testing_config_factory(
     mocker,
-) -> nmcli_interface_config.ConnectionConfigFactory:
+) -> net_config.ConnectionConfigFactory:
     mocked_ip_interface = mocker.Mock()
     mocked_ip_interface.get_ip_links.return_value = config_stub_data.TEST_IP_LINKS
-    return nmcli_interface_config.ConnectionConfigFactory(mocked_ip_interface)
+    return net_config.ConnectionConfigFactory(mocked_ip_interface)
 
 
 def __build_config_helper(
     config_class: type,
     raw_config: typing.Dict[str, typing.Any],
-    connection_config_factory: nmcli_interface_config.ConnectionConfigFactory,
+    connection_config_factory: net_config.ConnectionConfigFactory,
     conn_name: str = "test-conn",
     ip_links: typing.List[ip_interface.IPLinkData] = None,
-) -> nmcli_interface_config.MainConnectionConfig:
+) -> net_config.MainConnectionConfig:
     config_instance = config_class(
         conn_name=conn_name,
         raw_config=raw_config,
@@ -137,7 +138,7 @@ def __build_config_helper(
 
 
 def __validate_connection_is_after_connection(
-    connections_list: typing.List[nmcli_interface_config.BaseConnectionConfig],
+    connections_list: typing.List[net_config.BaseConnectionConfig],
     fist_connection: str,
     second_connection: str,
 ):
@@ -166,7 +167,7 @@ def __validate_util_generate_all_conn_dict_combinations(raw_conns_config):
 
 def __validate_util_get_target_iface(raw_config):
     target_iface = raw_config["iface"]
-    if nmcli_interface_utils.is_mac_addr(target_iface):
+    if net_utils.is_mac_addr(target_iface):
         assert target_iface in config_stub_data.TEST_IP_LINK_MAC_TO_IFACE_TABLE
         return config_stub_data.TEST_IP_LINK_MAC_TO_IFACE_TABLE[target_iface]
     return target_iface
@@ -174,20 +175,18 @@ def __validate_util_get_target_iface(raw_config):
 
 def __validate_connection_data_iface_dependencies(config_instance, raw_config):
     # Ensure depends-on is properly filled
-    if isinstance(
-        config_instance, nmcli_interface_config.VlanConnectionConfig
-    ) or isinstance(config_instance, nmcli_interface_config.VlanSlaveConnectionConfig):
+    if isinstance(config_instance, net_config.VlanConnectionConfig) or isinstance(
+        config_instance, net_config.VlanSlaveConnectionConfig
+    ):
         # For VLANs, the interface is never part of the dependencies
         # but the parent is.
         # VLAN connections only point to a single dependency, that it's their
         # parent connection
         assert [raw_config["vlan"]["parent"]] == config_instance.depends_on
     elif (
-        isinstance(config_instance, nmcli_interface_config.EthernetConnectionConfig)
-        or isinstance(
-            config_instance, nmcli_interface_config.EthernetSlaveConnectionConfig
-        )
-        or isinstance(config_instance, nmcli_interface_config.BridgeConnectionConfig)
+        isinstance(config_instance, net_config.EthernetConnectionConfig)
+        or isinstance(config_instance, net_config.EthernetSlaveConnectionConfig)
+        or isinstance(config_instance, net_config.BridgeConnectionConfig)
     ):
         # Plain basic interfaces like ethernet points to themselves
         # as the only dependency
@@ -203,9 +202,7 @@ def __validate_connection_data_iface(
 ):
     target_raw_iface = raw_config.get("iface", None)
     if target_raw_iface:
-        assert isinstance(
-            config_instance.interface, nmcli_interface_config.InterfaceIdentifier
-        )
+        assert isinstance(config_instance.interface, net_config.InterfaceIdentifier)
         target_iface = __validate_util_get_target_iface(raw_config)
         assert config_instance.interface.iface_name == target_iface
 
@@ -241,7 +238,7 @@ def __validate_connection_data_ipv4(config_instance, raw_config):
     if not ipv4_target_data:
         return
 
-    assert isinstance(config_instance.ipv4, nmcli_interface_config.IPConfig)
+    assert isinstance(config_instance.ipv4, net_config.IPConfig)
     assert ipv4_target_data["mode"] == config_instance.ipv4.mode
     if ipv4_target_data["mode"] == "manual":
         assert config_instance.ipv4.ip == ipaddress.ip_interface(ipv4_target_data["ip"])
@@ -258,7 +255,7 @@ def __validate_connection_data_ipv4(config_instance, raw_config):
 
 
 def __validate_connection_data_startup(
-    config_instance: nmcli_interface_config.BaseConnectionConfig, raw_config
+    config_instance: net_config.BaseConnectionConfig, raw_config
 ):
     target_startup = raw_config.get("startup", None)
     assert isinstance(config_instance.startup, (bool, type(None)))
@@ -300,7 +297,7 @@ def __validate_connection_data_slaves(config_instance, raw_config):
             None,
         )
         assert slave_config
-        assert isinstance(slave_config, nmcli_interface_config.SlaveConnectionConfig)
+        assert isinstance(slave_config, net_config.SlaveConnectionConfig)
         __validate_connection_data_slave_type(slave_config, target_slave_config)
         __validate_connection_data_state(slave_config, target_slave_config)
         __validate_connection_data_startup(slave_config, target_slave_config)
@@ -309,16 +306,14 @@ def __validate_connection_data_slaves(config_instance, raw_config):
 
 
 def __validate_connection_data_vlan(
-    config_instance: nmcli_interface_config.BaseConnectionConfig, raw_config
+    config_instance: net_config.BaseConnectionConfig, raw_config
 ):
     vlan_target_data = raw_config.get("vlan", {})
     if raw_config["type"] == "vlan" and vlan_target_data:
-        assert isinstance(
-            config_instance, nmcli_interface_config.VlanConnectionConfigMixin
-        )
+        assert isinstance(config_instance, net_config.VlanConnectionConfigMixin)
         assert config_instance.vlan_id == int(vlan_target_data.get("id", None))
         assert isinstance(
-            config_instance.parent_interface, nmcli_interface_config.InterfaceIdentifier
+            config_instance.parent_interface, net_config.InterfaceIdentifier
         )
         assert config_instance.parent_interface.iface_name == vlan_target_data.get(
             "parent", None
@@ -405,7 +400,7 @@ def __test_config_set_param_fields(
 def __test_validate_nmcli_valid_configs(
     conn_configs: typing.Iterable[typing.Dict[str, typing.Any]],
     config_type: type,
-    connection_config_factory: nmcli_interface_config.ConnectionConfigFactory,
+    connection_config_factory: net_config.ConnectionConfigFactory,
     ip_links: typing.List[ip_interface.IPLinkData] = None,
 ):
     for conn_config in conn_configs:
@@ -430,7 +425,7 @@ def __test_validate_nmcli_valid_configs(
     "test_parameters",
     __TEST_IPV4_PARAMETERS_MATRIX,
 )
-def test_nmcli_interface_config_single_ethernet_ipv4_ok(
+def test_net_config_single_ethernet_ipv4_ok(
     mocker, test_parameters: ConfigTestParameters
 ):
     raw_config_manual = {
@@ -447,7 +442,7 @@ def test_nmcli_interface_config_single_ethernet_ipv4_ok(
 
     __test_validate_nmcli_valid_configs(
         [raw_config_manual, raw_config_manual_by_mac],
-        nmcli_interface_config.EthernetConnectionConfig,
+        net_config.EthernetConnectionConfig,
         mocker.Mock(),
         ip_links=config_stub_data.TEST_IP_LINKS,
     )
@@ -457,9 +452,7 @@ def test_nmcli_interface_config_single_ethernet_ipv4_ok(
     "test_parameters",
     __TEST_IPV4_PARAMETERS_MATRIX,
 )
-def test_nmcli_interface_config_single_vlan_ipv4_ok(
-    mocker, test_parameters: ConfigTestParameters
-):
+def test_net_config_single_vlan_ipv4_ok(mocker, test_parameters: ConfigTestParameters):
     raw_config = {
         "type": "vlan",
         "iface": "eth0.20",
@@ -470,7 +463,7 @@ def test_nmcli_interface_config_single_vlan_ipv4_ok(
         [
             raw_config,
         ],
-        nmcli_interface_config.VlanConnectionConfig,
+        net_config.VlanConnectionConfig,
         mocker.Mock(),
     )
 
@@ -479,7 +472,7 @@ def test_nmcli_interface_config_single_vlan_ipv4_ok(
     "test_parameters",
     __TEST_IPV4_PARAMETERS_MATRIX,
 )
-def test_nmcli_interface_config_bridge_ethernet_ipv4_ok(
+def test_net_config_bridge_ethernet_ipv4_ok(
     mocker, test_parameters: ConfigTestParameters
 ):
     raw_config_no_slaves = {"type": "bridge"}
@@ -513,7 +506,7 @@ def test_nmcli_interface_config_bridge_ethernet_ipv4_ok(
             raw_config_two_slaves,
             raw_config_no_slaves_explicit_iface,
         ],
-        nmcli_interface_config.BridgeConnectionConfig,
+        net_config.BridgeConnectionConfig,
         __build_testing_config_factory(mocker),
     )
 
@@ -522,9 +515,7 @@ def test_nmcli_interface_config_bridge_ethernet_ipv4_ok(
     "test_parameters",
     __TEST_IPV4_PARAMETERS_MATRIX,
 )
-def test_nmcli_interface_config_bridge_vlans_ipv4_ok(
-    mocker, test_parameters: ConfigTestParameters
-):
+def test_net_config_bridge_vlans_ipv4_ok(mocker, test_parameters: ConfigTestParameters):
     raw_config_no_slaves = {"type": "bridge", "state": test_parameters.state}
     __test_config_set_param_fields(raw_config_no_slaves, test_parameters)
 
@@ -558,7 +549,7 @@ def test_nmcli_interface_config_bridge_vlans_ipv4_ok(
             raw_config_one_slave,
             raw_config_two_slaves,
         ],
-        nmcli_interface_config.BridgeConnectionConfig,
+        net_config.BridgeConnectionConfig,
         __build_testing_config_factory(mocker),
     )
 
@@ -567,7 +558,7 @@ def test_nmcli_interface_config_bridge_vlans_ipv4_ok(
     "test_parameters",
     __TEST_IPV4_PARAMETERS_MATRIX,
 )
-def test_nmcli_interface_config_bridge_vlan_ethernet_ipv4_ok(
+def test_net_config_bridge_vlan_ethernet_ipv4_ok(
     mocker, test_parameters: ConfigTestParameters
 ):
     raw_config_two_slaves = {"type": "bridge", "state": test_parameters.state}
@@ -593,7 +584,7 @@ def test_nmcli_interface_config_bridge_vlan_ethernet_ipv4_ok(
         [
             raw_config_two_slaves,
         ],
-        nmcli_interface_config.BridgeConnectionConfig,
+        net_config.BridgeConnectionConfig,
         __build_testing_config_factory(mocker),
     )
 
@@ -606,7 +597,7 @@ def test_nmcli_interface_config_bridge_vlan_ethernet_ipv4_ok(
         ("d2:55:ee:86:11:26", "vlan_bridge_cloned_mac_links", "eth2"),
     ],
 )
-def test_nmcli_interface_config_interface_identifier_mac_ok(
+def test_net_config_interface_identifier_mac_ok(
     test_file_manager, target_mac, links_file, expected_iface
 ):
     ip_links = [
@@ -614,9 +605,7 @@ def test_nmcli_interface_config_interface_identifier_mac_ok(
         for data in test_file_manager.get_file_yaml_content(f"{links_file}.json")
     ]
     for _idx in range(len(ip_links)):
-        iface_identifier = nmcli_interface_config.InterfaceIdentifier(
-            target_mac, ip_links
-        )
+        iface_identifier = net_config.InterfaceIdentifier(target_mac, ip_links)
         assert iface_identifier
         assert iface_identifier.iface_name == expected_iface
 
@@ -637,7 +626,7 @@ def test_connection_config_handler_ok(
         test_config
     )
     for conn_configs in all_configs_combinations:
-        handler = nmcli_interface_config.ConnectionsConfigurationHandler(
+        handler = net_config.ConnectionsConfigurationHandler(
             conn_configs, __build_testing_config_factory(mocker)
         )
         assert handler
