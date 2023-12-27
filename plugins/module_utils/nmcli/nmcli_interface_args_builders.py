@@ -144,30 +144,38 @@ class CommonConnectionArgsBuilder(BaseBuilder):
         ]
 
 
-class IPv4ConnectionArgsBuilder(BaseBuilder):
-    @staticmethod
-    def __get_ipv4_target_method(
-        ipv4_candidate_config: typing.Union[net_config.IPv4Config, None],
+TIp = typing.TypeVar("TIp", net_config.IPv4Config, net_config.IPv6Config)
+
+
+class IPConnectionArgsBuilder(BaseBuilder, typing.Generic[TIp]):
+    def __init__(self, version: int, next_handler: "BaseBuilder" = None):
+        super().__init__(next_handler=next_handler)
+        self.__version = version
+
+    def __get_ip_target_method(
+        self,
+        ip_candidate_config: typing.Optional[TIp],
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
     ):
-        if not ipv4_candidate_config:
-            return nmcli_constants.NMCLI_CONN_FIELD_IPV4_METHOD_VAL_DISABLED, True
-
-        target_mode = nmcli_constants.map_config_ipv4_method_to_nmcli_ipv4_method_field(
-            ipv4_candidate_config.mode
+        target_mode = (
+            nmcli_constants.map_config_ip_method_to_nmcli_ip_method_field(
+                ip_candidate_config.mode
+            )
+            if ip_candidate_config
+            else nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED
         )
 
         to_change = not current_connection or (
             target_mode
             != current_connection.get(
-                nmcli_constants.NMCLI_CONN_FIELD_IPV4_METHOD, None
+                nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[self.__version], None
             )
         )
 
         return target_mode, to_change
 
     @staticmethod
-    def __convert_config_to_nmcli_routes(ipv_config: net_config.IPv4Config):
+    def __convert_config_to_nmcli_routes(ipv_config: TIp):
         result = []
         for route_data in ipv_config.routes:
             metric = str(route_data.metric) if route_data.metric else ""
@@ -175,178 +183,200 @@ class IPv4ConnectionArgsBuilder(BaseBuilder):
 
         return result
 
-    @classmethod
-    def __build_ip4_method(
-        cls,
-        conn_config: net_config.MainConnectionConfig,
+    def __build_ip_method(
+        self,
+        ip_candidate_config: typing.Optional[TIp],
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
     ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
-        target_method, change = cls.__get_ipv4_target_method(
-            conn_config.ipv4, current_connection
+        target_method, change = self.__get_ip_target_method(
+            ip_candidate_config, current_connection
         )
         if change:
-            return nmcli_constants.NMCLI_CONN_FIELD_IPV4_METHOD, target_method
+            return (
+                nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[self.__version],
+                target_method,
+            )
 
         return None, None
 
-    @classmethod
-    def __build_ip4_address(
-        cls,
-        conn_config: net_config.MainConnectionConfig,
+    def __build_ip_address(
+        self,
+        ip_candidate_config: typing.Optional[TIp],
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
     ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
-        target_method, method_change = cls.__get_ipv4_target_method(
-            conn_config.ipv4, current_connection
+        target_method, method_change = self.__get_ip_target_method(
+            ip_candidate_config, current_connection
         )
-        # If IPv4 addressing is going to be disabled just set IPv4 addresses to none
+
+        current_addresses = (
+            (
+                current_connection.get(
+                    nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[self.__version],
+                    [],
+                )
+                or []
+            )
+            if current_connection
+            else []
+        )
+        # Maybe is a string, maybe is list, depends on the count
+        current_addresses = (
+            [current_addresses]
+            if isinstance(current_addresses, str)
+            else current_addresses
+        )
+        # If IP addressing is going to be disabled just set IP addresses to none
         # Same applies when transitioning to AUTO from other methods
+        # If the method is not manual and the setting is set try to clear it too
         if method_change and (
             target_method
             in [
-                nmcli_constants.NMCLI_CONN_FIELD_IPV4_METHOD_VAL_DISABLED,
-                nmcli_constants.NMCLI_CONN_FIELD_IPV4_METHOD_VAL_AUTO,
+                nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED,
+                nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_AUTO,
             ]
         ):
-            return nmcli_constants.NMCLI_CONN_FIELD_IPV4_ADDRESSES, ""
-        if target_method == nmcli_constants.NMCLI_CONN_FIELD_IPV4_METHOD_VAL_MANUAL:
-            current_addresses = (
-                (
-                    current_connection.get(
-                        nmcli_constants.NMCLI_CONN_FIELD_IPV4_ADDRESSES, []
-                    )
-                    or []
-                )
-                if current_connection
-                else []
-            )
-            # Maybe is a string, maybe is list, depends on the count
-            current_addresses = (
-                [current_addresses]
-                if isinstance(current_addresses, str)
-                else current_addresses
-            )
+            return nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[self.__version], ""
 
-            # Convert IP+Prefix to string
-            target_ip_str = str(conn_config.ipv4.ip)
-            if (
-                not current_addresses
-                or len(current_addresses) > 1
-                or (current_addresses[0] != target_ip_str)
-            ):
-                return (
-                    nmcli_constants.NMCLI_CONN_FIELD_IPV4_ADDRESSES,
-                    target_ip_str,
-                )
+        # Convert IP+Prefix to string
+        # If the method is not "manual", enforce empty addresses if not empty
+        target_ip_str = (
+            str(ip_candidate_config.ip)
+            if target_method == nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL
+            else ""
+        )
+        if (
+            # Not current_connection: Do not compare to current_addresses
+            # not current_connection -> New connections
+            not current_connection
+            or len(current_addresses) > 1
+            or ((current_addresses or [""])[0] != target_ip_str)
+        ):
+            return (
+                nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[self.__version],
+                target_ip_str,
+            )
 
         return None, None
 
-    @classmethod
-    def __build_ip4_default_route_disable(
-        cls,
-        conn_config: net_config.MainConnectionConfig,
+    def __build_ip_default_route_disable(
+        self,
+        ip_candidate_config: typing.Optional[TIp],
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
     ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
-        target_method, method_change = cls.__get_ipv4_target_method(
-            conn_config.ipv4, current_connection
+        target_method, method_change = self.__get_ip_target_method(
+            ip_candidate_config, current_connection
         )
 
-        # If IPv4 addressing is going to be disabled, set IPv4 default route
+        # If IP addressing is going to be disabled, set IP default route
         # generation to the empty default
         # This property only makes sense for DHCP or static.
         # Disable it for the remaining modes
         if method_change and (
             target_method
             not in [
-                nmcli_constants.NMCLI_CONN_FIELD_IPV4_METHOD_VAL_MANUAL,
-                nmcli_constants.NMCLI_CONN_FIELD_IPV4_METHOD_VAL_AUTO,
+                nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL,
+                nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_AUTO,
             ]
         ):
-            return nmcli_constants.NMCLI_CONN_FIELD_IPV4_NEVER_DEFAULT, ""
+            # Set never-default to it's default value (empty forces nmcli to default)
+            return nmcli_constants.NMCLI_CONN_FIELD_IP_NEVER_DEFAULT[self.__version], ""
 
         current_setting = (
             current_connection.get(
-                nmcli_constants.NMCLI_CONN_FIELD_IPV4_NEVER_DEFAULT, None
+                nmcli_constants.NMCLI_CONN_FIELD_IP_NEVER_DEFAULT[self.__version], None
             )
             if current_connection
             else None
         )
 
-        if conn_config.ipv4.disable_default_route is not None and (
-            not current_connection
-            or current_setting != conn_config.ipv4.disable_default_route
-        ):
+        # Setting defaults to false
+        target_value = (
+            (ip_candidate_config.disable_default_route or False)
+            if ip_candidate_config
+            else False
+        )
+        if current_setting != target_value:
             return (
-                nmcli_constants.NMCLI_CONN_FIELD_IPV4_NEVER_DEFAULT,
-                "yes" if conn_config.ipv4.disable_default_route else "no",
+                nmcli_constants.NMCLI_CONN_FIELD_IP_NEVER_DEFAULT[self.__version],
+                "yes" if ip_candidate_config.disable_default_route else "no",
             )
 
         return None, None
 
-    @classmethod
-    def __build_ip4_gw(
-        cls,
-        conn_config: net_config.MainConnectionConfig,
+    def __build_ip_gw(
+        self,
+        ip_candidate_config: typing.Optional[TIp],
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
     ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
-        target_method, method_change = cls.__get_ipv4_target_method(
-            conn_config.ipv4, current_connection
+        target_method, method_change = self.__get_ip_target_method(
+            ip_candidate_config, current_connection
         )
-        # If IPv4 addressing is going to be disabled, just set the GW to none
+        # If IP addressing is going to be disabled, just set the GW to none
         # Same applies when transitioning to AUTO from other methods
         if method_change and (
             target_method
             in [
-                nmcli_constants.NMCLI_CONN_FIELD_IPV4_METHOD_VAL_DISABLED,
-                nmcli_constants.NMCLI_CONN_FIELD_IPV4_METHOD_VAL_AUTO,
+                nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED,
+                nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_AUTO,
             ]
         ):
-            return nmcli_constants.NMCLI_CONN_FIELD_IPV4_GATEWAY, ""
-        if target_method == nmcli_constants.NMCLI_CONN_FIELD_IPV4_METHOD_VAL_MANUAL:
-            current_gateway = (
-                current_connection.get(
-                    nmcli_constants.NMCLI_CONN_FIELD_IPV4_GATEWAY, None
-                )
-                if current_connection
-                else None
+            return nmcli_constants.NMCLI_CONN_FIELD_IP_GATEWAY[self.__version], ""
+
+        current_gateway = (
+            current_connection.get(
+                nmcli_constants.NMCLI_CONN_FIELD_IP_GATEWAY[self.__version], None
             )
-            target_gw = (
-                str(conn_config.ipv4.gw)
-                if conn_config.ipv4 and conn_config.ipv4.gw
-                else None
+            if current_connection
+            else None
+        )
+        target_gw = (
+            str(ip_candidate_config.gw)
+            if (
+                ip_candidate_config
+                and ip_candidate_config.gw
+                and target_method
+                == nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL
             )
-            if current_gateway != target_gw:
-                return (
-                    nmcli_constants.NMCLI_CONN_FIELD_IPV4_GATEWAY,
-                    target_gw,
-                )
+            else ""
+        )
+        if (current_gateway or "") != target_gw:
+            return (
+                nmcli_constants.NMCLI_CONN_FIELD_IP_GATEWAY[self.__version],
+                target_gw,
+            )
 
         return None, None
 
-    @classmethod
-    def __build_ip4_dns(
-        cls,
-        conn_config: net_config.MainConnectionConfig,
+    def __build_ip_dns(
+        self,
+        ip_candidate_config: typing.Optional[TIp],
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
     ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
-        target_method, method_change = cls.__get_ipv4_target_method(
-            conn_config.ipv4, current_connection
+        target_method, method_change = self.__get_ip_target_method(
+            ip_candidate_config, current_connection
         )
         if (
             method_change
-            and target_method
-            == nmcli_constants.NMCLI_CONN_FIELD_IPV4_METHOD_VAL_DISABLED
+            and target_method == nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED
         ):
-            return nmcli_constants.NMCLI_CONN_FIELD_IPV4_DNS, ""
+            return nmcli_constants.NMCLI_CONN_FIELD_IP_DNS[self.__version], ""
 
         target_dns_servers = (
-            [str(dns) for dns in conn_config.ipv4.dns] if conn_config.ipv4 else []
+            [str(dns) for dns in ip_candidate_config.dns]
+            if ip_candidate_config
+            and target_method
+            in [
+                nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL,
+                nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_AUTO,
+            ]
+            else []
         )
 
         current_dns_servers = (
             (
                 nmcli_interface_utils.cast_as_list(
                     current_connection.get(
-                        nmcli_constants.NMCLI_CONN_FIELD_IPV4_DNS, []
+                        nmcli_constants.NMCLI_CONN_FIELD_IP_DNS[self.__version], []
                     )
                     or []
                 )
@@ -356,36 +386,43 @@ class IPv4ConnectionArgsBuilder(BaseBuilder):
         )
 
         if target_dns_servers != current_dns_servers:
-            return nmcli_constants.NMCLI_CONN_FIELD_IPV4_DNS, ",".join(
+            return nmcli_constants.NMCLI_CONN_FIELD_IP_DNS[self.__version], ",".join(
                 target_dns_servers
             )
 
         return None, None
 
-    @classmethod
-    def __build_ip4_routes(
-        cls,
-        conn_config: net_config.MainConnectionConfig,
+    def __build_ip_routes(
+        self,
+        ip_candidate_config: typing.Optional[TIp],
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
     ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
-        target_method, method_change = cls.__get_ipv4_target_method(
-            conn_config.ipv4, current_connection
+        target_method, method_change = self.__get_ip_target_method(
+            ip_candidate_config, current_connection
         )
 
         if (
             method_change
-            and target_method
-            == nmcli_constants.NMCLI_CONN_FIELD_IPV4_METHOD_VAL_DISABLED
+            and target_method == nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED
         ):
-            return nmcli_constants.NMCLI_CONN_FIELD_IPV4_ROUTES, ""
+            return nmcli_constants.NMCLI_CONN_FIELD_IP_ROUTES[self.__version], ""
 
-        target_routes = cls.__convert_config_to_nmcli_routes(conn_config.ipv4)
+        target_routes = (
+            self.__convert_config_to_nmcli_routes(ip_candidate_config)
+            if ip_candidate_config
+            and target_method
+            in [
+                nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL,
+                nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_AUTO,
+            ]
+            else []
+        )
 
         current_routes = (
             (
                 nmcli_interface_utils.cast_as_list(
                     current_connection.get(
-                        nmcli_constants.NMCLI_CONN_FIELD_IPV4_ROUTES, []
+                        nmcli_constants.NMCLI_CONN_FIELD_IP_ROUTES[self.__version], []
                     )
                     or []
                 )
@@ -394,7 +431,9 @@ class IPv4ConnectionArgsBuilder(BaseBuilder):
             else []
         )
         if target_routes != current_routes:
-            return nmcli_constants.NMCLI_CONN_FIELD_IPV4_ROUTES, ",".join(target_routes)
+            return nmcli_constants.NMCLI_CONN_FIELD_IP_ROUTES[self.__version], ",".join(
+                target_routes
+            ).rstrip(",")
 
         return None, None
 
@@ -408,42 +447,29 @@ class IPv4ConnectionArgsBuilder(BaseBuilder):
         if not isinstance(conn_config, net_config.MainConnectionConfig):
             raise ValueError(f"unexpected configuration type {type(conn_config)}")
         conn_config = typing.cast(net_config.MainConnectionConfig, conn_config)
+        ip_candidate_config = (
+            conn_config.ipv4 if self.__version == 4 else conn_config.ipv6
+        )
         return [
-            self.__build_ip4_method(conn_config, current_connection),
-            self.__build_ip4_address(conn_config, current_connection),
-            self.__build_ip4_gw(conn_config, current_connection),
-            self.__build_ip4_dns(conn_config, current_connection),
-            self.__build_ip4_routes(conn_config, current_connection),
-            self.__build_ip4_default_route_disable(conn_config, current_connection),
+            self.__build_ip_method(ip_candidate_config, current_connection),
+            self.__build_ip_address(ip_candidate_config, current_connection),
+            self.__build_ip_gw(ip_candidate_config, current_connection),
+            self.__build_ip_dns(ip_candidate_config, current_connection),
+            self.__build_ip_routes(ip_candidate_config, current_connection),
+            self.__build_ip_default_route_disable(
+                ip_candidate_config, current_connection
+            ),
         ]
 
 
-class IPv6ConnectionArgsBuilder(BaseBuilder):
-    @staticmethod
-    def __build_ip6_method(
-        current_connection: typing.Union[typing.Dict[str, typing.Any], None],
-    ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
-        if not current_connection or (
-            current_connection.get(nmcli_constants.NMCLI_CONN_FIELD_IPV6_METHOD, None)
-            != nmcli_constants.NMCLI_CONN_FIELD_IPV6_METHOD_VAL_DISABLED
-        ):
-            return (
-                nmcli_constants.NMCLI_CONN_FIELD_IPV6_METHOD,
-                nmcli_constants.NMCLI_CONN_FIELD_IPV6_METHOD_VAL_DISABLED,
-            )
+class IPv4ConnectionArgsBuilder(IPConnectionArgsBuilder[net_config.IPv4Config]):
+    def __init__(self, next_handler: "BaseBuilder" = None):
+        super().__init__(4, next_handler=next_handler)
 
-        return None, None
 
-    def _collect(
-        self,
-        _: net_config.BaseConnectionConfig,
-        current_connection: typing.Union[typing.Dict[str, typing.Any], None],
-        __: typing.Union[str, None],
-        main_conn_uuid: typing.Union[str, None],
-    ) -> typing.List[typing.Tuple[str, str]]:
-        return [
-            self.__build_ip6_method(current_connection),
-        ]
+class IPv6ConnectionArgsBuilder(IPConnectionArgsBuilder[net_config.IPv6Config]):
+    def __init__(self, next_handler: "BaseBuilder" = None):
+        super().__init__(6, next_handler=next_handler)
 
 
 class VlanConnectionArgsBuilder(BaseBuilder):

@@ -15,16 +15,16 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
     net_utils,
 )
 
-TAdd = typing.TypeVar("TAdd")
-TInt = typing.TypeVar("TInt")
-TNet = typing.TypeVar("TNet")
+TAdd = typing.TypeVar("TAdd", ipaddress.IPv4Address, ipaddress.IPv6Address)
+TInt = typing.TypeVar("TInt", ipaddress.IPv4Interface, ipaddress.IPv6Interface)
+TNet = typing.TypeVar("TNet", ipaddress.IPv4Network, ipaddress.IPv6Network)
 
 
 class NmcliLinkResolutionException(exceptions.BaseInfraException):
     def __init__(
-        self,
-        msg: str,
-        candidates: typing.List[ip_interface.IPLinkData] = None,
+            self,
+            msg: str,
+            candidates: typing.List[ip_interface.IPLinkData] = None,
     ) -> None:
         super().__init__(msg)
         self.candidates = candidates
@@ -226,9 +226,9 @@ IPv6Config = IPConfig[
 
 class InterfaceIdentifier:
     def __init__(
-        self,
-        str_identifier,
-        ip_links: typing.List[ip_interface.IPLinkData],
+            self,
+            str_identifier,
+            ip_links: typing.List[ip_interface.IPLinkData],
     ):
         self.__str_identifier = str_identifier
         self.__ip_links = ip_links
@@ -238,7 +238,7 @@ class InterfaceIdentifier:
 
     def __parse_validate(self):
         if not self.__str_is_mac and re.match(
-            r"^[a-zA-Z0-9_\-.]*$", self.__str_identifier
+                r"^[a-zA-Z0-9_\-.]*$", self.__str_identifier
         ):
             self.__iface_name = self.__str_identifier
         elif self.__str_is_mac:
@@ -255,7 +255,7 @@ class InterfaceIdentifier:
             link_data
             for link_data in self.__ip_links
             if link_data.address == target_mac
-            and self.__is_mac_resolvable_link(link_data)
+               and self.__is_mac_resolvable_link(link_data)
         ]
         if len(results) != 1:
             raise NmcliLinkResolutionException(
@@ -295,8 +295,8 @@ class BaseConnectionConfig:
     ]
 
     def __init__(
-        self,
-        **kwargs,
+            self,
+            **kwargs,
     ):
         self._conn_name: str = kwargs["conn_name"]
         self._raw_config: typing.Dict[str, typing.Any] = kwargs["raw_config"]
@@ -339,8 +339,8 @@ class BaseConnectionConfig:
         return self._related_interfaces
 
     def __parse_config(
-        self,
-        ip_links: typing.List[ip_interface.IPLinkData],
+            self,
+            ip_links: typing.List[ip_interface.IPLinkData],
     ):
         # There is no real constraint about the name, but some basic
         # rules seem correct:
@@ -389,8 +389,8 @@ class MainConnectionConfig(BaseConnectionConfig):
     __FIELD_SLAVES = "slaves"
 
     def __init__(
-        self,
-        **kwargs,
+            self,
+            **kwargs,
     ):
         super().__init__(**kwargs)
         self._ipv4: typing.Optional[IPv4Config] = None
@@ -400,13 +400,13 @@ class MainConnectionConfig(BaseConnectionConfig):
 
     @property
     def ipv4(
-        self,
+            self,
     ) -> typing.Optional[IPv4Config]:
         return self._ipv4
 
     @property
     def ipv6(
-        self,
+            self,
     ) -> typing.Optional[IPv6Config]:
         return self._ipv6
 
@@ -484,8 +484,8 @@ class VlanConnectionConfigMixin(BaseConnectionConfig):
         return self._vlan_id
 
     def __parse_config(
-        self,
-        ip_links: typing.List[ip_interface.IPLinkData],
+            self,
+            ip_links: typing.List[ip_interface.IPLinkData],
     ):
         vlan_config = self._raw_config.get(self.__FIELD_VLAN, None)
         if not vlan_config:
@@ -512,8 +512,8 @@ class VlanConnectionConfigMixin(BaseConnectionConfig):
         self._related_interfaces.add(self._parent_interface.iface_name)
 
         if (
-            self.interface
-            and self._parent_interface.iface_name == self.interface.iface_name
+                self.interface
+                and self._parent_interface.iface_name == self.interface.iface_name
         ):
             raise exceptions.ValueInfraException(
                 f"{self.__FIELD_VLAN_PARENT_IFACE} field of "
@@ -588,10 +588,10 @@ class ConnectionConfigFactory:
         self.__ip_links = ip_iface.get_ip_links()
 
     def build_slave_connection(
-        self,
-        conn_name: str,
-        conn_config: typing.Dict[str, typing.Any],
-        main_connection_config: MainConnectionConfig,
+            self,
+            conn_name: str,
+            conn_config: typing.Dict[str, typing.Any],
+            main_connection_config: MainConnectionConfig,
     ) -> SlaveConnectionConfig:
         conn_type = conn_config.get(self.__FIELD_TYPE, None)
         if not conn_type:
@@ -615,7 +615,7 @@ class ConnectionConfigFactory:
         )
 
     def build_connection(
-        self, conn_name: str, conn_config: typing.Dict[str, typing.Any]
+            self, conn_name: str, conn_config: typing.Dict[str, typing.Any]
     ) -> MainConnectionConfig:
         conn_type = conn_config.get(self.__FIELD_TYPE, None)
         if not conn_type:
@@ -641,9 +641,9 @@ class ConnectionConfigFactory:
 
 class ConnectionsConfigurationHandler:
     def __init__(
-        self,
-        raw_config: typing.Dict[str, typing.Any],
-        connection_config_factory: ConnectionConfigFactory,
+            self,
+            raw_config: typing.Dict[str, typing.Any],
+            connection_config_factory: ConnectionConfigFactory,
     ):
         self.__raw_config = raw_config
         self.__connection_config_factory = connection_config_factory
@@ -668,7 +668,7 @@ class ConnectionsConfigurationHandler:
 
     @classmethod
     def __sort_conn_ifaces(
-        cls, interfaces_dependencies_graph, graph_iface, visited, ifaces_stack
+            cls, interfaces_dependencies_graph, graph_iface, visited, ifaces_stack
     ):
         visited.append(graph_iface)
 

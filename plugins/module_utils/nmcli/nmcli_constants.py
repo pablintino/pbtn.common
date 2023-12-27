@@ -9,7 +9,6 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
     net_config,
 )
 
-
 # NMCLI Connection General section fields
 NMCLI_CONN_FIELD_GENERAL_NAME = "general.name"
 NMCLI_CONN_FIELD_GENERAL_STATE = "general.state"
@@ -39,21 +38,44 @@ NMCLI_CONN_FIELD_IP4_ADDRESS = "ip4.address"
 # This section is read-only
 NMCLI_CONN_FIELD_IP6_ADDRESS = "ip6.address"
 
-# NMCLI Connection IPv4 section fields
-NMCLI_CONN_FIELD_IPV4_METHOD = "ipv4.method"
-NMCLI_CONN_FIELD_IPV4_METHOD_VAL_AUTO = "auto"
-NMCLI_CONN_FIELD_IPV4_METHOD_VAL_MANUAL = "manual"
-NMCLI_CONN_FIELD_IPV4_METHOD_VAL_DISABLED = "disabled"
-NMCLI_CONN_FIELD_IPV4_ADDRESSES = "ipv4.addresses"
-NMCLI_CONN_FIELD_IPV4_GATEWAY = "ipv4.gateway"
-NMCLI_CONN_FIELD_IPV4_DNS = "ipv4.dns"
-NMCLI_CONN_FIELD_IPV4_ROUTES = "ipv4.routes"
-NMCLI_CONN_FIELD_IPV4_NEVER_DEFAULT = "ipv4.never-default"
-
-
-# NMCLI Connection IPv6 section fields
-NMCLI_CONN_FIELD_IPV6_METHOD = "ipv6.method"
-NMCLI_CONN_FIELD_IPV6_METHOD_VAL_DISABLED = "disabled"
+# NMCLI Connection IP section constants
+__NMCLI_CONN_FIELD_PREFIX_IPV4 = "ipv4"
+__NMCLI_CONN_FIELD_PREFIX_IPV6 = "ipv6"
+__NMCLI_CONN_FIELD_SUFFIX_METHOD = ".method"
+__NMCLI_CONN_FIELD_SUFFIX_ADDRESSES = ".addresses"
+__NMCLI_CONN_FIELD_SUFFIX_GATEWAY = ".gateway"
+__NMCLI_CONN_FIELD_SUFFIX_DNS = ".dns"
+__NMCLI_CONN_FIELD_SUFFIX_ROUTES = ".routes"
+__NMCLI_CONN_FIELD_SUFFIX_NEVER_DEFAULT = ".never-default"
+__IP_VERSION_4 = 4
+__IP_VERSION_6 = 6
+NMCLI_CONN_FIELD_IP_METHOD = {
+    __IP_VERSION_4: __NMCLI_CONN_FIELD_PREFIX_IPV4 + __NMCLI_CONN_FIELD_SUFFIX_METHOD,
+    __IP_VERSION_6: __NMCLI_CONN_FIELD_PREFIX_IPV6 + __NMCLI_CONN_FIELD_SUFFIX_METHOD,
+}
+NMCLI_CONN_FIELD_IP_ADDRESSES = {
+    __IP_VERSION_4: __NMCLI_CONN_FIELD_PREFIX_IPV4 + __NMCLI_CONN_FIELD_SUFFIX_ADDRESSES,
+    __IP_VERSION_6: __NMCLI_CONN_FIELD_PREFIX_IPV6 + __NMCLI_CONN_FIELD_SUFFIX_ADDRESSES,
+}
+NMCLI_CONN_FIELD_IP_GATEWAY = {
+    __IP_VERSION_4: __NMCLI_CONN_FIELD_PREFIX_IPV4 + __NMCLI_CONN_FIELD_SUFFIX_GATEWAY,
+    __IP_VERSION_6: __NMCLI_CONN_FIELD_PREFIX_IPV6 + __NMCLI_CONN_FIELD_SUFFIX_GATEWAY,
+}
+NMCLI_CONN_FIELD_IP_DNS = {
+    __IP_VERSION_4: __NMCLI_CONN_FIELD_PREFIX_IPV4 + __NMCLI_CONN_FIELD_SUFFIX_DNS,
+    __IP_VERSION_6: __NMCLI_CONN_FIELD_PREFIX_IPV6 + __NMCLI_CONN_FIELD_SUFFIX_DNS,
+}
+NMCLI_CONN_FIELD_IP_ROUTES = {
+    __IP_VERSION_4: __NMCLI_CONN_FIELD_PREFIX_IPV4 + __NMCLI_CONN_FIELD_SUFFIX_ROUTES,
+    __IP_VERSION_6: __NMCLI_CONN_FIELD_PREFIX_IPV6 + __NMCLI_CONN_FIELD_SUFFIX_ROUTES,
+}
+NMCLI_CONN_FIELD_IP_NEVER_DEFAULT = {
+    __IP_VERSION_4: __NMCLI_CONN_FIELD_PREFIX_IPV4 + __NMCLI_CONN_FIELD_SUFFIX_NEVER_DEFAULT,
+    __IP_VERSION_6: __NMCLI_CONN_FIELD_PREFIX_IPV6 + __NMCLI_CONN_FIELD_SUFFIX_NEVER_DEFAULT,
+}
+NMCLI_CONN_FIELD_IP_METHOD_VAL_AUTO = "auto"
+NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL = "manual"
+NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED = "disabled"
 
 # NMCLI Connection VLAN section fields
 NMCLI_CONN_FIELD_VLAN_VLAN_ID = "vlan.id"
@@ -63,7 +85,6 @@ NMCLI_DEVICE_ETHERNET_MTU_FIELD = "general.mtu"
 NMCLI_DEVICE_ETHERNET_MAC_FIELD = "general.hwaddr"
 NMCLI_DEVICE_CONNECTION_NAME = "general.connection"
 
-
 __NMCLI_TYPE_CONVERSION_TABLE = {
     net_config.EthernetConnectionConfig: NMCLI_CONN_FIELD_CONNECTION_TYPE_VAL_ETHERNET,
     net_config.VlanConnectionConfig: NMCLI_CONN_FIELD_CONNECTION_TYPE_VAL_VLAN,
@@ -72,15 +93,15 @@ __NMCLI_TYPE_CONVERSION_TABLE = {
     net_config.VlanSlaveConnectionConfig: NMCLI_CONN_FIELD_CONNECTION_TYPE_VAL_VLAN,
 }
 
-__NMCLI_IPV4_METHOD_CONVERSION_TABLE = {
-    net_config.IPConfig.FIELD_IP_MODE_VAL_AUTO: NMCLI_CONN_FIELD_IPV4_METHOD_VAL_AUTO,
-    net_config.IPConfig.FIELD_IP_MODE_VAL_MANUAL: NMCLI_CONN_FIELD_IPV4_METHOD_VAL_MANUAL,
-    net_config.IPConfig.FIELD_IP_MODE_VAL_DISABLED: NMCLI_CONN_FIELD_IPV4_METHOD_VAL_DISABLED,
+__NMCLI_IP_METHOD_CONVERSION_TABLE = {
+    net_config.IPConfig.FIELD_IP_MODE_VAL_AUTO: NMCLI_CONN_FIELD_IP_METHOD_VAL_AUTO,
+    net_config.IPConfig.FIELD_IP_MODE_VAL_MANUAL: NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL,
+    net_config.IPConfig.FIELD_IP_MODE_VAL_DISABLED: NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED,
 }
 
 
 def map_config_to_nmcli_type_field(
-    config: net_config.BaseConnectionConfig,
+        config: net_config.BaseConnectionConfig,
 ) -> str:
     nmcli_conn_type = __NMCLI_TYPE_CONVERSION_TABLE.get(type(config), None)
     if nmcli_conn_type:
@@ -88,20 +109,20 @@ def map_config_to_nmcli_type_field(
     raise ValueError(f"Unsupported config type {type(config)}")
 
 
-def map_config_ipv4_method_to_nmcli_ipv4_method_field(
-    config_ipv4_method: str,
+def map_config_ip_method_to_nmcli_ip_method_field(
+        config_ip_method: str,
 ) -> str:
-    nmcli_conn_method = __NMCLI_IPV4_METHOD_CONVERSION_TABLE.get(
-        config_ipv4_method, None
+    nmcli_conn_method = __NMCLI_IP_METHOD_CONVERSION_TABLE.get(
+        config_ip_method, None
     )
     if nmcli_conn_method:
         return nmcli_conn_method
-    raise ValueError(f"Unsupported IPv4 method {config_ipv4_method}")
+    raise ValueError(f"Unsupported IP method {config_ip_method}")
 
 
 def is_connection_master_of(
-    slave_conn_data: typing.Dict[str, typing.Any],
-    master_conn_data: typing.Dict[str, typing.Any],
+        slave_conn_data: typing.Dict[str, typing.Any],
+        master_conn_data: typing.Dict[str, typing.Any],
 ) -> bool:
     """
     Checks if a given master connection is the master of the given slave.
