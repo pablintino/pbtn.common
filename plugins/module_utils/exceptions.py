@@ -18,9 +18,7 @@ class BaseInfraException(Exception):
         self.msg = msg
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
-        return encoding.to_basic_types(
-            self.__dict__.items(), filter_private_fields=True
-        )
+        return encoding.to_basic_types(vars(self), filter_private_fields=True)
 
 
 class ValueInfraException(BaseInfraException):
