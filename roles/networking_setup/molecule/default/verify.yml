@@ -91,39 +91,80 @@
           {{
             pbi_tst_nstp_test_nmcli_data['external']
           }}
-        dns_nameservers: >-
+      ansible.builtin.debug:
+        var: connection_data
+
+
+    - name: Basic  assertions for the external connection
+      vars:
+        connection_data: >-
+          {{
+            pbi_tst_nstp_test_nmcli_data['external']
+          }}
+        dns4_nameservers: >-
           {{
             connection_data |
             dict2items |
             selectattr("key", "search", "^ip4_dns") |
             map(attribute="value")
           }}
-        extra_route: >-
+        dns6_nameservers: >-
+          {{
+            connection_data |
+            dict2items |
+            selectattr("key", "search", "^ip6_dns") |
+            map(attribute="value")
+          }}
+        ip6_address: >-
+          {{
+            connection_data |
+            dict2items |
+            selectattr("key", "search", "^ip6_address") |
+            map(attribute="value") |
+            select('equalto', 'fd68:4327:d6f9:2240::ab/128')
+          }}
+        extra_route4: >-
           {{
             connection_data |
             dict2items |
             selectattr("value.dst", "defined") |
             selectattr("value.nh", "defined") |
+            selectattr("value.mt", "defined") |
             selectattr("value.dst", "equalto", "10.111.111.0/24") |
-            selectattr("value.nh", "equalto", "10.177.100.100")
+            selectattr("value.mt", "equalto", 100) 
+          }}
+        extra_route6: >-
+          {{
+            connection_data |
+            dict2items |
+            selectattr("value.dst", "defined") |
+            selectattr("value.nh", "defined") |
+            selectattr("value.mt", "defined") |
+            selectattr("value.dst", "equalto", "fdb9:3b7a:9813:d59a::/64") |
+            selectattr("value.nh", "equalto", "fd68:4327:d6f9:2240::1") |
+            selectattr("value.mt", "equalto", 100)
           }}
       ansible.builtin.assert:
         that:
           - "connection_data.state == 'activated'"
           - "connection_data.connection_type == '802-3-ethernet'"
           - "connection_data.ipv4_method == 'auto'"
-          - "connection_data.ipv6_method == 'disabled'"
+          - "connection_data.ipv6_method == 'manual'"
           - "(connection_data.ip4_address_1 | ansible.utils.ipaddr) != false"
           - "connection_data.ipv4_addresses == None"
+          - "connection_data.ipv6_addresses == ip6_address | first"
           - "connection_data.ipv4_gateway == None"
           - "connection_data.ip4_gateway == connection_data.ipv4_gateway"
           - "connection_data.ipv4_dns == '1.1.1.1'"
-          - "connection_data.ipv4_dns in dns_nameservers"
+          - "connection_data.ipv4_dns in dns4_nameservers"
+          - "dns6_nameservers | length == 2"
+          - "(connection_data.ipv6_dns | split(',')) == dns6_nameservers"
           # Ensure DHCP routes to the net and 0.0.0.0 are added
           - "connection_data.ip4_route_1 is defined"
           - "connection_data.ip4_route_2 is defined"
           # Ensure that the custom route was added
-          - "extra_route | length == 1"
+          - "extra_route4 | length == 1"
+          - "extra_route6 | length == 1"
         quiet: true
 
     - name: Assert that the interface for each connection is the expected one

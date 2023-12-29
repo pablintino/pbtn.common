@@ -63,6 +63,18 @@
                   gw: 10.177.100.100
                   metric: 100
               disable-default-route: true
+            ipv6:
+              # Vagrant infra doesn't support DHCP. Testing IPv6 statically
+              mode: manual
+              ip: fd68:4327:d6f9:2240::ab
+              dns:
+                - fd68:4327:d6f9:2240::01
+                - fd68:4327:d6f9:2240::02
+              routes:
+                - dst: fdb9:3b7a:9813:d59a::/64
+                  gw: fd68:4327:d6f9:2240::01
+                  metric: 100
+              disable-default-route: true
         content:
           pbi_tst_nstp_ifaces:
             internal: "{{ custom_net_ifaces_facts[0].device }}"
