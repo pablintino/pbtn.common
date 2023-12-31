@@ -1,0 +1,132 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: "Load ifaces test file"
+      ansible.builtin.slurp:
+        src: "/tmp/test-ifaces.yaml"
+      register: pbi_tst_nstp_ifaces_test_file_slurp
+
+    - name: Set prepare step facts
+      vars:
+        content: >-
+          {{
+            pbi_tst_nstp_ifaces_test_file_slurp['content'] |
+            b64decode |
+            from_yaml
+          }}
+      ansible.builtin.set_fact:
+        "{{ item.key }}": "{{ item.value }}"
+      loop: "{{ content | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
+    - name: Fetch connection data from cli
+      ansible.builtin.shell:
+        cmd: "nmcli con show {{ item }}"
+      register: pbi_tst_nstp_molecule_data_out
+      loop: >-
+        {{ 
+          (pbi_tst_nstp_connections_config.keys() | list) +
+          pbi_tst_nstp_connections_config['internal'].slaves.keys() | list
+        }}
+      changed_when: false
+
+    - name: Parse connections data
+      ansible.builtin.set_fact:
+        pbi_tst_nstp_test_nmcli_data: >-
+          {{
+            pbi_tst_nstp_test_nmcli_data |
+            default({}) |
+            combine(
+              {
+                item.item: item.stdout | community.general.jc('nmcli') | first
+              }
+            )
+          }}
+      loop: "{{ pbi_tst_nstp_molecule_data_out.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Basic  assertions for the molecule connection
+      vars:
+        connection_data: >-
+          {{
+            pbi_tst_nstp_test_nmcli_data['molecule']
+          }}
+      ansible.builtin.assert:
+        that:
+          - "connection_data.state == 'activated'"
+          - "connection_data.ipv4_method == 'auto'"
+          - "connection_data.ipv6_method == 'disabled'"
+          - "(connection_data.ip4_address_1 | ansible.utils.ipaddr) != false"
+          - "(connection_data.ip4_dns_1 | ansible.utils.ipaddr) != false"
+        quiet: true
+
+    - name: Basic common assertions for the internal
+      vars:
+        connection_data: >-
+          {{
+            pbi_tst_nstp_test_nmcli_data['internal']
+          }}
+      ansible.builtin.assert:
+        that:
+          - "connection_data.state == 'activated'"
+          - "connection_data.connection_type == 'bridge'"
+          - "connection_data.ipv4_method == 'manual'"
+          - "connection_data.ipv6_method == 'disabled'"
+          - "(connection_data.ip4_address_1 | ansible.utils.ipaddr) != false"
+          - "connection_data.ip4_address_1 == '10.177.177.40/24'"
+          - "connection_data.ipv4_addresses == connection_data.ip4_address_1"
+          - "connection_data.ipv4_dns == '1.1.1.1,8.8.8.8'"
+          - "connection_data.ip4_dns_1 == connection_data.ipv4_dns | split(',') | first"
+          - "connection_data.ip4_dns_2 == connection_data.ipv4_dns | split(',') | last"
+        quiet: true
+
+    - name: Basic common assertions for the internal slaves
+      vars:
+        connection_data: >-
+          {{
+            pbi_tst_nstp_test_nmcli_data[item]
+          }}
+      ansible.builtin.assert:
+        that:
+          - "connection_data.state == 'activated'"
+          - "connection_data.connection_type == '802-3-ethernet'"
+          - "connection_data.connection_slave_type == 'bridge'"
+          - "connection_data.ipv4_method is not defined"
+          - "connection_data.ipv6_method is not defined"
+          - "connection_data.connection_master == pbi_tst_nstp_test_nmcli_data['internal'].uuid"
+        quiet: true
+      loop:
+        - internal-1
+        - internal-2
+
+    - name: Assert that the interface for each connection is the expected one
+      ansible.builtin.assert:
+        that:
+          - "item.value.connection_interface_name == pbi_tst_nstp_ifaces[item.key]"
+        quiet: true
+      loop: "{{ pbi_tst_nstp_test_nmcli_data | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
+    - name: Fetch connections devices
+      ansible.builtin.command:
+        cmd: "nmcli -t -f DEVICE conn show"
+      register: pbi_tst_nstp_connections_statuses
+      changed_when: false
+
+    - name: Assert that the we only have the expected number of connections
+      vars:
+        # Compare without taking into account the lo connection
+        filtered_connections: >-
+          {{
+            pbi_tst_nstp_connections_statuses.stdout_lines |
+            reject("search", "^lo") |
+            reject("search", "^loopback")
+          }}
+      ansible.builtin.assert:
+        that: >-
+          filtered_connections | length == pbi_tst_nstp_test_nmcli_data | length

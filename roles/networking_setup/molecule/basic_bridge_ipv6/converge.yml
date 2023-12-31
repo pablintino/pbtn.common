@@ -1,0 +1,40 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: "Load ifaces test file"
+      ansible.builtin.slurp:
+        src: "/tmp/test-ifaces.yaml"
+      register: pbi_tst_nstp_ifaces_test_file_slurp
+
+    - name: Run the test
+      vars:
+        pbi_tst_nstp_ifaces_test_file_content: >-
+          {{
+            pbi_tst_nstp_ifaces_test_file_slurp['content'] |
+            b64decode |
+            from_yaml
+          }}
+        pbi_nstp_connections: >-
+          {{
+            pbi_tst_nstp_ifaces_test_file_content.pbi_tst_nstp_connections_config
+          }}
+        pbi_tst_nstp_expected_ssh_iface: >-
+          {{
+            pbi_tst_nstp_ifaces_test_file_content.pbi_tst_nstp_ssh_interface
+          }}
+      block:
+        - name: "Include role under test"
+          ansible.builtin.include_role:
+            name: "pablintino.base_infra.networking_setup"
+
+        - name: Check that the expected facts are set
+          ansible.builtin.assert:
+            that:
+              - pbi_network_connections is defined
+              - pbi_network_connections == pbi_nstp_connections
+              - pbi_nstp_mngt_connection is defined
+              - "pbi_nstp_mngt_connection == 'molecule'"
+              - pbi_nstp_mngt_interface is defined
+              - pbi_nstp_mngt_interface == pbi_tst_nstp_expected_ssh_iface

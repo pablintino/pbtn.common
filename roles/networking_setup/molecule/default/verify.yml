@@ -85,7 +85,7 @@
           - "connection_data.ipv4_never_default == 'yes'"
         quiet: true
 
-    - name: Basic  assertions for the external connection
+    - name: Basic assertions for the external connection
       vars:
         connection_data: >-
           {{
@@ -121,7 +121,7 @@
             dict2items |
             selectattr("key", "search", "^ip6_address") |
             map(attribute="value") |
-            select('equalto', 'fd68:4327:d6f9:2240::ab/128')
+            select('equalto', 'fd68:4327:d6f9:2240::ab/64')
           }}
         extra_route4: >-
           {{

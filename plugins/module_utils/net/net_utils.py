@@ -18,8 +18,14 @@ def is_mac_addr(string_data: str) -> bool:
 
 
 def parse_validate_ip_interface_addr(
-    ip_string: str, version: int = 4
+    ip_string: str, version: int = 4, enforce_prefix: bool = False
 ) -> typing.Union[ipaddress.IPv4Interface, ipaddress.IPv6Interface]:
+    if enforce_prefix and len(ip_string) < 2:
+        raise exceptions.ValueInfraException(
+            f"{ip_string} is not a valid IPv{version} prefixed value",
+            value=ip_string,
+        )
+
     try:
         return (
             ipaddress.IPv4Interface(ip_string)
@@ -28,7 +34,7 @@ def parse_validate_ip_interface_addr(
         )
     except ValueError as err:
         raise exceptions.ValueInfraException(
-            f"{ip_string} is not a valid IPv{version} prefixed value",
+            f"{ip_string} is not a valid IPv{version} value",
             value=ip_string,
         ) from err
 

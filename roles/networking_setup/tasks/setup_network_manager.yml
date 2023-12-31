@@ -23,3 +23,19 @@
   when: pbi_nstp_migrate_from_interfaces_file_need | bool
   ansible.builtin.include_tasks:
     file: migration_interfaces_file_to_nm_tasks.yml
+
+- name: Gather the updated services list
+  ansible.builtin.service_facts:
+
+# Ensure networkd wait-online is disabled as it may interfere with NM
+- name: Disable networkd wait-online (boot)
+  vars:
+    _wait_online_service: "systemd-networkd-wait-online.service"
+  when:
+    - "_wait_online_service in ansible_facts.services"
+    - "ansible_facts.services[_wait_online_service].source == 'systemd'"
+  become: true
+  ansible.builtin.systemd:
+    name: "{{ _wait_online_service }}"
+    enabled: no
+    state: stopped

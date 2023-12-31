@@ -10,6 +10,10 @@
     name: package_install
     tasks_from: install_packages.yml
 
+- name: Fine tune OS network parameters
+  ansible.builtin.import_tasks:
+    file: network_tuning.yml
+
 - name: Setup network-manager to handle all connections
   ansible.builtin.import_tasks:
     file: setup_network_manager.yml

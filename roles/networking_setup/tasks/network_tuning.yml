@@ -1,0 +1,29 @@
+- name: Enable kernel IPv6 tunable vars if needed
+  # Apply this changed only if IPv6 is used
+  # For simplicity, we do not disable IPv6 back if not
+  # used anymore.
+  when: >-
+    pbi_nstp_connections.values() |
+    list |
+    selectattr('ipv6','defined') |
+    length > 0
+  block:
+    - name: Check the status of IPv6 disabling kernel tunable vars
+      become: true
+      ansible.builtin.command:
+        cmd: "sysctl -n {{ pbi_nstp_ipv6_kernel_tunnables | join(' ') }}"
+      register: _pbi_nstp_kernel_tunnables_out
+      changed_when: false
+
+    - name: Ensure IPv6 disabling kernel tunable vars are off
+      become: true
+      when: >-
+        _pbi_nstp_kernel_tunnables_out.stdout_lines |
+        reject('equalto', '0') |
+        length > 0
+      ansible.posix.sysctl:
+        name: "{{ item }}"
+        value: "0"
+        sysctl_set: true
+        state: "present"
+      loop: "{{ pbi_nstp_ipv6_kernel_tunnables }}"
