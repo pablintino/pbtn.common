@@ -131,7 +131,7 @@
             selectattr("value.nh", "defined") |
             selectattr("value.mt", "defined") |
             selectattr("value.dst", "equalto", "10.111.111.0/24") |
-            selectattr("value.mt", "equalto", 100) 
+            selectattr("value.mt", "equalto", 100)
           }}
         extra_route6: >-
           {{
