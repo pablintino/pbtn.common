@@ -144,7 +144,11 @@
             type: bridge
             state: up
             ipv4:
-              mode: auto
+              # Manual must be used as VLAN doesn't
+              # have DHCP and activation cannot succeed
+              # without it
+              mode: manual
+              ip: 10.177.20.40/24
               disable-default-route: true
             slaves:
               vlan-conn-2:
