@@ -27,7 +27,7 @@
         cmd: "nmcli con show {{ item }}"
       register: pbi_tst_nstp_molecule_data_out
       loop: >-
-        {{ 
+        {{
           (pbi_tst_nstp_connections_config.keys() | list) +
           pbi_tst_nstp_connections_config['internal'].slaves.keys() | list
         }}
@@ -70,18 +70,52 @@
           {{
             pbi_tst_nstp_test_nmcli_data['internal']
           }}
+      ansible.builtin.debug:
+        var: connection_data
+
+    - name: Basic common assertions for the internal
+      vars:
+        connection_data: >-
+          {{
+            pbi_tst_nstp_test_nmcli_data['internal']
+          }}
+        dns6_nameservers: >-
+          {{
+            connection_data |
+            dict2items |
+            selectattr("key", "search", "^ip6_dns") |
+            map(attribute="value")
+          }}
+        ip6_address: >-
+          {{
+            connection_data |
+            dict2items |
+            selectattr("key", "search", "^ip6_address") |
+            map(attribute="value") |
+            select('equalto', 'fd68:4327:d6f9:2240::ab/64')
+          }}
+        extra_route6: >-
+          {{
+            connection_data |
+            dict2items |
+            selectattr("value.dst", "defined") |
+            selectattr("value.nh", "defined") |
+            selectattr("value.mt", "defined") |
+            selectattr("value.dst", "equalto", "fdb9:3b7a:9813:d59a::/64") |
+            selectattr("value.nh", "equalto", "fd68:4327:d6f9:2240::1") |
+            selectattr("value.mt", "equalto", 100)
+          }}
       ansible.builtin.assert:
         that:
           - "connection_data.state == 'activated'"
           - "connection_data.connection_type == 'bridge'"
-          - "connection_data.ipv4_method == 'manual'"
-          - "connection_data.ipv6_method == 'disabled'"
-          - "(connection_data.ip4_address_1 | ansible.utils.ipaddr) != false"
-          - "connection_data.ip4_address_1 == '10.177.177.40/24'"
-          - "connection_data.ipv4_addresses == connection_data.ip4_address_1"
-          - "connection_data.ipv4_dns == '1.1.1.1,8.8.8.8'"
-          - "connection_data.ip4_dns_1 == connection_data.ipv4_dns | split(',') | first"
-          - "connection_data.ip4_dns_2 == connection_data.ipv4_dns | split(',') | last"
+          - "connection_data.ipv4_method == 'disabled'"
+          - "connection_data.ipv6_method == 'manual'"
+          - "connection_data.ipv6_addresses == ip6_address | first"
+          - "connection_data.ip4_address_1 is not defined"
+          - "dns6_nameservers | length == 2"
+          - "(connection_data.ipv6_dns | split(',')) == dns6_nameservers"
+          - "extra_route6 | length == 1"
         quiet: true
 
     - name: Basic common assertions for the internal slaves

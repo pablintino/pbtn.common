@@ -20,6 +20,7 @@ class TargetLinksData:
 @dataclasses.dataclass
 class NetworkManagerConfiguratorOptions:
     strict_connections_ownership: bool = True
+    state_apply_timeout_secs: int = 180
 
 
 class ConnectionConfigurationResult:
@@ -32,10 +33,12 @@ class ConnectionConfigurationResult:
         uuid: str,
         changed: bool,
         applied_config: net_config.BaseConnectionConfig,
+        main_conn_config_result: "ConnectionConfigurationResult" = None,
     ):
         self.__uuid: str = uuid
         self.__changed: bool = changed
         self.__applied_config: net_config.BaseConnectionConfig = applied_config
+        self.__main_conn_config_result = main_conn_config_result
         self.status: typing.Dict[str, typing.Any] = None
 
     @property
@@ -49,6 +52,12 @@ class ConnectionConfigurationResult:
     @property
     def applied_config(self) -> net_config.BaseConnectionConfig:
         return self.__applied_config
+
+    @property
+    def main_conn_config_result(
+        self,
+    ) -> typing.Optional["ConnectionConfigurationResult"]:
+        return self.__main_conn_config_result
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         result = {
@@ -68,8 +77,14 @@ class ConnectionConfigurationResult:
         uuid: str,
         changed: bool,
         applied_config: net_config.BaseConnectionConfig,
+        main_conn_config_result: "ConnectionConfigurationResult" = None,
     ) -> "ConnectionConfigurationResult":
-        return ConnectionConfigurationResult(uuid, changed, applied_config)
+        return ConnectionConfigurationResult(
+            uuid,
+            changed,
+            applied_config,
+            main_conn_config_result=main_conn_config_result,
+        )
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, ConnectionConfigurationResult):
@@ -147,7 +162,12 @@ class MainConfigurationResult:
         applied_config: net_config.BaseConnectionConfig,
     ):
         self.update_slave(
-            ConnectionConfigurationResult.from_required(uuid, changed, applied_config)
+            ConnectionConfigurationResult.from_required(
+                uuid,
+                changed,
+                applied_config,
+                main_conn_config_result=self.__result,
+            )
         )
 
     def get_uuids(self):

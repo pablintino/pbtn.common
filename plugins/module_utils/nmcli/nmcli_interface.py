@@ -5,6 +5,7 @@ __metaclass__ = type
 import abc
 import json
 import re
+import time
 import typing
 
 
@@ -106,6 +107,7 @@ class NetworkManagerConfigurator(
         return len(uuids)
 
     def _apply_connection_state(self, conn_uuid: str, conn_name: str, up: bool):
+        # Command the state change
         try:
             self._command_fn(
                 [
@@ -123,6 +125,28 @@ class NetworkManagerConfigurator(
                 conn_uuid=conn_uuid,
                 conn_name=conn_name,
             ) from err
+
+        remaining_time_secs = self._options.state_apply_timeout_secs
+        while True:
+            conn_data = self._nmcli_querier.get_connection_details(conn_uuid)
+            if (up and nmcli_filters.is_connection_active(conn_data)) or (
+                (not up) and (not nmcli_filters.is_connection_active(conn_data))
+            ):
+                # Ready
+                # Note: down is not that "clear" as usually the state field is not even
+                # present.
+                # There is no explicit state saying state is "down"
+                return
+            elif remaining_time_secs <= 0:
+                raise nmcli_interface_exceptions.NmcliInterfaceApplyException(
+                    f"Cannot change the state of connection '{conn_name} in "
+                    f" the given time ({self._options.state_apply_timeout_secs} secs)'",
+                    conn_uuid=conn_uuid,
+                    conn_name=conn_name,
+                )
+            else:
+                remaining_time_secs = remaining_time_secs - 5
+                time.sleep(5)
 
     def _apply_builder_args(
         self, builder_args: typing.List[str], conn_name: str, conn_uuid: str = None
@@ -157,18 +181,26 @@ class NetworkManagerConfigurator(
     def __enforce_connection_states(
         self,
         configuration_result: nmcli_interface_types.MainConfigurationResult,
+        target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
     ):
-        self.__enforce_connection_state(
-            configuration_result.result,
-        )
+        # Slave connections goes first
+        # i.e.: bridge slaves need to be activated before
+        # the main connection is ready as doc examples suggest
         for conn_result in configuration_result.slaves:
             self.__enforce_connection_state(
                 conn_result,
+                target_connection_data,
             )
+
+        self.__enforce_connection_state(
+            configuration_result.result,
+            target_connection_data,
+        )
 
     def __enforce_connection_state(
         self,
         connection_configuration_result: nmcli_interface_types.ConnectionConfigurationResult,
+        target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
     ):
         connection_configuration_result.status = (
             self._nmcli_querier.get_connection_details(
@@ -176,23 +208,28 @@ class NetworkManagerConfigurator(
             )
         )
 
-        # Default implementation
+        should_enforce_adopted = self.__enforce_connection_state_should_enforce_adopted(
+            connection_configuration_result, target_connection_data
+        )
         should_up = (
             connection_configuration_result.applied_config.state
             == net_config.BaseConnectionConfig.FIELD_STATE_VAL_UP
-        )
+        ) or should_enforce_adopted
         is_active = nmcli_filters.is_connection_active(
             connection_configuration_result.status
         )
-        should_change = (should_up and is_active) or (
+        in_target_state = (should_up and is_active) or (
             (not should_up) and (not is_active)
         )
+
         # Important: If we modified the connection, we should always apply up/down it
         # as some properties are applied only when the connection is explicitly activated/turn down
         # Skip making any change if the state is not set -> State not set == do not handle it
-        if (not connection_configuration_result.applied_config.state) or (
-            should_change and not connection_configuration_result.changed
-        ):
+        # One exception to the previous statement -> If the interface has been adopted
+        if (
+            (not connection_configuration_result.applied_config.state)
+            and (not should_enforce_adopted)
+        ) or (in_target_state and not connection_configuration_result.changed):
             return
 
         self._apply_connection_state(
@@ -207,6 +244,28 @@ class NetworkManagerConfigurator(
             )
         )
         connection_configuration_result.set_changed()
+
+    def __enforce_connection_state_should_enforce_adopted(
+        self,
+        connection_configuration_result: nmcli_interface_types.ConnectionConfigurationResult,
+        target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
+    ) -> bool:
+        # If the connection is a main one or it doesn't go up -> Skip
+        # Adopted conns are those ones that were "main ones" but
+        # now they are slaves of another connection
+        # Base on the docs, when a connection goes from a main one
+        # to a slave, an explicit up is needed before making the main
+        # connection up
+        if (not connection_configuration_result.main_conn_config_result) or (
+            connection_configuration_result.main_conn_config_result.applied_config.state
+            != net_config.BaseConnectionConfig.FIELD_STATE_VAL_UP
+        ):
+            return False
+
+        original_conn_data = (
+            target_connection_data.as_dict() if not target_connection_data.empty else {}
+        )
+        return not nmcli_filters.is_connection_slave(original_conn_data)
 
     def _validate(
         self,
@@ -251,7 +310,7 @@ class NetworkManagerConfigurator(
         self._validate(target_connection_data, target_links)
 
         configuration_result = self._configure(target_connection_data)
-        self.__enforce_connection_states(configuration_result)
+        self.__enforce_connection_states(configuration_result, target_connection_data)
 
         # Ensure to propagate the changed flag if connections were deleted
         if delete_count != 0:
