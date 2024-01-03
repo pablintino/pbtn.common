@@ -58,8 +58,17 @@
           - "connection_data.ipv4_method == 'manual'"
           - "connection_data.ipv6_method == 'disabled'"
           - "connection_data.ipv4_never_default == 'no'"
-          - "(connection_data.ip4_address_1 | ansible.utils.ipaddr) != false"
-          - "(connection_data.ip4_gateway | ansible.utils.ipaddr) != false"
+          - >-
+            connection_data.ip4_address_1 == (
+                pbi_tst_nstp_ssh_interface_data.ipv4.address +
+                '/' +
+                pbi_tst_nstp_ssh_interface_data.ipv4.prefix
+              )
+          - >-
+            connection_data.ip4_gateway == (
+              pbi_tst_nstp_ssh_interface_data.ipv4.network |
+              ansible.utils.ipmath(1)
+              )
           - "(connection_data.ip4_dns_1 | ansible.utils.ipaddr) != false"
         quiet: true
 
@@ -84,16 +93,6 @@
           - "connection_data.ip4_dns_1 == connection_data.ipv4_dns"
           - "connection_data.ipv4_never_default == 'yes'"
         quiet: true
-
-    - name: Basic assertions for the external connection
-      vars:
-        connection_data: >-
-          {{
-            pbi_tst_nstp_test_nmcli_data['external']
-          }}
-      ansible.builtin.debug:
-        var: connection_data
-
 
     - name: Basic  assertions for the external connection
       vars:

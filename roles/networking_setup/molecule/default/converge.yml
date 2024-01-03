@@ -22,7 +22,7 @@
           }}
         pbi_tst_nstp_expected_ssh_iface: >-
           {{
-            pbi_tst_nstp_ifaces_test_file_content.pbi_tst_nstp_ssh_interface
+            pbi_tst_nstp_ifaces_test_file_content.pbi_tst_nstp_ssh_interface_data.device
           }}
       block:
         - name: "Include role under test"

@@ -81,7 +81,7 @@
             external: "{{ custom_net_ifaces_facts[1].device }}"
             molecule: "{{  ssh_connection.device }}"
           pbi_tst_nstp_connections_config: "{{ module_connections_config }}"
-          pbi_tst_nstp_ssh_interface: "{{ ssh_connection.device }}"
+          pbi_tst_nstp_ssh_interface_data: "{{ ssh_connection }}"
 
       ansible.builtin.copy:
         content: "{{ content | to_nice_yaml }}"
