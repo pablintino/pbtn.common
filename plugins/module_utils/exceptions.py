@@ -14,11 +14,14 @@ class BaseInfraException(Exception):
         self,
         msg: str,
     ) -> None:
-        super().__init__()
+        super().__init__(msg)
         self.msg = msg
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         return encoding.to_basic_types(vars(self), filter_private_fields=True)
+
+    def __str__(self) -> str:
+        return self.msg
 
 
 class ValueInfraException(BaseInfraException):

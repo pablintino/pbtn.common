@@ -11,16 +11,25 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils import (
 )
 
 
+def __validate_input_string(ip_string: str):
+    if not isinstance(ip_string, str):
+        raise exceptions.ValueInfraException(
+            f"{ip_string} argument must be a string",
+            value=ip_string,
+        )
+
+
 def is_mac_addr(string_data: str) -> bool:
     return isinstance(string_data, str) and bool(
-        re.match(r"([0-9a-fA-F]:?){12}", string_data.lower())
+        re.match(r"^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$", string_data.lower())
     )
 
 
 def parse_validate_ip_interface_addr(
     ip_string: str, version: int = 4, enforce_prefix: bool = False
 ) -> typing.Union[ipaddress.IPv4Interface, ipaddress.IPv6Interface]:
-    if enforce_prefix and len(ip_string) < 2:
+    __validate_input_string(ip_string)
+    if enforce_prefix and len(ip_string.split("/")) < 2:
         raise exceptions.ValueInfraException(
             f"{ip_string} is not a valid IPv{version} prefixed value",
             value=ip_string,
