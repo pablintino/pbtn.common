@@ -122,3 +122,167 @@ def test_parse_validate_ip_interface_addr_fail():
         )
     assert "must be a string" in str(err.value)
     assert err.value.value is None
+
+
+def test_parse_validate_ip_addr_ok():
+    ipv4_string = "172.17.100.34"
+    ipv4_addr = net_utils.parse_validate_ip_addr(ipv4_string)
+    assert ipv4_addr == ipaddress.IPv4Address(ipv4_string)
+
+    ipv6_string = "fdae:45c1:3a68:6f9a::01"
+    ipv6_addr = net_utils.parse_validate_ip_addr(ipv6_string, version=6)
+    assert ipv6_addr == ipaddress.IPv6Address(ipv6_string)
+
+
+def test_parse_validate_ip_addr_fail():
+    # Invalid IPv4 string
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        net_utils.parse_validate_ip_addr("192.168.122")
+    assert "valid IPv4 value" in str(err.value)
+    assert err.value.value == "192.168.122"
+
+    # Invalid IPv4 string: IP with prefix
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        net_utils.parse_validate_ip_addr("192.168.122.100/24")
+    assert "valid IPv4 value" in str(err.value)
+    assert err.value.value == "192.168.122.100/24"
+
+    # Invalid IPv6 string
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        net_utils.parse_validate_ip_addr(
+            "fdae:45c1:3a68:6g9a::01",
+            version=6,
+        )
+    assert "valid IPv6 value" in str(err.value)
+    assert err.value.value == "fdae:45c1:3a68:6g9a::01"
+
+    # Invalid IPv6 string: IP with prefix
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        net_utils.parse_validate_ip_addr(
+            "fdae:45c1:3a68:6f9a::01/64",
+            version=6,
+        )
+    assert "valid IPv6 value" in str(err.value)
+    assert err.value.value == "fdae:45c1:3a68:6f9a::01/64"
+
+    # Wrong version
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        net_utils.parse_validate_ip_interface_addr(
+            "fdae:45c1:3a68:6f9a::01",
+        )
+    assert "valid IPv4 value" in str(err.value)
+    assert err.value.value == "fdae:45c1:3a68:6f9a::01"
+
+    # Wrong version
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        net_utils.parse_validate_ip_addr(
+            "192.168.122.122",
+            version=6,
+        )
+    assert "valid IPv6 value" in str(err.value)
+    assert err.value.value == "192.168.122.122"
+
+    # Wrong input type: Int
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        net_utils.parse_validate_ip_addr(
+            2222,
+            version=4,
+        )
+    assert "must be a string" in str(err.value)
+    assert err.value.value == 2222
+
+    # Wrong input type: None
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        net_utils.parse_validate_ip_addr(
+            None,
+            version=4,
+        )
+    assert "must be a string" in str(err.value)
+    assert err.value.value is None
+
+
+def test_parse_validate_ip_net_ok():
+    ipv4_string = "10.10.0.0/28"
+    ipv4_net = net_utils.parse_validate_ip_net(ipv4_string)
+    assert ipv4_net == ipaddress.IPv4Network(ipv4_string)
+
+    ipv6_string = "fdae:45c1:3a68:6f9a::/64"
+    ipv6_net = net_utils.parse_validate_ip_net(ipv6_string, version=6)
+    assert ipv6_net == ipaddress.IPv6Network(ipv6_string)
+
+
+def test_parse_validate_ip_net_fail():
+    # Invalid IPv4 string
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        net_utils.parse_validate_ip_net("192.168.122")
+    assert "valid IPv4 network value" in str(err.value)
+    assert err.value.value == "192.168.122"
+
+    # Invalid IPv4 string: Host address
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        net_utils.parse_validate_ip_net("192.168.122.100/24")
+    assert "valid IPv4 network value" in str(err.value)
+    assert err.value.value == "192.168.122.100/24"
+
+    # Invalid IPv4 string: Without prefix
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        net_utils.parse_validate_ip_net(
+            "192.168.122.0",
+            enforce_prefix=True,
+        )
+    assert "valid IPv4 prefixed value" in str(err.value)
+    assert err.value.value == "192.168.122.0"
+
+    # Invalid IPv6 string
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        net_utils.parse_validate_ip_net(
+            "fdae:45c1:3a68:6g9a::01",
+            version=6,
+        )
+    assert "valid IPv6 network value" in str(err.value)
+    assert err.value.value == "fdae:45c1:3a68:6g9a::01"
+
+    # Invalid IPv6 string: Without prefix
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        net_utils.parse_validate_ip_net(
+            "fdae:45c1:3a68:6f9a::",
+            version=6,
+            enforce_prefix=True,
+        )
+    assert "valid IPv6 prefixed value" in str(err.value)
+    assert err.value.value == "fdae:45c1:3a68:6f9a::"
+
+    # Wrong version
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        net_utils.parse_validate_ip_net(
+            "fdae:45c1:3a68:6f9a::01",
+        )
+    assert "valid IPv4 network value" in str(err.value)
+    assert err.value.value == "fdae:45c1:3a68:6f9a::01"
+
+    # Wrong version
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        net_utils.parse_validate_ip_net(
+            "192.168.122.122",
+            version=6,
+        )
+    assert "valid IPv6 network value" in str(err.value)
+    assert err.value.value == "192.168.122.122"
+
+    # Wrong input type: Int
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        net_utils.parse_validate_ip_net(
+            2222,
+            version=4,
+        )
+    assert "must be a string" in str(err.value)
+    assert err.value.value == 2222
+
+    # Wrong input type: None
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        net_utils.parse_validate_ip_net(
+            None,
+            version=4,
+        )
+    assert "must be a string" in str(err.value)
+    assert err.value.value is None
