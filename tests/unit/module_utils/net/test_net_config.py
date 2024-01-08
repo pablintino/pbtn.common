@@ -92,7 +92,27 @@ def __build_handler_sorting_matrix():
         [("conn-2", "conn-1"), ("conn-1", "conn-5")],
         id="basic-vlan-sorting",
     )
-    return [test_config_1]
+    test_config_2 = pytest.param(
+        {
+            "conn-5": {"type": "bridge"},
+            "conn-abc": {
+                "type": "bridge",
+                "slaves": {
+                    "conn-sub-xyz": {
+                        "type": "vlan",
+                        "iface": "eth0.20",
+                        "vlan": {"id": 20, "parent": "eth0"},
+                    }
+                },
+            },
+            "conn-0": {"type": "ethernet", "iface": "eth3"},
+            "conn-2": {"type": "ethernet", "iface": "eth0"},
+            "conn-3": {"type": "ethernet", "iface": "eth1"},
+        },
+        [("conn-2", "conn-abc"), ("conn-abc", "conn-5")],
+        id="basic-bridged-vlan-sorting",
+    )
+    return [test_config_1, test_config_2]
 
 
 __TEST_IPV4_PARAMETERS_MATRIX = __build_parameters_matrix()

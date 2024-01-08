@@ -5,6 +5,7 @@ __metaclass__ = type
 import ipaddress
 import re
 import typing
+import uuid
 
 from ansible_collections.pablintino.base_infra.plugins.module_utils import (
     ip_interface,
@@ -691,19 +692,25 @@ class ConnectionsConfigurationHandler:
         # cannot be used as a dependency, which is fine.
         non_iface_connections = []
         for conn_config in conn_configs:
-            # All connections that have no interface field are created at the
-            # very end. The shorting algorithm doesn't apply to them
-            if not conn_config.interface:
+            # All connections that have no interface field neither dependencies are
+            # created at the end. The shorting algorithm doesn't apply to them
+            # If it has no interface and it contains dependencies (maybe from slaves),
+            # we will generate an ID.
+            if not conn_config.interface and not conn_config.depends_on:
                 non_iface_connections.append(conn_config)
                 continue
+
+            ifname = (
+                conn_config.interface.iface_name
+                if conn_config.interface
+                else str(uuid.uuid4())
+            )
+            if ifname not in interfaces_dependencies_graph:
+                interfaces_dependencies_graph[ifname] = []
 
             # If the connection points to itself is not a dependency to other conn.
             # It's safe to treat it as is an external provisioned one or like a connection
             # that doesn't support dependencies like ethernet or wi-fi
-            ifname = conn_config.interface.iface_name
-            if ifname not in interfaces_dependencies_graph:
-                interfaces_dependencies_graph[ifname] = []
-
             if [ifname] != conn_config.depends_on:
                 interfaces_dependencies_graph[ifname].extend(conn_config.depends_on)
                 # This default to empty list is important, as interfaces like VLANs
