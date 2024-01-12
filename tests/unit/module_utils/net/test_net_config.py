@@ -17,65 +17,6 @@ from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_util
 )
 
 
-@dataclasses.dataclass(frozen=True)
-class ConfigTestParameters:
-    ip_mode: str = None
-    state: typing.Optional[str] = None
-    startup: typing.Optional[bool] = None
-    with_dns: bool = False
-    with_routes: bool = False
-    with_gateway: bool = False
-
-    def test_id(self) -> str:
-        result = self.ip_mode.lower() + "-"
-        result = result + (self.state if self.state else "no-state") + "-"
-        if self.with_dns:
-            result = result + "dns-"
-
-        if self.with_routes:
-            result = result + "routes-"
-
-        if self.with_gateway:
-            result = result + "gateway-"
-
-        if self.startup:
-            result = result + "startup-"
-        elif self.startup is None:
-            result = result + "startup-none-"
-        else:
-            result = result + "no-startup-"
-
-        return result.rstrip("-")
-
-
-def __build_generate_ip_options_parameters(ip_mode: str, state: typing.Optional[str]):
-    options_params = []
-    # Generate all possible combinations of booleans
-    for opts_flags in list(itertools.product([True, False], repeat=4)):
-        options_params.append(
-            ConfigTestParameters(
-                ip_mode,
-                state,
-                with_dns=opts_flags[0],
-                with_routes=opts_flags[1],
-                with_gateway=opts_flags[2],
-                startup=opts_flags[3],
-            )
-        )
-    return options_params
-
-
-def __build_parameters_matrix():
-    params = []
-    for ip_mode in ["auto", "manual"]:
-        for state in ["up", "down", None]:
-            params.extend(__build_generate_ip_options_parameters(ip_mode, state))
-
-    return [
-        pytest.param(test_params, id=test_params.test_id()) for test_params in params
-    ]
-
-
 def __build_handler_sorting_matrix():
     test_config_1 = pytest.param(
         {
@@ -115,7 +56,6 @@ def __build_handler_sorting_matrix():
     return [test_config_1, test_config_2]
 
 
-__TEST_IPV4_PARAMETERS_MATRIX = __build_parameters_matrix()
 __TEST_CONNECTIONS_HANDLER_CONFIG_SORTING_MATRIX = __build_handler_sorting_matrix()
 
 __CONFIG_TYPES = {
@@ -185,12 +125,11 @@ def __validate_util_generate_all_conn_dict_combinations(raw_conns_config):
     return config_dicts
 
 
-def __validate_util_get_target_iface(raw_config):
-    target_iface = raw_config["iface"]
-    if net_utils.is_mac_addr(target_iface):
-        assert target_iface in config_stub_data.TEST_IP_LINK_MAC_TO_IFACE_TABLE
-        return config_stub_data.TEST_IP_LINK_MAC_TO_IFACE_TABLE[target_iface]
-    return target_iface
+def __validate_util_resolve_target_iface(iface_name_mac: str):
+    if net_utils.is_mac_addr(iface_name_mac):
+        assert iface_name_mac in config_stub_data.TEST_IP_LINK_MAC_TO_IFACE_TABLE
+        return config_stub_data.TEST_IP_LINK_MAC_TO_IFACE_TABLE[iface_name_mac]
+    return iface_name_mac
 
 
 def __validate_connection_data_iface_dependencies(config_instance, raw_config):
@@ -202,7 +141,9 @@ def __validate_connection_data_iface_dependencies(config_instance, raw_config):
         # but the parent is.
         # VLAN connections only point to a single dependency, that it's their
         # parent connection
-        assert [raw_config["vlan"]["parent"]] == config_instance.depends_on
+        assert [
+            __validate_util_resolve_target_iface(raw_config["vlan"]["parent"])
+        ] == config_instance.depends_on
     elif (
         isinstance(config_instance, net_config.EthernetConnectionConfig)
         or isinstance(config_instance, net_config.EthernetSlaveConnectionConfig)
@@ -211,7 +152,7 @@ def __validate_connection_data_iface_dependencies(config_instance, raw_config):
         # Plain basic interfaces like ethernet points to themselves
         # as the only dependency
         assert config_instance.depends_on == [
-            __validate_util_get_target_iface(raw_config)
+            __validate_util_resolve_target_iface(raw_config["iface"])
         ]
     else:
         pytest.fail("Unexpected connection config type")
@@ -223,7 +164,7 @@ def __validate_connection_data_iface(
     target_raw_iface = raw_config.get("iface", None)
     if target_raw_iface:
         assert isinstance(config_instance.interface, net_config.InterfaceIdentifier)
-        target_iface = __validate_util_get_target_iface(raw_config)
+        target_iface = __validate_util_resolve_target_iface(target_raw_iface)
         assert config_instance.interface.iface_name == target_iface
 
         __validate_connection_data_iface_dependencies(config_instance, raw_config)
@@ -234,44 +175,94 @@ def __validate_connection_data_iface(
         assert not config_instance.interface
 
 
-def __validate_connection_data_ipv4_nameservers(config_instance, ipv4_raw_config):
+def __validate_ip_config_data_ipv4_dns(
+    ip4_config: net_config.IPv4Config, ipv4_raw_config: typing.Dict[str, typing.Any]
+):
     target_dns = ipv4_raw_config.get("dns", [])
-    assert config_instance.ipv4.dns == [
-        ipaddress.IPv4Address(ns_addr) for ns_addr in target_dns
-    ]
+    assert ip4_config.dns == [ipaddress.IPv4Address(ns_addr) for ns_addr in target_dns]
 
 
-def __validate_connection_data_ipv4_routes(config_instance, ipv4_raw_config):
+def __validate_ip_config_data_ipv6_dns(
+    ip6_config: net_config.IPv6Config, ipv6_raw_config: typing.Dict[str, typing.Any]
+):
+    target_dns = ipv6_raw_config.get("dns", [])
+    assert ip6_config.dns == [ipaddress.IPv6Address(ns_addr) for ns_addr in target_dns]
+
+
+def __validate_ip_config_data_ipv4_routes(
+    ip4_config: net_config.IPv4Config, ipv4_raw_config: typing.Dict[str, typing.Any]
+):
     target_routes = ipv4_raw_config.get("routes", [])
-    assert config_instance.ipv4.routes is not None
-    assert len(config_instance.ipv4.routes) == len(target_routes)
+    assert isinstance(ip4_config.routes, list)
+    assert len(ip4_config.routes) == len(target_routes)
     for route_idx in range(0, len(target_routes)):
         route_data = target_routes[route_idx]
-        instance_route = config_instance.ipv4.routes[route_idx]
+        instance_route = ip4_config.routes[route_idx]
         assert instance_route.dst == ipaddress.IPv4Network(route_data["dst"])
         assert instance_route.gw == ipaddress.IPv4Address(route_data["gw"])
-        assert instance_route.metric == route_data["metric"]
+        assert instance_route.metric == route_data.get("metric", None)
+
+
+def __validate_ip_config_data_ipv6_routes(
+    ip6_config: net_config.IPv6Config, ipv6_raw_config: typing.Dict[str, typing.Any]
+):
+    target_routes = ipv6_raw_config.get("routes", [])
+    assert isinstance(ip6_config.routes, list)
+    assert len(ip6_config.routes) == len(target_routes)
+    for route_idx in range(0, len(target_routes)):
+        route_data = target_routes[route_idx]
+        instance_route = ip6_config.routes[route_idx]
+        assert instance_route.dst == ipaddress.IPv6Network(route_data["dst"])
+        assert instance_route.gw == ipaddress.IPv6Address(route_data["gw"])
+        assert instance_route.metric == route_data.get("metric", None)
+
+
+def __validate_ip_config_data_ipv4(ip4_config: net_config.IPv4Config, raw_ip_config):
+    assert isinstance(ip4_config, net_config.IPv4Config)
+    assert raw_ip_config["mode"] == ip4_config.mode
+    if raw_ip_config["mode"] == "manual":
+        assert ip4_config.ip == ipaddress.IPv4Interface(raw_ip_config["ip"])
+        target_gw = raw_ip_config.get("gw", None)
+        if target_gw:
+            assert ip4_config.gw == ipaddress.IPv4Address(target_gw)
+
+    target_dns = [
+        ipaddress.IPv4Address(ns_addr) for ns_addr in raw_ip_config.get("dns", [])
+    ]
+    assert ip4_config.dns == target_dns
+    __validate_ip_config_data_ipv4_dns(ip4_config, raw_ip_config)
+    __validate_ip_config_data_ipv4_routes(ip4_config, raw_ip_config)
+
+
+def __validate_ip_config_data_ipv6(ip6_config: net_config.IPv6Config, raw_ip_config):
+    assert isinstance(ip6_config, net_config.IPv6Config)
+    assert raw_ip_config["mode"] == ip6_config.mode
+    if raw_ip_config["mode"] == "manual":
+        assert ip6_config.ip == ipaddress.IPv6Interface(raw_ip_config["ip"])
+        target_gw = raw_ip_config.get("gw", None)
+        if target_gw:
+            assert ip6_config.gw == ipaddress.IPv6Address(target_gw)
+
+    target_dns = [
+        ipaddress.IPv6Address(ns_addr) for ns_addr in raw_ip_config.get("dns", [])
+    ]
+    assert ip6_config.dns == target_dns
+    __validate_ip_config_data_ipv6_dns(ip6_config, raw_ip_config)
+    __validate_ip_config_data_ipv6_routes(ip6_config, raw_ip_config)
 
 
 def __validate_connection_data_ipv4(config_instance, raw_config):
     ipv4_target_data = raw_config.get("ipv4", None)
     if not ipv4_target_data:
         return
+    __validate_ip_config_data_ipv4(config_instance.ipv4, ipv4_target_data)
 
-    assert isinstance(config_instance.ipv4, net_config.IPConfig)
-    assert ipv4_target_data["mode"] == config_instance.ipv4.mode
-    if ipv4_target_data["mode"] == "manual":
-        assert config_instance.ipv4.ip == ipaddress.ip_interface(ipv4_target_data["ip"])
-        target_gw = ipv4_target_data.get("gw", None)
-        if target_gw:
-            assert config_instance.ipv4.gw == ipaddress.IPv4Address(target_gw)
 
-    target_dns = [
-        ipaddress.IPv4Address(ns_addr) for ns_addr in ipv4_target_data.get("dns", [])
-    ]
-    assert config_instance.ipv4.dns == target_dns
-    __validate_connection_data_ipv4_nameservers(config_instance, ipv4_target_data)
-    __validate_connection_data_ipv4_routes(config_instance, ipv4_target_data)
+def __validate_connection_data_ipv6(config_instance, raw_config):
+    ipv6_target_data = raw_config.get("ipv6", None)
+    if not ipv6_target_data:
+        return
+    __validate_ip_config_data_ipv6(config_instance.ipv6, ipv6_target_data)
 
 
 def __validate_connection_data_startup(
@@ -335,133 +326,197 @@ def __validate_connection_data_vlan(
         assert isinstance(
             config_instance.parent_interface, net_config.InterfaceIdentifier
         )
-        assert config_instance.parent_interface.iface_name == vlan_target_data.get(
-            "parent", None
+        assert (
+            config_instance.parent_interface.iface_name
+            == __validate_util_resolve_target_iface(
+                vlan_target_data.get("parent", None)
+            )
         )
 
 
-def __test_config_add_dns4(raw_config: typing.Dict[str, typing.Any]):
-    ipv4_config = raw_config.get("ipv4", None)
-    if not ipv4_config:
-        raw_config["ipv4"] = {}
-    raw_config["ipv4"]["dns"] = [
-        str(ns_addr) for ns_addr in config_stub_data.TEST_NS_SERVERS_IP4
-    ]
-
-
-def __test_config_add_slave(
-    raw_config: typing.Dict[str, typing.Any],
-    slave_raw_config: typing.Dict[str, typing.Any],
-):
-    slaves_config = raw_config.get("slaves", None)
-    if not slaves_config:
-        raw_config["slaves"] = {}
-    conn_n = len(raw_config["slaves"])
-    raw_config["slaves"][f"connection-{conn_n}"] = slave_raw_config
-
-
-def __test_config_add_routes4(raw_config: typing.Dict[str, typing.Any]):
-    ipv4_config = raw_config.get("ipv4", None)
-    if not ipv4_config:
-        raw_config["ipv4"] = {}
-    raw_config["ipv4"]["routes"] = config_stub_data.TEST_ROUTES_IP4
-
-
-def __test_config_add_vlan_data(
-    raw_config: typing.Dict[str, typing.Any], vlan_id: int, iface_id: str
-):
-    vlan_config = raw_config.get("vlan", None)
-    if not vlan_config:
-        raw_config["vlan"] = {}
-    raw_config["vlan"]["id"] = vlan_id
-    raw_config["vlan"]["parent"] = iface_id
-
-
-def __test_config_add_ipv4(
-    raw_config: typing.Dict[str, typing.Any],
-    routes: bool = False,
-    dns: bool = False,
-    mode: str = None,
-    gateway: bool = False,
-):
-    ipv4_config = {"mode": mode}
-    raw_config["ipv4"] = ipv4_config
-    if mode == "manual":
-        ipv4_config["ip"] = str(config_stub_data.TEST_INTERFACE_1_IP4_ADDR)
-        if gateway:
-            ipv4_config["gw"] = str(config_stub_data.TEST_INTERFACE_1_IP4_GW)
-
-    if routes:
-        __test_config_add_routes4(raw_config)
-    if dns:
-        __test_config_add_dns4(raw_config)
-
-
-def __test_config_set_state_from_params(
-    raw_config: typing.Dict[str, typing.Any], test_params: ConfigTestParameters
-):
-    if test_params.state:
-        raw_config["state"] = test_params.state
-
-
-def __test_config_set_param_fields(
-    raw_config: typing.Dict[str, typing.Any], test_params: ConfigTestParameters
-):
-    __test_config_add_ipv4(
-        raw_config,
-        mode=test_params.ip_mode,
-        dns=test_params.with_dns,
-        routes=test_params.with_routes,
-        gateway=test_params.with_gateway,
-    )
-    __test_config_set_state_from_params(raw_config, test_params)
-
-
-def __test_validate_nmcli_valid_configs(
-    conn_configs: typing.Iterable[typing.Dict[str, typing.Any]],
+def __test_validate_nmcli_valid_config(
+    conn_config: typing.Dict[str, typing.Any],
     config_type: type,
     connection_config_factory: net_config.ConnectionConfigFactory,
     ip_links: typing.List[ip_interface.IPLinkData] = None,
 ):
-    for conn_config in conn_configs:
-        config_instance = __build_config_helper(
-            config_type,
-            conn_config,
-            connection_config_factory,
-            ip_links=ip_links,
-        )
-        __validate_connection_data_iface(
-            config_instance, conn_config, ip_links=ip_links
-        )
-        __validate_connection_data_type(config_instance, conn_config)
-        __validate_connection_data_state(config_instance, conn_config)
-        __validate_connection_data_startup(config_instance, conn_config)
-        __validate_connection_data_ipv4(config_instance, conn_config)
-        __validate_connection_data_slaves(config_instance, conn_config)
-        __validate_connection_data_vlan(config_instance, conn_config)
+    config_instance = __build_config_helper(
+        config_type,
+        conn_config,
+        connection_config_factory,
+        ip_links=ip_links,
+    )
+    __validate_connection_data_iface(config_instance, conn_config, ip_links=ip_links)
+    __validate_connection_data_type(config_instance, conn_config)
+    __validate_connection_data_state(config_instance, conn_config)
+    __validate_connection_data_startup(config_instance, conn_config)
+    __validate_connection_data_ipv4(config_instance, conn_config)
+    __validate_connection_data_ipv6(config_instance, conn_config)
+    __validate_connection_data_slaves(config_instance, conn_config)
+    __validate_connection_data_vlan(config_instance, conn_config)
 
 
 @pytest.mark.parametrize(
-    "test_parameters",
-    __TEST_IPV4_PARAMETERS_MATRIX,
+    "test_raw_config",
+    [
+        pytest.param(config_stub_data.TEST_IP4_CONFIG_AUTO_1, id="basic-auto"),
+        pytest.param(
+            config_stub_data.TEST_IP4_CONFIG_AUTO_2,
+            id="auto-dns",
+        ),
+        pytest.param(
+            config_stub_data.TEST_IP4_CONFIG_AUTO_4,
+            id="auto-dns-routes",
+        ),
+        pytest.param(
+            config_stub_data.TEST_IP4_CONFIG_AUTO_3,
+            id="auto-routes",
+        ),
+        pytest.param(
+            config_stub_data.TEST_IP4_CONFIG_MANUAL_1,
+            id="manual-no-gw",
+        ),
+        pytest.param(
+            config_stub_data.TEST_IP4_CONFIG_MANUAL_2,
+            id="manual-gw",
+        ),
+        pytest.param(
+            config_stub_data.TEST_IP4_CONFIG_MANUAL_3,
+            id="manual-gw-dns",
+        ),
+        pytest.param(
+            config_stub_data.TEST_IP4_CONFIG_MANUAL_4,
+            id="manual-gw-dns-routes",
+        ),
+        pytest.param(
+            {
+                "mode": "manual",
+                "ip": str(config_stub_data.TEST_INTERFACE_1_IP4_ADDR),
+                "gw": str(config_stub_data.TEST_INTERFACE_1_IP4_GW),
+                "routes": config_stub_data.TEST_ROUTES_IP4,
+            },
+            id="manual-gw-routes",
+        ),
+    ],
 )
-def test_net_config_single_ethernet_ipv4_ok(
-    mocker, test_parameters: ConfigTestParameters
+def test_net_config_ip4_config_ok(test_raw_config: typing.Dict[str, typing.Any]):
+    ip_config = net_config.IPv4Config(test_raw_config)
+    __validate_ip_config_data_ipv4(ip_config, test_raw_config)
+
+
+@pytest.mark.parametrize(
+    "test_raw_config",
+    [
+        pytest.param(config_stub_data.TEST_IP6_CONFIG_AUTO_1, id="basic-auto"),
+        pytest.param(
+            config_stub_data.TEST_IP6_CONFIG_AUTO_2,
+            id="auto-dns",
+        ),
+        pytest.param(
+            config_stub_data.TEST_IP6_CONFIG_AUTO_4,
+            id="auto-dns-routes",
+        ),
+        pytest.param(
+            config_stub_data.TEST_IP6_CONFIG_AUTO_3,
+            id="auto-routes",
+        ),
+        pytest.param(
+            config_stub_data.TEST_IP6_CONFIG_MANUAL_1,
+            id="manual-no-gw",
+        ),
+        pytest.param(
+            config_stub_data.TEST_IP6_CONFIG_MANUAL_2,
+            id="manual-gw",
+        ),
+        pytest.param(
+            config_stub_data.TEST_IP6_CONFIG_MANUAL_3,
+            id="manual-gw-dns",
+        ),
+        pytest.param(
+            config_stub_data.TEST_IP6_CONFIG_MANUAL_4,
+            id="manual-gw-dns-routes",
+        ),
+        pytest.param(
+            {
+                "mode": "manual",
+                "ip": str(config_stub_data.TEST_INTERFACE_1_IP6_ADDR),
+                "gw": str(config_stub_data.TEST_INTERFACE_1_IP6_GW),
+                "routes": config_stub_data.TEST_ROUTES_IP6,
+            },
+            id="manual-gw-routes",
+        ),
+    ],
+)
+def test_net_config_ip6_config_ok(test_raw_config: typing.Dict[str, typing.Any]):
+    ip_config = net_config.IPv6Config(test_raw_config)
+    __validate_ip_config_data_ipv6(ip_config, test_raw_config)
+
+
+@pytest.mark.parametrize(
+    "test_raw_config",
+    [
+        pytest.param(
+            {
+                "type": "ethernet",
+                "iface": "eth0",
+            },
+            id="explicit-iface-name",
+        ),
+        pytest.param(
+            {
+                "type": "ethernet",
+                "iface": "eth0",
+                "ipv4": config_stub_data.TEST_IP4_CONFIG_MANUAL_4,
+            },
+            id="ipv4",
+        ),
+        pytest.param(
+            {
+                "type": "ethernet",
+                "iface": "eth0",
+                "ipv6": config_stub_data.TEST_IP6_CONFIG_MANUAL_4,
+            },
+            id="ipv6",
+        ),
+        pytest.param(
+            {
+                "type": "ethernet",
+                "iface": "eth0",
+                "ipv4": config_stub_data.TEST_IP4_CONFIG_MANUAL_4,
+                "ipv6": config_stub_data.TEST_IP6_CONFIG_MANUAL_4,
+            },
+            id="dual-stack",
+        ),
+        pytest.param(
+            {
+                "type": "ethernet",
+                "iface": config_stub_data.TEST_IP_LINK_ETHER_1_MAC,
+            },
+            id="mac-iface-match",
+        ),
+        pytest.param(
+            {
+                "type": "ethernet",
+                "iface": "eth0",
+                "state": "up",
+            },
+            id="state-up",
+        ),
+        pytest.param(
+            {
+                "type": "ethernet",
+                "iface": "eth0",
+                "state": "down",
+            },
+            id="state-down",
+        ),
+    ],
+)
+def test_net_config_single_ethernet_ok(
+    mocker, test_raw_config: typing.Dict[str, typing.Any]
 ):
-    raw_config_manual = {
-        "type": "ethernet",
-        "iface": "eth0",
-    }
-    __test_config_set_param_fields(raw_config_manual, test_parameters)
-
-    raw_config_manual_by_mac = {
-        "type": "ethernet",
-        "iface": config_stub_data.TEST_IP_LINK_ETHER_1_MAC,
-    }
-    __test_config_set_param_fields(raw_config_manual_by_mac, test_parameters)
-
-    __test_validate_nmcli_valid_configs(
-        [raw_config_manual, raw_config_manual_by_mac],
+    __test_validate_nmcli_valid_config(
+        test_raw_config,
         net_config.EthernetConnectionConfig,
         mocker.Mock(),
         ip_links=config_stub_data.TEST_IP_LINKS,
@@ -469,143 +524,185 @@ def test_net_config_single_ethernet_ipv4_ok(
 
 
 @pytest.mark.parametrize(
-    "test_parameters",
-    __TEST_IPV4_PARAMETERS_MATRIX,
+    "test_raw_config",
+    [
+        pytest.param(
+            {
+                "type": "vlan",
+                "iface": "eth0.20",
+                "vlan": {"id": 20, "parent": "eth0"},
+            },
+            id="explicit-iface-name",
+        ),
+        pytest.param(
+            {
+                "type": "vlan",
+                "iface": "eth0.20",
+                "vlan": {"id": 20, "parent": "eth0"},
+                "ipv4": config_stub_data.TEST_IP4_CONFIG_MANUAL_4,
+            },
+            id="ipv4",
+        ),
+        pytest.param(
+            {
+                "type": "vlan",
+                "iface": "eth0.20",
+                "vlan": {"id": 20, "parent": "eth0"},
+                "ipv6": config_stub_data.TEST_IP6_CONFIG_MANUAL_4,
+            },
+            id="ipv6",
+        ),
+        pytest.param(
+            {
+                "type": "vlan",
+                "iface": "eth0.20",
+                "vlan": {"id": 20, "parent": "eth0"},
+                "ipv4": config_stub_data.TEST_IP4_CONFIG_MANUAL_4,
+                "ipv6": config_stub_data.TEST_IP6_CONFIG_MANUAL_4,
+            },
+            id="dual-stack",
+        ),
+        pytest.param(
+            {
+                "type": "vlan",
+                "iface": "eth0.20",
+                "vlan": {"id": 20, "parent": config_stub_data.TEST_IP_LINK_ETHER_0_MAC},
+            },
+            id="mac-iface-match",
+        ),
+        pytest.param(
+            {
+                "type": "vlan",
+                "iface": "eth0.20",
+                "vlan": {"id": 20, "parent": "eth0"},
+                "state": "up",
+            },
+            id="state-up",
+        ),
+        pytest.param(
+            {
+                "type": "vlan",
+                "iface": "eth0.20",
+                "vlan": {"id": 20, "parent": "eth0"},
+                "state": "down",
+            },
+            id="state-down",
+        ),
+    ],
 )
-def test_net_config_single_vlan_ipv4_ok(mocker, test_parameters: ConfigTestParameters):
-    raw_config = {
-        "type": "vlan",
-        "iface": "eth0.20",
-    }
-    __test_config_set_param_fields(raw_config, test_parameters)
-    __test_config_add_vlan_data(raw_config, 20, "eth0")
-    __test_validate_nmcli_valid_configs(
-        [
-            raw_config,
-        ],
+def test_net_config_single_vlan_ok(
+    mocker, test_raw_config: typing.Dict[str, typing.Any]
+):
+    __test_validate_nmcli_valid_config(
+        test_raw_config,
         net_config.VlanConnectionConfig,
         mocker.Mock(),
+        ip_links=config_stub_data.TEST_IP_LINKS,
     )
 
 
 @pytest.mark.parametrize(
-    "test_parameters",
-    __TEST_IPV4_PARAMETERS_MATRIX,
+    "test_raw_config",
+    [
+        pytest.param(
+            {
+                "type": "bridge",
+            },
+            id="simple-no-slaves",
+        ),
+        pytest.param(
+            {
+                "type": "bridge",
+                "iface": "br33",
+            },
+            id="explicit-name",
+        ),
+        pytest.param(
+            {
+                "type": "bridge",
+                "ipv4": config_stub_data.TEST_IP4_CONFIG_MANUAL_4,
+            },
+            id="ipv4",
+        ),
+        pytest.param(
+            {
+                "type": "bridge",
+                "ipv6": config_stub_data.TEST_IP6_CONFIG_MANUAL_4,
+            },
+            id="ipv6",
+        ),
+        pytest.param(
+            {
+                "type": "bridge",
+                "ipv4": config_stub_data.TEST_IP4_CONFIG_MANUAL_4,
+                "ipv6": config_stub_data.TEST_IP6_CONFIG_MANUAL_4,
+            },
+            id="dualstack",
+        ),
+        pytest.param(
+            {
+                "type": "bridge",
+                "ipv4": config_stub_data.TEST_IP4_CONFIG_MANUAL_4,
+                "slaves": {"ether-conn-1": {"type": "ethernet", "iface": "eth0"}},
+            },
+            id="single-ether-slave",
+        ),
+        pytest.param(
+            {
+                "type": "bridge",
+                "ipv6": config_stub_data.TEST_IP6_CONFIG_MANUAL_4,
+                "slaves": {
+                    "ether-conn-1": {"type": "ethernet", "iface": "eth0"},
+                    "ether-conn-2": {
+                        "type": "ethernet",
+                        "iface": config_stub_data.TEST_IP_LINK_ETHER_1_MAC,
+                    },
+                },
+            },
+            id="two-ether-slaves",
+        ),
+        pytest.param(
+            {
+                "type": "bridge",
+                "ipv6": config_stub_data.TEST_IP6_CONFIG_MANUAL_4,
+                "slaves": {
+                    "ether-conn-1": {"type": "ethernet", "iface": "eth0"},
+                    "vlan-conn-1": {
+                        "type": "vlan",
+                        "iface": "eth1.200",
+                        "vlan": {
+                            "id": 200,
+                            "parent": config_stub_data.TEST_IP_LINK_ETHER_1_MAC,
+                        },
+                    },
+                },
+            },
+            id="two-ether-vlan-slaves",
+        ),
+        pytest.param(
+            {
+                "type": "bridge",
+                "state": "up",
+            },
+            id="state-up",
+        ),
+        pytest.param(
+            {
+                "type": "bridge",
+                "state": "down",
+            },
+            id="state-down",
+        ),
+    ],
 )
-def test_net_config_bridge_ethernet_ipv4_ok(
-    mocker, test_parameters: ConfigTestParameters
+def test_net_config_bridge_ethernet_ok(
+    mocker, test_raw_config: typing.Dict[str, typing.Any]
 ):
-    raw_config_no_slaves = {"type": "bridge"}
-    __test_config_set_param_fields(raw_config_no_slaves, test_parameters)
-
-    raw_config_no_slaves_explicit_iface = copy.deepcopy(raw_config_no_slaves)
-    raw_config_no_slaves_explicit_iface["iface"] = "br1"
-
-    raw_config_one_slave = copy.deepcopy(raw_config_no_slaves)
-    raw_config_one_slave_1 = {"type": "ethernet", "iface": "eth1"}
-    __test_config_add_slave(raw_config_one_slave, raw_config_one_slave_1)
-
-    raw_config_two_slaves = copy.deepcopy(raw_config_no_slaves)
-    raw_config_two_slave_1 = {
-        "type": "ethernet",
-        "iface": "eth1",
-    }
-    raw_config_two_slave_2 = {
-        "type": "ethernet",
-        "iface": "eth2",
-    }
-    __test_config_set_state_from_params(raw_config_two_slave_1, test_parameters)
-    __test_config_set_state_from_params(raw_config_two_slave_2, test_parameters)
-    __test_config_add_slave(raw_config_two_slaves, raw_config_two_slave_1)
-    __test_config_add_slave(raw_config_two_slaves, raw_config_two_slave_2)
-
-    __test_validate_nmcli_valid_configs(
-        [
-            raw_config_no_slaves,
-            raw_config_one_slave,
-            raw_config_two_slaves,
-            raw_config_no_slaves_explicit_iface,
-        ],
+    __test_validate_nmcli_valid_config(
+        test_raw_config,
         net_config.BridgeConnectionConfig,
         __build_testing_config_factory(mocker),
-    )
-
-
-@pytest.mark.parametrize(
-    "test_parameters",
-    __TEST_IPV4_PARAMETERS_MATRIX,
-)
-def test_net_config_bridge_vlans_ipv4_ok(mocker, test_parameters: ConfigTestParameters):
-    raw_config_no_slaves = {"type": "bridge", "state": test_parameters.state}
-    __test_config_set_param_fields(raw_config_no_slaves, test_parameters)
-
-    raw_config_one_slave = copy.deepcopy(raw_config_no_slaves)
-    raw_config_one_slave_1 = {"type": "vlan", "iface": "eth1.20"}
-    __test_config_add_vlan_data(raw_config_one_slave_1, 20, "eth1")
-    __test_config_add_slave(raw_config_one_slave, raw_config_one_slave_1)
-
-    raw_config_two_slaves = copy.deepcopy(raw_config_no_slaves)
-    raw_config_two_slave_1 = {
-        "type": "vlan",
-        "iface": "eth1.20",
-    }
-    raw_config_two_slave_2 = {
-        "type": "vlan",
-        "iface": "eth1.21",
-    }
-
-    __test_config_set_state_from_params(raw_config_two_slave_1, test_parameters)
-    __test_config_set_state_from_params(raw_config_two_slave_2, test_parameters)
-
-    __test_config_add_vlan_data(raw_config_two_slave_1, 20, "eth1")
-    __test_config_add_vlan_data(raw_config_two_slave_2, 21, "eth1")
-
-    __test_config_add_slave(raw_config_two_slaves, raw_config_two_slave_1)
-    __test_config_add_slave(raw_config_two_slaves, raw_config_two_slave_2)
-
-    __test_validate_nmcli_valid_configs(
-        [
-            raw_config_no_slaves,
-            raw_config_one_slave,
-            raw_config_two_slaves,
-        ],
-        net_config.BridgeConnectionConfig,
-        __build_testing_config_factory(mocker),
-    )
-
-
-@pytest.mark.parametrize(
-    "test_parameters",
-    __TEST_IPV4_PARAMETERS_MATRIX,
-)
-def test_net_config_bridge_vlan_ethernet_ipv4_ok(
-    mocker, test_parameters: ConfigTestParameters
-):
-    raw_config_two_slaves = {"type": "bridge", "state": test_parameters.state}
-    __test_config_set_param_fields(raw_config_two_slaves, test_parameters)
-
-    raw_config_two_slave_2 = {
-        "type": "ethernet",
-        "iface": "eth0",
-    }
-    raw_config_two_slave_1 = {
-        "type": "vlan",
-        "iface": "eth1.20",
-    }
-    __test_config_add_vlan_data(raw_config_two_slave_1, 20, "eth1")
-
-    __test_config_set_state_from_params(raw_config_two_slave_1, test_parameters)
-    __test_config_set_state_from_params(raw_config_two_slave_2, test_parameters)
-
-    __test_config_add_slave(raw_config_two_slaves, raw_config_two_slave_1)
-    __test_config_add_slave(raw_config_two_slaves, raw_config_two_slave_2)
-
-    __test_validate_nmcli_valid_configs(
-        [
-            raw_config_two_slaves,
-        ],
-        net_config.BridgeConnectionConfig,
-        __build_testing_config_factory(mocker),
+        ip_links=config_stub_data.TEST_IP_LINKS,
     )
 
 

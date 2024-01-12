@@ -217,12 +217,18 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
             self.__routes.append(IPRouteConfig[TAdd, TNet](route_data, self.__version))
 
 
-IPv4Config = IPConfig[
-    ipaddress.IPv4Address, ipaddress.IPv4Network, ipaddress.IPv4Interface
-]
-IPv6Config = IPConfig[
-    ipaddress.IPv6Address, ipaddress.IPv6Network, ipaddress.IPv6Interface
-]
+class IPv4Config(
+    IPConfig[ipaddress.IPv4Address, ipaddress.IPv4Network, ipaddress.IPv4Interface]
+):
+    def __init__(self, raw_config: typing.Dict[str, typing.Any]):
+        super().__init__(raw_config, 4)
+
+
+class IPv6Config(
+    IPConfig[ipaddress.IPv6Address, ipaddress.IPv6Network, ipaddress.IPv6Interface]
+):
+    def __init__(self, raw_config: typing.Dict[str, typing.Any]):
+        super().__init__(raw_config, 6)
 
 
 class InterfaceIdentifier:
@@ -418,11 +424,11 @@ class MainConnectionConfig(BaseConnectionConfig):
     def __parse_config(self, connection_config_factory: "ConnectionConfigFactory"):
         ipv4_data = self._raw_config.get(self.__FIELD_IPV4, None)
         if ipv4_data:
-            self._ipv4 = IPv4Config(ipv4_data, 4)
+            self._ipv4 = IPv4Config(ipv4_data)
 
         ipv6_data = self._raw_config.get(self.__FIELD_IPV6, None)
         if ipv6_data:
-            self._ipv6 = IPv6Config(ipv6_data, 6)
+            self._ipv6 = IPv6Config(ipv6_data)
 
         slave_connections = self._raw_config.get(self.__FIELD_SLAVES, {})
         if not isinstance(slave_connections, dict):
