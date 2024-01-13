@@ -1,5 +1,3 @@
-import copy
-import dataclasses
 import ipaddress
 import itertools
 import typing
@@ -175,6 +173,17 @@ def __validate_connection_data_iface(
         assert not config_instance.interface
 
 
+def __validate_ip_config_data_disable_default(
+    ip_config: net_config.IPConfig, ip_raw_config: typing.Dict[str, typing.Any]
+):
+    target_value = (
+        bool(ip_raw_config["disable-default-route"])
+        if "disable-default-route" in ip_raw_config
+        else None
+    )
+    assert ip_config.disable_default_route == target_value
+
+
 def __validate_ip_config_data_ipv4_dns(
     ip4_config: net_config.IPv4Config, ipv4_raw_config: typing.Dict[str, typing.Any]
 ):
@@ -232,6 +241,7 @@ def __validate_ip_config_data_ipv4(ip4_config: net_config.IPv4Config, raw_ip_con
     assert ip4_config.dns == target_dns
     __validate_ip_config_data_ipv4_dns(ip4_config, raw_ip_config)
     __validate_ip_config_data_ipv4_routes(ip4_config, raw_ip_config)
+    __validate_ip_config_data_disable_default(ip4_config, raw_ip_config)
 
 
 def __validate_ip_config_data_ipv6(ip6_config: net_config.IPv6Config, raw_ip_config):
@@ -249,6 +259,7 @@ def __validate_ip_config_data_ipv6(ip6_config: net_config.IPv6Config, raw_ip_con
     assert ip6_config.dns == target_dns
     __validate_ip_config_data_ipv6_dns(ip6_config, raw_ip_config)
     __validate_ip_config_data_ipv6_routes(ip6_config, raw_ip_config)
+    __validate_ip_config_data_disable_default(ip6_config, raw_ip_config)
 
 
 def __validate_connection_data_ipv4(config_instance, raw_config):
@@ -396,6 +407,20 @@ def __test_validate_nmcli_valid_config(
                 "routes": config_stub_data.TEST_ROUTES_IP4,
             },
             id="manual-gw-routes",
+        ),
+        pytest.param(
+            {
+                **config_stub_data.TEST_IP4_CONFIG_AUTO_1,
+                "disable-default-route": True,
+            },
+            id="disable-default-route-true",
+        ),
+        pytest.param(
+            {
+                **config_stub_data.TEST_IP4_CONFIG_MANUAL_2,
+                "disable-default-route": False,
+            },
+            id="disable-default-route-false",
         ),
     ],
 )

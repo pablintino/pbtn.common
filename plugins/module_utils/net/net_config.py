@@ -117,7 +117,7 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
         self.__gw: typing.Optional[TAdd] = None
         self.__dns: typing.List[TAdd] = []
         self.__routes: typing.List[IPRouteConfig[TAdd, TNet]] = []
-        self.__disable_default_route: bool = False
+        self.__disable_default_route: typing.Optional[bool] = None
         self.__version = version
         self.__parse_config()
 
@@ -142,7 +142,7 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
         return self.__routes
 
     @property
-    def disable_default_route(self) -> bool:
+    def disable_default_route(self) -> typing.Optional[bool]:
         return self.__disable_default_route
 
     def __parse_config(self):
@@ -195,9 +195,9 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
             )
 
         disable_default_route = self.__raw_config.get(
-            self.__FIELD_IP_DISABLE_DEFAULT_ROUTE, False
+            self.__FIELD_IP_DISABLE_DEFAULT_ROUTE, None
         )
-        if not isinstance(disable_default_route, bool):
+        if not isinstance(disable_default_route, (bool, type(None))):
             raise exceptions.ValueInfraException(
                 f"{self.__FIELD_IP_DISABLE_DEFAULT_ROUTE} is not a proper boolean value",
                 field=self.__FIELD_IP_DISABLE_DEFAULT_ROUTE,
