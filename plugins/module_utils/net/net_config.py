@@ -162,8 +162,9 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
             )
 
         self.__mode = mode
+        ip_str = self.__raw_config.get(self.__FIELD_IP_IP, None)
+        ip_gw_str = self.__raw_config.get(self.__FIELD_IP_GW, None)
         if self.__mode == self.FIELD_IP_MODE_VAL_MANUAL:
-            ip_str = self.__raw_config.get(self.__FIELD_IP_IP, None)
             if not ip_str:
                 raise exceptions.ValueInfraException(
                     f"{self.__FIELD_IP_IP} is a mandatory field for a connection "
@@ -174,7 +175,6 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
             self.__ip = net_utils.parse_validate_ip_interface_addr(
                 ip_str, self.__version, enforce_prefix=True
             )
-            ip_gw_str = self.__raw_config.get(self.__FIELD_IP_GW, None)
             ip_gw = (
                 net_utils.parse_validate_ip_addr(ip_gw_str, self.__version)
                 if ip_gw_str
@@ -186,6 +186,20 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
                     field=self.__FIELD_IP_GW,
                 )
             self.__gw = ip_gw
+        elif (
+            self.__mode == self.FIELD_IP_MODE_VAL_AUTO
+            or self.__mode == self.FIELD_IP_MODE_VAL_DISABLED
+        ):
+            if ip_str:
+                raise exceptions.ValueInfraException(
+                    f"{self.__FIELD_IP_IP} {ip_str} is not allowed in {self.__mode} mode",
+                    field=self.__FIELD_IP_IP,
+                )
+            if ip_gw_str:
+                raise exceptions.ValueInfraException(
+                    f"{self.__FIELD_IP_GW} {ip_gw_str} is not allowed in {self.__mode} mode",
+                    field=self.__FIELD_IP_GW,
+                )
 
         # Remove duplicated NSs without altering the order
         nameservers = list(dict.fromkeys(self.__raw_config.get(self.__FIELD_IP_NS, [])))

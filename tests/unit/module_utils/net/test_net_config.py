@@ -123,14 +123,30 @@ def __validate_util_generate_all_conn_dict_combinations(raw_conns_config):
     return config_dicts
 
 
-def __validate_util_resolve_target_iface(iface_name_mac: str):
+def __validate_util_resolve_target_iface(
+    iface_name_mac: str,
+    ip_links: typing.List[ip_interface.IPLinkData] = None,
+):
     if net_utils.is_mac_addr(iface_name_mac):
-        assert iface_name_mac in config_stub_data.TEST_IP_LINK_MAC_TO_IFACE_TABLE
-        return config_stub_data.TEST_IP_LINK_MAC_TO_IFACE_TABLE[iface_name_mac]
+        assert ip_links
+        link = next(
+            (
+                ip_link
+                for ip_link in ip_links
+                if ip_link.address.lower() == iface_name_mac.lower()
+            ),
+            None,
+        )
+        assert link
+        return link.if_name
     return iface_name_mac
 
 
-def __validate_connection_data_iface_dependencies(config_instance, raw_config):
+def __validate_connection_data_iface_dependencies(
+    config_instance,
+    raw_config,
+    ip_links: typing.List[ip_interface.IPLinkData] = None,
+):
     # Ensure depends-on is properly filled
     if isinstance(config_instance, net_config.VlanConnectionConfig) or isinstance(
         config_instance, net_config.VlanSlaveConnectionConfig
@@ -140,7 +156,9 @@ def __validate_connection_data_iface_dependencies(config_instance, raw_config):
         # VLAN connections only point to a single dependency, that it's their
         # parent connection
         assert [
-            __validate_util_resolve_target_iface(raw_config["vlan"]["parent"])
+            __validate_util_resolve_target_iface(
+                raw_config["vlan"]["parent"], ip_links=ip_links
+            )
         ] == config_instance.depends_on
     elif (
         isinstance(config_instance, net_config.EthernetConnectionConfig)
@@ -150,22 +168,28 @@ def __validate_connection_data_iface_dependencies(config_instance, raw_config):
         # Plain basic interfaces like ethernet points to themselves
         # as the only dependency
         assert config_instance.depends_on == [
-            __validate_util_resolve_target_iface(raw_config["iface"])
+            __validate_util_resolve_target_iface(raw_config["iface"], ip_links=ip_links)
         ]
     else:
         pytest.fail("Unexpected connection config type")
 
 
 def __validate_connection_data_iface(
-    config_instance, raw_config, ip_links: typing.List[ip_interface.IPLinkData] = None
+    config_instance,
+    raw_config,
+    ip_links: typing.List[ip_interface.IPLinkData] = None,
 ):
     target_raw_iface = raw_config.get("iface", None)
     if target_raw_iface:
         assert isinstance(config_instance.interface, net_config.InterfaceIdentifier)
-        target_iface = __validate_util_resolve_target_iface(target_raw_iface)
+        target_iface = __validate_util_resolve_target_iface(
+            target_raw_iface, ip_links=ip_links
+        )
         assert config_instance.interface.iface_name == target_iface
 
-        __validate_connection_data_iface_dependencies(config_instance, raw_config)
+        __validate_connection_data_iface_dependencies(
+            config_instance, raw_config, ip_links=ip_links
+        )
 
         # Ensure the interface itself is always added as a dependency
         assert target_iface in config_instance.related_interfaces
@@ -304,7 +328,11 @@ def __validate_connection_data_slave_type(config_instance, raw_config):
     assert isinstance(config_instance, __CONFIG_SLAVE_TYPES[target_type])
 
 
-def __validate_connection_data_slaves(config_instance, raw_config):
+def __validate_connection_data_slaves(
+    config_instance,
+    raw_config,
+    ip_links: typing.List[ip_interface.IPLinkData] = None,
+):
     assert isinstance(config_instance.slaves, list)
     target_slaves = raw_config.get("slaves", {})
     assert len(config_instance.slaves) == len(target_slaves)
@@ -323,12 +351,18 @@ def __validate_connection_data_slaves(config_instance, raw_config):
         __validate_connection_data_slave_type(slave_config, target_slave_config)
         __validate_connection_data_state(slave_config, target_slave_config)
         __validate_connection_data_startup(slave_config, target_slave_config)
-        __validate_connection_data_iface(slave_config, target_slave_config)
-        __validate_connection_data_vlan(slave_config, target_slave_config)
+        __validate_connection_data_iface(
+            slave_config, target_slave_config, ip_links=ip_links
+        )
+        __validate_connection_data_vlan(
+            slave_config, target_slave_config, ip_links=ip_links
+        )
 
 
 def __validate_connection_data_vlan(
-    config_instance: net_config.BaseConnectionConfig, raw_config
+    config_instance: net_config.BaseConnectionConfig,
+    raw_config: typing.Dict[str, typing.Any],
+    ip_links: typing.List[ip_interface.IPLinkData] = None,
 ):
     vlan_target_data = raw_config.get("vlan", {})
     if raw_config["type"] == "vlan" and vlan_target_data:
@@ -340,7 +374,7 @@ def __validate_connection_data_vlan(
         assert (
             config_instance.parent_interface.iface_name
             == __validate_util_resolve_target_iface(
-                vlan_target_data.get("parent", None)
+                vlan_target_data.get("parent", None), ip_links=ip_links
             )
         )
 
@@ -363,8 +397,8 @@ def __test_validate_nmcli_valid_config(
     __validate_connection_data_startup(config_instance, conn_config)
     __validate_connection_data_ipv4(config_instance, conn_config)
     __validate_connection_data_ipv6(config_instance, conn_config)
-    __validate_connection_data_slaves(config_instance, conn_config)
-    __validate_connection_data_vlan(config_instance, conn_config)
+    __validate_connection_data_slaves(config_instance, conn_config, ip_links=ip_links)
+    __validate_connection_data_vlan(config_instance, conn_config, ip_links=ip_links)
 
 
 @pytest.mark.parametrize(
