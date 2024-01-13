@@ -148,7 +148,7 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
     def __parse_config(self):
         if self.__FIELD_IP_MODE not in self.__raw_config:
             raise exceptions.ValueInfraException(
-                f"{self.__FIELD_IP_MODE} is a" " mandatory field for a connection",
+                f"{self.__FIELD_IP_MODE} is a mandatory field for a connection",
                 field=self.__FIELD_IP_MODE,
             )
         mode = self.__raw_config[self.__FIELD_IP_MODE]
@@ -156,7 +156,7 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
             raise exceptions.ValueInfraException(
                 f"{mode} is not a supported"
                 f" {self.__FIELD_IP_MODE}."
-                f" Supported:{', '.join(self.__FIELD_IP_VALS)}",
+                f" Supported: {', '.join(self.__FIELD_IP_VALS)}",
                 field=self.__FIELD_IP_MODE,
                 value=mode,
             )
@@ -186,10 +186,7 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
                     field=self.__FIELD_IP_GW,
                 )
             self.__gw = ip_gw
-        elif (
-            self.__mode == self.FIELD_IP_MODE_VAL_AUTO
-            or self.__mode == self.FIELD_IP_MODE_VAL_DISABLED
-        ):
+        elif self.__mode == self.FIELD_IP_MODE_VAL_AUTO:
             if ip_str:
                 raise exceptions.ValueInfraException(
                     f"{self.__FIELD_IP_IP} {ip_str} is not allowed in {self.__mode} mode",

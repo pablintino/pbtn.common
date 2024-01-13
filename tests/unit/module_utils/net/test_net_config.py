@@ -3,7 +3,9 @@ import itertools
 import typing
 import pytest
 
+
 from ansible_collections.pablintino.base_infra.plugins.module_utils import (
+    exceptions,
     ip_interface,
 )
 from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
@@ -461,6 +463,77 @@ def __test_validate_nmcli_valid_config(
 def test_net_config_ip4_config_ok(test_raw_config: typing.Dict[str, typing.Any]):
     ip_config = net_config.IPv4Config(test_raw_config)
     __validate_ip_config_data_ipv4(ip_config, test_raw_config)
+
+
+@pytest.mark.parametrize(
+    "ip_version",
+    [
+        pytest.param(4, id="ipv4"),
+        pytest.param(6, id="ipv6"),
+    ],
+)
+def test_net_config_ipx_static_ip_auto_fail(ip_version: int):
+    ip_config_type = net_config.IPv4Config if ip_version == 4 else net_config.IPv6Config
+    cfg_1 = {
+        "mode": "auto",
+        "ip": str(
+            config_stub_data.TEST_INTERFACE_1_IP4_ADDR
+            if ip_version == 4
+            else config_stub_data.TEST_INTERFACE_1_IP6_ADDR
+        ),
+    }
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        ip_config_type(cfg_1)
+    assert f"is not allowed in auto mode" in str(err.value)
+    assert err.value.field == "ip"
+
+
+@pytest.mark.parametrize(
+    "ip_version",
+    [
+        pytest.param(4, id="ipv4"),
+        pytest.param(6, id="ipv6"),
+    ],
+)
+def test_net_config_ipx_static_gw_fail(ip_version: int):
+    ip_config_type = net_config.IPv4Config if ip_version == 4 else net_config.IPv6Config
+    cfg_1 = {
+        "mode": "auto",
+        "gw": str(
+            config_stub_data.TEST_INTERFACE_1_IP4_GW
+            if ip_version == 4
+            else config_stub_data.TEST_INTERFACE_1_IP6_GW
+        ),
+    }
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        ip_config_type(cfg_1)
+    assert f"is not allowed in auto mode" in str(err.value)
+    assert err.value.field == "gw"
+
+
+@pytest.mark.parametrize(
+    "ip_version",
+    [
+        pytest.param(4, id="ipv4"),
+        pytest.param(6, id="ipv6"),
+    ],
+)
+def test_net_config_ipx_mode_fail(ip_version: int):
+    ip_config_type = net_config.IPv4Config if ip_version == 4 else net_config.IPv6Config
+    cfg_1 = {
+        "mode": "non-existing-mode",
+    }
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        ip_config_type(cfg_1)
+    assert f"{cfg_1['mode']} is not a supported mode. Supported: auto, manual" == str(
+        err.value
+    )
+    assert err.value.field == "mode"
+
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        ip_config_type({})
+    assert f"mode is a mandatory field" in str(err.value)
+    assert err.value.field == "mode"
 
 
 @pytest.mark.parametrize(
