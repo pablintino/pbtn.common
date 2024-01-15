@@ -475,7 +475,7 @@ class IPv6ConnectionArgsBuilder(IPConnectionArgsBuilder[net_config.IPv6Config]):
 class VlanConnectionArgsBuilder(BaseBuilder):
     @staticmethod
     def __build_vlan_parent_iface(
-        conn_config: net_config.VlanConnectionConfigMixin,
+        conn_config: net_config.VlanBaseConnectionConfig,
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
     ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
         if (not current_connection) or (
@@ -493,7 +493,7 @@ class VlanConnectionArgsBuilder(BaseBuilder):
 
     @staticmethod
     def __build_vlan_id(
-        conn_config: net_config.VlanConnectionConfigMixin,
+        conn_config: net_config.VlanBaseConnectionConfig,
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
     ) -> typing.Tuple[typing.Union[str, None], typing.Union[str, None]]:
         if (not current_connection) or (
@@ -513,9 +513,9 @@ class VlanConnectionArgsBuilder(BaseBuilder):
         __: typing.Union[str, None],
         main_conn_uuid: typing.Union[str, None],
     ) -> typing.List[typing.Tuple[str, str]]:
-        if not isinstance(conn_config, net_config.VlanConnectionConfigMixin):
+        if not isinstance(conn_config, net_config.VlanBaseConnectionConfig):
             raise ValueError(f"unexpected configuration type {type(conn_config)}")
-        conn_config = typing.cast(net_config.VlanConnectionConfigMixin, conn_config)
+        conn_config = typing.cast(net_config.VlanBaseConnectionConfig, conn_config)
         return [
             self.__build_vlan_parent_iface(conn_config, current_connection),
             self.__build_vlan_id(conn_config, current_connection),
@@ -594,7 +594,7 @@ def nmcli_args_builder_factory(
         builder = IPv4ConnectionArgsBuilder(next_handler=builder)
         builder = IPv6ConnectionArgsBuilder(next_handler=builder)
 
-    if isinstance(conn_config, net_config.VlanConnectionConfigMixin):
+    if isinstance(conn_config, net_config.VlanBaseConnectionConfig):
         builder = VlanConnectionArgsBuilder(next_handler=builder)
 
     return builder

@@ -34,3 +34,11 @@ class ValueInfraException(BaseInfraException):
         super().__init__(msg)
         self.field = field
         self.value = value
+
+    def with_field(self, field: str) -> "ValueInfraException":
+        self.field = field
+        return self
+
+    def with_value(self, value: typing.Any) -> "ValueInfraException":
+        self.value = value
+        return self

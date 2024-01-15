@@ -66,7 +66,11 @@ class IPRouteConfig(typing.Generic[TAdd, TNet]):
                 f"mandatory field for a IPv{self.__version} route",
                 field=self.__FIELD_IP_ROUTE_DST,
             )
-        self.__dst = net_utils.parse_validate_ip_net(dst_str, self.__version)
+        try:
+            self.__dst = net_utils.parse_validate_ip_net(dst_str, self.__version)
+        except exceptions.ValueInfraException as err:
+            raise err.with_field(self.__FIELD_IP_ROUTE_DST) from err
+
         gw_str = raw_config.get(self.__FIELD_IP_ROUTE_GW, None)
         if not gw_str:
             raise exceptions.ValueInfraException(
@@ -74,23 +78,25 @@ class IPRouteConfig(typing.Generic[TAdd, TNet]):
                 f"mandatory field for a IPv{self.__version} route",
                 field=self.__FIELD_IP_ROUTE_GW,
             )
-        self.__gw = net_utils.parse_validate_ip_addr(gw_str, self.__version)
+        try:
+            self.__gw = net_utils.parse_validate_ip_addr(gw_str, self.__version)
+        except exceptions.ValueInfraException as err:
+            raise err.with_field(self.__FIELD_IP_ROUTE_DST) from err
+
         metric_raw = raw_config.get(self.__FIELD_IP_ROUTE_METRIC, None)
-        if metric_raw:
-            try:
-                self.__metric = int(metric_raw)
-                if self.__metric < 1:
-                    raise exceptions.ValueInfraException(
-                        f"{self.__FIELD_IP_ROUTE_METRIC} must be a positive number",
-                        value=self.__metric,
-                        field=self.__FIELD_IP_ROUTE_METRIC,
-                    )
-            except ValueError as err:
+        if not isinstance(metric_raw, (int, type(None))):
+            raise exceptions.ValueInfraException(
+                f"{self.__FIELD_IP_ROUTE_METRIC} is not a proper integer value",
+                field=self.__FIELD_IP_ROUTE_METRIC,
+            )
+        if metric_raw is not None:
+            if metric_raw < 1:
                 raise exceptions.ValueInfraException(
-                    f"{self.__FIELD_IP_ROUTE_METRIC} must be a number",
-                    value=metric_raw,
+                    f"{self.__FIELD_IP_ROUTE_METRIC} must be a positive number",
+                    value=self.__metric,
                     field=self.__FIELD_IP_ROUTE_METRIC,
-                ) from err
+                )
+            self.__metric = metric_raw
 
 
 class IPConfig(typing.Generic[TAdd, TNet, TInt]):
@@ -172,20 +178,27 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
                     field=self.__FIELD_IP_IP,
                 )
 
-            self.__ip = net_utils.parse_validate_ip_interface_addr(
-                ip_str, self.__version, enforce_prefix=True
-            )
-            ip_gw = (
-                net_utils.parse_validate_ip_addr(ip_gw_str, self.__version)
-                if ip_gw_str
-                else None
-            )
-            if ip_gw and (ip_gw not in self.__ip.network):
+            try:
+                self.__ip = net_utils.parse_validate_ip_interface_addr(
+                    ip_str, self.__version, enforce_prefix=True
+                )
+            except exceptions.ValueInfraException as err:
+                raise err.with_field(self.__FIELD_IP_IP) from err
+
+            try:
+                self.__gw = (
+                    net_utils.parse_validate_ip_addr(ip_gw_str, self.__version)
+                    if ip_gw_str
+                    else None
+                )
+            except exceptions.ValueInfraException as err:
+                raise err.with_field(self.__FIELD_IP_GW) from err
+
+            if self.__gw and (self.__gw not in self.__ip.network):
                 raise exceptions.ValueInfraException(
                     f"{self.__FIELD_IP_GW} is not in the {self.__ip} range",
                     field=self.__FIELD_IP_GW,
                 )
-            self.__gw = ip_gw
         elif self.__mode == self.FIELD_IP_MODE_VAL_AUTO:
             if ip_str:
                 raise exceptions.ValueInfraException(
@@ -212,6 +225,7 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
             raise exceptions.ValueInfraException(
                 f"{self.__FIELD_IP_DISABLE_DEFAULT_ROUTE} is not a proper boolean value",
                 field=self.__FIELD_IP_DISABLE_DEFAULT_ROUTE,
+                value=disable_default_route,
             )
         self.__disable_default_route = disable_default_route
 
@@ -371,24 +385,22 @@ class BaseConnectionConfig:
                 value=self._conn_name,
             )
 
-        startup = self._raw_config.get(self.__FIELD_ON_STARTUP, None)
-        if not isinstance(startup, (bool, type(None))):
+        self._startup = self._raw_config.get(self.__FIELD_ON_STARTUP, None)
+        if not isinstance(self._startup, (bool, type(None))):
             raise exceptions.ValueInfraException(
                 f"{self.__FIELD_ON_STARTUP} is not a proper boolean value",
                 field=self.__FIELD_ON_STARTUP,
-                value=startup,
+                value=self._startup,
             )
-        self._startup = startup
 
-        state = self._raw_config.get(self.__FIELD_STATE, None)
-        if state and state not in self.__FIELD_STATE_VALUES:
+        self._state = self._raw_config.get(self.__FIELD_STATE, None)
+        if self._state is not None and self._state not in self.__FIELD_STATE_VALUES:
             raise exceptions.ValueInfraException(
-                f"{state} is not a supported {self.__FIELD_STATE}."
-                f" Supported:{', '.join(self.__FIELD_STATE_VALUES)}",
+                f"{self._state} is not a supported {self.__FIELD_STATE}."
+                f" Supported: {', '.join(self.__FIELD_STATE_VALUES)}",
                 field=self.__FIELD_STATE,
-                value=state,
+                value=self._state,
             )
-        self._state = state
 
         iface_str = self._raw_config.get(self._FIELD_IFACE, None)
         # Interface is always optional. Some interfaces (almost all, but specially useful
@@ -482,7 +494,7 @@ class EthernetConnectionConfig(MainConnectionConfig):
     pass
 
 
-class VlanConnectionConfigMixin(BaseConnectionConfig):
+class VlanBaseConnectionConfig(BaseConnectionConfig):
     __FIELD_VLAN = "vlan"
     __FIELD_VLAN_ID = "id"
     __FIELD_VLAN_PARENT_IFACE = "parent"
@@ -542,7 +554,7 @@ class VlanConnectionConfigMixin(BaseConnectionConfig):
             )
 
         vlan_id = vlan_config.get(self.__FIELD_VLAN_ID, None)
-        if not vlan_id:
+        if vlan_id is None:
             raise exceptions.ValueInfraException(
                 f"{self.__FIELD_VLAN_ID} is a mandatory field of {self.__FIELD_VLAN} "
                 "section for a VLAN based connection",
@@ -555,7 +567,7 @@ class VlanConnectionConfigMixin(BaseConnectionConfig):
                 value=vlan_id,
             )
 
-        if vlan_id <= 0:
+        if vlan_id < 1:
             raise exceptions.ValueInfraException(
                 f"{self.__FIELD_VLAN_ID} field of {self.__FIELD_VLAN} "
                 "section must be greater than zero",
@@ -565,7 +577,7 @@ class VlanConnectionConfigMixin(BaseConnectionConfig):
         self._vlan_id = vlan_id
 
 
-class VlanConnectionConfig(MainConnectionConfig, VlanConnectionConfigMixin):
+class VlanConnectionConfig(MainConnectionConfig, VlanBaseConnectionConfig):
     pass
 
 
@@ -577,7 +589,7 @@ class EthernetSlaveConnectionConfig(SlaveConnectionConfig):
     pass
 
 
-class VlanSlaveConnectionConfig(SlaveConnectionConfig, VlanConnectionConfigMixin):
+class VlanSlaveConnectionConfig(SlaveConnectionConfig, VlanBaseConnectionConfig):
     pass
 
 

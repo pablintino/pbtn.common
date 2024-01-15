@@ -97,6 +97,22 @@ def __build_config_helper(
     return config_instance
 
 
+def __build_base_config_helper(
+    raw_config: typing.Dict[str, typing.Any],
+    conn_name: str = "test-conn",
+    ip_links: typing.List[ip_interface.IPLinkData] = None,
+) -> net_config.BaseConnectionConfig:
+    config_instance = net_config.BaseConnectionConfig(
+        conn_name=conn_name,
+        raw_config=raw_config,
+        ip_links=ip_links or [],
+    )
+    assert config_instance
+    assert config_instance.name == conn_name
+
+    return config_instance
+
+
 def __validate_connection_is_after_connection(
     connections_list: typing.List[net_config.BaseConnectionConfig],
     fist_connection: str,
@@ -349,6 +365,7 @@ def __validate_connection_data_slaves(
             None,
         )
         assert slave_config
+        assert slave_config.main_connection_config == config_instance
         assert isinstance(slave_config, net_config.SlaveConnectionConfig)
         __validate_connection_data_slave_type(slave_config, target_slave_config)
         __validate_connection_data_state(slave_config, target_slave_config)
@@ -368,7 +385,7 @@ def __validate_connection_data_vlan(
 ):
     vlan_target_data = raw_config.get("vlan", {})
     if raw_config["type"] == "vlan" and vlan_target_data:
-        assert isinstance(config_instance, net_config.VlanConnectionConfigMixin)
+        assert isinstance(config_instance, net_config.VlanBaseConnectionConfig)
         assert config_instance.vlan_id == int(vlan_target_data.get("id", None))
         assert isinstance(
             config_instance.parent_interface, net_config.InterfaceIdentifier
@@ -534,6 +551,361 @@ def test_net_config_ipx_mode_fail(ip_version: int):
         ip_config_type({})
     assert f"mode is a mandatory field" in str(err.value)
     assert err.value.field == "mode"
+
+
+@pytest.mark.parametrize(
+    "ip_version",
+    [
+        pytest.param(4, id="ipv4"),
+        pytest.param(6, id="ipv6"),
+    ],
+)
+def test_net_config_ipx_static_missing_ip_fail(ip_version: int):
+    ip_config_type = net_config.IPv4Config if ip_version == 4 else net_config.IPv6Config
+    cfg_1 = {
+        "mode": "manual",
+    }
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        ip_config_type(cfg_1)
+    assert f"is a mandatory field" in str(err.value)
+    assert err.value.field == "ip"
+
+
+@pytest.mark.parametrize(
+    "ip_version",
+    [
+        pytest.param(4, id="ipv4"),
+        pytest.param(6, id="ipv6"),
+    ],
+)
+def test_net_config_ipx_static_gw_range_fail(ip_version: int):
+    ip_config_type = net_config.IPv4Config if ip_version == 4 else net_config.IPv6Config
+    ip = (
+        config_stub_data.TEST_INTERFACE_1_IP4_ADDR
+        if ip_version == 4
+        else config_stub_data.TEST_INTERFACE_1_IP6_ADDR
+    )
+    gw = "10.10.10.10" if ip_version == 4 else "2606:4700:4700::4700"
+    cfg_1 = {
+        "mode": "manual",
+        "ip": str(ip),
+        "gw": gw,
+    }
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        ip_config_type(cfg_1)
+    assert f"is not in the {ip} range" in str(err.value)
+    assert err.value.field == "gw"
+
+
+@pytest.mark.parametrize(
+    "ip_version",
+    [
+        pytest.param(4, id="ipv4"),
+        pytest.param(6, id="ipv6"),
+    ],
+)
+def test_net_config_ipx_static_disable_default_route_fail(ip_version: int):
+    ip_config_type = net_config.IPv4Config if ip_version == 4 else net_config.IPv6Config
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        ip_config_type({"mode": "auto", "disable-default-route": "invalid-value"})
+    assert f"is not a proper boolean value" in str(err.value)
+    assert err.value.field == "disable-default-route"
+    assert err.value.value == "invalid-value"
+
+
+@pytest.mark.parametrize(
+    "ip_version",
+    [
+        pytest.param(4, id="ipv4"),
+        pytest.param(6, id="ipv6"),
+    ],
+)
+def test_net_config_ipx_wrong_version_fail(ip_version: int):
+    ip_config_type = net_config.IPv4Config if ip_version == 4 else net_config.IPv6Config
+    ip_1 = (
+        config_stub_data.TEST_INTERFACE_1_IP6_ADDR
+        if ip_version == 4
+        else config_stub_data.TEST_INTERFACE_1_IP4_ADDR
+    )
+    gw_1 = "10.10.10.10" if ip_version == 4 else "2606:4700:4700::4700"
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        ip_config_type(
+            {
+                "mode": "manual",
+                "ip": str(ip_1),
+                "gw": gw_1,
+            }
+        )
+    assert f"{ip_1} is not a valid IPv{ip_version} value" == str(err.value)
+    assert err.value.field == "ip"
+    assert err.value.value == str(ip_1)
+
+    ip_2 = (
+        config_stub_data.TEST_INTERFACE_1_IP4_ADDR
+        if ip_version == 4
+        else config_stub_data.TEST_INTERFACE_1_IP6_ADDR
+    )
+    gw_2 = "10.10.10.10" if ip_version == 6 else "2606:4700:4700::4700"
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        ip_config_type(
+            {
+                "mode": "manual",
+                "ip": str(ip_2),
+                "gw": gw_2,
+            }
+        )
+    assert f"{gw_2} is not a valid IPv{ip_version} value" == str(err.value)
+    assert err.value.field == "gw"
+    assert err.value.value == str(gw_2)
+
+
+@pytest.mark.parametrize(
+    "ip_version",
+    [
+        pytest.param(4, id="ipv4"),
+        pytest.param(6, id="ipv6"),
+    ],
+)
+def test_net_config_ipx_route_missing_dst_fail(ip_version: int):
+    ip_route_type = (
+        net_config.IPRouteConfig[ipaddress.IPv4Address, ipaddress.IPv4Network]
+        if ip_version == 4
+        else net_config.IPRouteConfig[ipaddress.IPv6Address, ipaddress.IPv6Network]
+    )
+    cfg_1 = {}
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        ip_route_type(cfg_1, ip_version)
+    assert f"dst is a mandatory field for a IPv{ip_version} route" == str(err.value)
+    assert err.value.field == "dst"
+
+
+@pytest.mark.parametrize(
+    "ip_version",
+    [
+        pytest.param(4, id="ipv4"),
+        pytest.param(6, id="ipv6"),
+    ],
+)
+def test_net_config_ipx_route_missing_gw_fail(ip_version: int):
+    ip_route_type = (
+        net_config.IPRouteConfig[ipaddress.IPv4Address, ipaddress.IPv4Network]
+        if ip_version == 4
+        else net_config.IPRouteConfig[ipaddress.IPv6Address, ipaddress.IPv6Network]
+    )
+    cfg_1 = {
+        "dst": str(config_stub_data.TEST_ROUTE_1_DST_IP4)
+        if ip_version == 4
+        else str(config_stub_data.TEST_ROUTE_1_DST_IP6)
+    }
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        ip_route_type(cfg_1, ip_version)
+    assert f"gw is a mandatory field for a IPv{ip_version} route" == str(err.value)
+    assert err.value.field == "gw"
+
+
+@pytest.mark.parametrize(
+    "ip_version",
+    [
+        pytest.param(4, id="ipv4"),
+        pytest.param(6, id="ipv6"),
+    ],
+)
+def test_net_config_ipx_route_wrong_version_fail(ip_version: int):
+    ip_route_type = (
+        net_config.IPRouteConfig[ipaddress.IPv4Address, ipaddress.IPv4Network]
+        if ip_version == 4
+        else net_config.IPRouteConfig[ipaddress.IPv6Address, ipaddress.IPv6Network]
+    )
+
+    dst_1 = str(
+        config_stub_data.TEST_ROUTE_1_DST_IP4
+        if ip_version == 6
+        else config_stub_data.TEST_ROUTE_1_DST_IP6
+    )
+    gw_1 = str(
+        config_stub_data.TEST_ROUTE_1_GW_IP4
+        if ip_version == 4
+        else config_stub_data.TEST_ROUTE_1_GW_IP6
+    )
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        ip_route_type({"dst": dst_1, "gw": gw_1}, ip_version)
+    assert f"{dst_1} is not a valid IPv{ip_version} network value" == str(err.value)
+    assert err.value.field == "dst"
+    assert err.value.value == dst_1
+
+    dst_2 = str(
+        config_stub_data.TEST_ROUTE_1_DST_IP4
+        if ip_version == 4
+        else config_stub_data.TEST_ROUTE_1_DST_IP6
+    )
+    gw_2 = str(
+        config_stub_data.TEST_ROUTE_1_GW_IP4
+        if ip_version == 6
+        else config_stub_data.TEST_ROUTE_1_GW_IP6
+    )
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        ip_route_type({"dst": dst_2, "gw": gw_2}, ip_version)
+    assert f"{gw_2} is not a valid IPv{ip_version} value" == str(err.value)
+    assert err.value.field == "dst"
+    assert err.value.value == gw_2
+
+
+@pytest.mark.parametrize(
+    "ip_version",
+    [
+        pytest.param(4, id="ipv4"),
+        pytest.param(6, id="ipv6"),
+    ],
+)
+def test_net_config_ipx_route_invalid_metric_fail(ip_version: int):
+    ip_route_type = (
+        net_config.IPRouteConfig[ipaddress.IPv4Address, ipaddress.IPv4Network]
+        if ip_version == 4
+        else net_config.IPRouteConfig[ipaddress.IPv6Address, ipaddress.IPv6Network]
+    )
+    base_cfg = {
+        "dst": str(config_stub_data.TEST_ROUTE_1_DST_IP4)
+        if ip_version == 4
+        else str(config_stub_data.TEST_ROUTE_1_DST_IP6),
+        "gw": str(config_stub_data.TEST_ROUTE_1_GW_IP4)
+        if ip_version == 4
+        else str(config_stub_data.TEST_ROUTE_1_GW_IP6),
+    }
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        ip_route_type({**base_cfg, "metric": 0}, ip_version)
+    assert f"metric must be a positive number" == str(err.value)
+    assert err.value.field == "metric"
+
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        ip_route_type({**base_cfg, "metric": "98dd"}, ip_version)
+    assert f"metric is not a proper integer value" == str(err.value)
+    assert err.value.field == "metric"
+
+
+@pytest.mark.parametrize(
+    "ip_version",
+    [
+        pytest.param(4, id="ipv4"),
+        pytest.param(6, id="ipv6"),
+    ],
+)
+def test_net_config_ipx_route_list_type_fail(ip_version: int):
+    ip_config_type = net_config.IPv4Config if ip_version == 4 else net_config.IPv6Config
+    cfg_1 = {"mode": "auto", "routes": {}}
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        ip_config_type(cfg_1)
+    assert f"routes should be a list of IPv{ip_version} routes" == str(err.value)
+    assert err.value.field == "routes"
+
+
+def test_net_config_vlan_invalid_id_fail(mocker):
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        __build_config_helper(
+            net_config.VlanBaseConnectionConfig,
+            {"mode": "auto", "vlan": {"id": 0, "parent": "eth0"}},
+            mocker.Mock(),
+            ip_links=config_stub_data.TEST_IP_LINKS,
+        )
+    assert str(err.value) == "id field of vlan section must be greater than zero"
+    assert err.value.field == "id"
+    assert err.value.value == 0
+
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        __build_config_helper(
+            net_config.VlanBaseConnectionConfig,
+            {"mode": "auto", "vlan": {"parent": "eth0"}},
+            mocker.Mock(),
+            ip_links=config_stub_data.TEST_IP_LINKS,
+        )
+    assert (
+        str(err.value)
+        == "id is a mandatory field of vlan section for a VLAN based connection"
+    )
+    assert err.value.field == "id"
+
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        __build_config_helper(
+            net_config.VlanBaseConnectionConfig,
+            {"mode": "auto", "vlan": {"id": "10", "parent": "eth0"}},
+            mocker.Mock(),
+            ip_links=config_stub_data.TEST_IP_LINKS,
+        )
+    assert str(err.value) == "id  field of vlan section must be a number"
+    assert err.value.field == "id"
+    assert err.value.value == "10"
+
+
+def test_net_config_vlan_invalid_parent_interface_fail(mocker):
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        __build_config_helper(
+            net_config.VlanBaseConnectionConfig,
+            {"mode": "auto", "vlan": {"id": 10}},
+            mocker.Mock(),
+            ip_links=config_stub_data.TEST_IP_LINKS,
+        )
+    assert (
+        str(err.value)
+        == "parent is a mandatory field of vlan section for a VLAN based connection"
+    )
+    assert err.value.field == "parent"
+
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        __build_config_helper(
+            net_config.VlanBaseConnectionConfig,
+            {"mode": "auto", "iface": "eth0", "vlan": {"parent": "eth0", "id": 10}},
+            mocker.Mock(),
+            ip_links=config_stub_data.TEST_IP_LINKS,
+        )
+    assert (
+        str(err.value)
+        == "parent field of vlan cannot point to the same interface told by iface (eth0)"
+    )
+    assert err.value.field == "parent"
+    assert err.value.value == "eth0"
+
+
+def test_net_config_vlan_missing_section_fail(mocker):
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        __build_config_helper(
+            net_config.VlanBaseConnectionConfig,
+            {"mode": "auto"},
+            mocker.Mock(),
+            ip_links=config_stub_data.TEST_IP_LINKS,
+        )
+    assert str(err.value) == "vlan is a mandatory field for a VLAN based connection"
+    assert err.value.field == "vlan"
+
+
+def test_net_config_main_invalid_slaves_section_fail(mocker):
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        __build_config_helper(
+            net_config.MainConnectionConfig,
+            {"mode": "auto", "slaves": []},
+            mocker.Mock(),
+            ip_links=config_stub_data.TEST_IP_LINKS,
+        )
+    assert str(err.value) == "slaves should be a dict of slave connections"
+    assert err.value.field == "slaves"
+
+
+def test_net_config_main_invalid_startup_fail():
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        __build_base_config_helper(
+            {"mode": "auto", "startup": "invalid"},
+        )
+    assert str(err.value) == "startup is not a proper boolean value"
+    assert err.value.field == "startup"
+    assert err.value.value == "invalid"
+
+
+def test_net_config_main_state_startup_fail():
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        __build_base_config_helper(
+            {"mode": "auto", "state": "invalid"},
+        )
+    assert str(err.value) == "invalid is not a supported state. Supported: up, down"
+    assert err.value.field == "state"
+    assert err.value.value == "invalid"
 
 
 @pytest.mark.parametrize(
@@ -884,3 +1256,40 @@ def test_connection_config_handler_ok(
             __validate_connection_is_after_connection(
                 handler.connections, validation_tuple[0], validation_tuple[1]
             )
+
+
+def test_connection_config_factory_build_invalid_types_fail(mocker):
+    factory = net_config.ConnectionConfigFactory(ip_iface=mocker.Mock())
+    # Check that type is mandatory for main connections
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        factory.build_connection("test-conn", {})
+    assert str(err.value) == "type is a mandatory field for a connection"
+    assert err.value.field == "type"
+
+    # Check that type is mandatory for slave connections
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        factory.build_slave_connection("test-conn", {}, mocker.Mock())
+    assert str(err.value) == "type is a mandatory field for a slave connection"
+    assert err.value.field == "type"
+
+    # Check that unsupported connection types ends in an exception
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        factory.build_connection("test-conn", {"type": "invalid-value"})
+    assert (
+        str(err.value)
+        == "Unsupported connection type invalid-value for connection test-conn"
+    )
+    assert err.value.field == "type"
+    assert err.value.value == "invalid-value"
+
+    # Check that unsupported slave types ends in an exception
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        factory.build_slave_connection(
+            "test-conn", {"type": "invalid-value"}, mocker.Mock()
+        )
+    assert (
+        str(err.value)
+        == "Unsupported slave connection type invalid-value for connection test-conn"
+    )
+    assert err.value.field == "type"
+    assert err.value.value == "invalid-value"
