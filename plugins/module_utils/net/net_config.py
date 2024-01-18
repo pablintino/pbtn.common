@@ -307,7 +307,7 @@ class InterfaceIdentifier:
         # seeing only the links; thus, we only support mac
         # referencing for base interfaces like Ethernets
         # VLANs has the link field, and, as example, bridges
-        # the link_type set to bridge
+        # the link_kind set to bridge
         return link_data.link is None and link_data.link_kind is None
 
     @property

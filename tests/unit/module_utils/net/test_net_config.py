@@ -1293,3 +1293,94 @@ def test_connection_config_factory_build_invalid_types_fail(mocker):
     )
     assert err.value.field == "type"
     assert err.value.value == "invalid-value"
+
+
+def test_net_config_interface_identifier_ok():
+    iface_id_1 = net_config.InterfaceIdentifier("eth0", [])
+    assert iface_id_1.iface_name == "eth0"
+    iface_id_2 = net_config.InterfaceIdentifier(
+        config_stub_data.TEST_IP_LINK_ETHER_1_MAC,
+        config_stub_data.TEST_IP_LINKS,
+    )
+    assert iface_id_2.iface_name == "eth1"
+
+    # Test that if multiples links has the same mac
+    # only the non-ethernet nor bridge is picked up
+    bridge_link = ip_interface.IPLinkData(
+        {
+            "ifname": "br123",
+            "address": "ca:20:f3:9f:eb:42",
+            "linkinfo": {
+                "info_kind": "bridge",
+            },
+        }
+    )
+    vlan_link = ip_interface.IPLinkData(
+        {
+            "ifname": "eth1.20",
+            "link": "eth1",
+            "address": "ca:20:f3:9f:eb:42",
+            "linkinfo": {
+                "info_kind": "vlan",
+            },
+        }
+    )
+    eth_link = ip_interface.IPLinkData(
+        {
+            "ifname": "eth2",
+            "address": "ca:20:f3:9f:eb:42",
+        },
+    )
+    iface_id_3 = net_config.InterfaceIdentifier(
+        "ca:20:f3:9f:eb:42",
+        [bridge_link, vlan_link, eth_link],
+    )
+    assert iface_id_3.iface_name == eth_link.if_name
+
+
+@pytest.mark.parametrize(
+    "target_mac,target_links",
+    [
+        pytest.param(
+            "aa:bb:cc:dd:ee:ff",
+            config_stub_data.TEST_IP_LINKS,
+            id="non-existing-link",
+        ),
+        pytest.param(
+            "ca:20:f3:9f:eb:42",
+            [
+                ip_interface.IPLinkData(
+                    {
+                        "ifname": "br123",
+                        "address": "ca:20:f3:9f:eb:42",
+                        "linkinfo": {
+                            "info_kind": "bridge",
+                        },
+                    }
+                ),
+                ip_interface.IPLinkData(
+                    {
+                        "ifname": "eth1.20",
+                        "link": "eth1",
+                        "address": "ca:20:f3:9f:eb:42",
+                        "linkinfo": {
+                            "info_kind": "vlan",
+                        },
+                    }
+                ),
+            ],
+            id="existing-non-selectable-links",
+        ),
+    ],
+)
+def test_net_config_interface_identifier_mac_resolve_fail(
+    target_mac: str, target_links: typing.List[ip_interface.IPLinkData]
+):
+    target_mac = "aa:bb:cc:dd:ee:ff"
+    with pytest.raises(net_config.NmcliLinkResolutionException) as err:
+        net_config.InterfaceIdentifier(
+            target_mac,
+            target_links,
+        )
+    assert len(err.value.candidates) == 0
+    assert target_mac in str(err.value)
