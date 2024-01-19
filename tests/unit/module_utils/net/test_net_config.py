@@ -798,6 +798,29 @@ def test_net_config_ipx_route_list_type_fail(ip_version: int):
     assert err.value.field == "routes"
 
 
+@pytest.mark.parametrize(
+    "test_config_value",
+    [
+        pytest.param(2, id="integer"),
+        pytest.param(True, id="bool"),
+        pytest.param([], id="list"),
+        pytest.param((), id="tuple"),
+    ],
+)
+def test_net_config_ip_route_item_type_fail(test_config_value):
+    for ip_version in [4, 6]:
+        with pytest.raises(exceptions.ValueInfraException) as err:
+            ip_config_type = (
+                net_config.IPRouteConfig[ipaddress.IPv4Address, ipaddress.IPv4Network]
+                if ip_version == 4
+                else net_config.IPRouteConfig[
+                    ipaddress.IPv6Address, ipaddress.IPv6Network
+                ]
+            )
+            ip_config_type(test_config_value, ip_version)
+        assert str(err.value) == "A route entry should be a dictionary"
+
+
 def test_net_config_vlan_invalid_id_fail(mocker):
     with pytest.raises(exceptions.ValueInfraException) as err:
         __build_config_helper(
@@ -906,6 +929,13 @@ def test_net_config_main_state_startup_fail():
     assert str(err.value) == "invalid is not a supported state. Supported: up, down"
     assert err.value.field == "state"
     assert err.value.value == "invalid"
+
+
+def test_net_config_main_invalid_conn_name_fail():
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        __build_base_config_helper({"mode": "auto"}, conn_name="invalid@!value")
+    assert "Connection name invalid@!value is invalid" in str(err.value)
+    assert err.value.value == "invalid@!value"
 
 
 @pytest.mark.parametrize(
@@ -1258,6 +1288,26 @@ def test_connection_config_handler_ok(
             )
 
 
+@pytest.mark.parametrize(
+    "test_config_value",
+    [
+        pytest.param(2, id="integer"),
+        pytest.param(True, id="bool"),
+        pytest.param([], id="list"),
+        pytest.param((), id="tuple"),
+    ],
+)
+def test_connection_config_handler_conns_type_fail(mocker, test_config_value):
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        net_config.ConnectionsConfigurationHandler(
+            test_config_value, __build_testing_config_factory(mocker)
+        )
+    assert (
+        str(err.value)
+        == "The provided configuration is not a dictionary of connections"
+    )
+
+
 def test_connection_config_factory_build_invalid_types_fail(mocker):
     factory = net_config.ConnectionConfigFactory(ip_iface=mocker.Mock())
     # Check that type is mandatory for main connections
@@ -1384,3 +1434,17 @@ def test_net_config_interface_identifier_mac_resolve_fail(
         )
     assert len(err.value.candidates) == 0
     assert target_mac in str(err.value)
+
+
+@pytest.mark.parametrize(
+    "test_identifier", ["aa:bb:cc:dd:ee", "aa:bb:cc:dd:ee:ff1", "eth0.1!"]
+)
+def test_net_config_interface_identifier_invalid_identifier_fail(test_identifier):
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        net_config.InterfaceIdentifier(
+            test_identifier,
+            config_stub_data.TEST_IP_LINKS,
+        )
+    assert "invalid value for an interface identifier" in str(err.value)
+    assert test_identifier in str(err.value)
+    assert err.value.value == test_identifier

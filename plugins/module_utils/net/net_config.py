@@ -277,7 +277,8 @@ class InterfaceIdentifier:
             self.__iface_name = self.__resolve_from_mac()
         else:
             raise exceptions.ValueInfraException(
-                f"{self.__str_identifier} is an invalid value for an interface identifier"
+                f"{self.__str_identifier} is an invalid value for an interface identifier",
+                value=self.__str_identifier,
             )
 
     def __resolve_from_mac(self) -> str:
@@ -325,6 +326,7 @@ class BaseConnectionConfig:
         FIELD_STATE_VAL_UP,
         FIELD_STATE_VAL_DOWN,
     ]
+    __CONN_NAME_VALIDATION_REGEX = r"^([a-zA-Z0-9_.-]){4,}$"
 
     def __init__(
         self,
@@ -378,10 +380,10 @@ class BaseConnectionConfig:
         # rules seem correct:
         #   - At least 4 chars
         #   - All alphanumeric except: _-.
-        if not re.match(r"([a-zA-Z0-9_.-]){4,}", self._conn_name):
+        if not re.match(self.__CONN_NAME_VALIDATION_REGEX, self._conn_name):
             raise exceptions.ValueInfraException(
-                f"Connection name {self._conn_name} is invalid. At least alphanumeric"
-                " chars are required (_-. allowed)",
+                f"Connection name {self._conn_name} is invalid. At least 4 alphanumeric"
+                f" chars are required ({self.__CONN_NAME_VALIDATION_REGEX})",
                 value=self._conn_name,
             )
 
@@ -676,15 +678,15 @@ class ConnectionsConfigurationHandler:
         connection_config_factory: ConnectionConfigFactory,
     ):
         self.__raw_config = raw_config
-        self.__connection_config_factory = connection_config_factory
-        self.__conn_configs: typing.List[MainConnectionConfig] = []
-
-    def parse(self):
         if not isinstance(self.__raw_config, dict):
             raise exceptions.ValueInfraException(
                 "The provided configuration is not a dictionary of connections"
             )
 
+        self.__connection_config_factory = connection_config_factory
+        self.__conn_configs: typing.List[MainConnectionConfig] = []
+
+    def parse(self):
         mapped_connections = [
             self.__connection_config_factory.build_connection(conn_name, conn_data)
             for conn_name, conn_data in self.__raw_config.items()
