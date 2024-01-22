@@ -66,25 +66,26 @@ class NetworkManagerQuerier:
             == device_name
         }
 
-    def get_connections(self):
+    def get_connections(self) -> typing.List[typing.Dict[str, typing.Any]]:
         return self.__get_nm_object_list(
             self.__NMCLI_PARSER_GET_CONNECTIONS_LIST,
             self.__NMCLI_PARSER_GET_CONNECTION_DETAILS,
         )
 
-    def get_devices(self):
+    def get_devices(self) -> typing.List[typing.Dict[str, typing.Any]]:
         return self.__get_nm_object_list(
             self.__NMCLI_PARSER_GET_DEVICES_LIST, self.__NMCLI_PARSER_GET_DEVICE_DETAILS
         )
 
     def __get_nm_object_list(self, get_cmd, get_details_cmd):
         try:
-            result = {}
-            for object_name in self.__command_fn(get_cmd).stdout.splitlines():
-                result[object_name] = self.__get_nm_object_details(
-                    get_details_cmd, object_name
-                )
-            return result
+            # object_name is usually not unique, like the connection name
+            # thus why a list is returned, to allow id duplications that
+            # are totally fine in nmcli
+            return [
+                self.__get_nm_object_details(get_details_cmd, object_name)
+                for object_name in self.__command_fn(get_cmd).stdout.splitlines()
+            ]
         except module_command_utils.CommandRunException as err:
             raise nmcli_interface_exceptions.NmcliExecuteCommandException(
                 "Failed to fetch NM object",

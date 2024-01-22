@@ -101,5 +101,11 @@ def test_nmcli_querier_get_connections_simple_ok(command_mocker_builder):
         "virbr0",
         "bridge-slave-enp6s0",
     ]:
-        assert conn_name in result
-        __validate_connection_fields(conn_name, result[conn_name])
+        conn_data = next(
+            (
+                conn_data
+                for conn_data in result
+                if conn_data["general.name"] == conn_name
+            )
+        )
+        __validate_connection_fields(conn_name, conn_data)

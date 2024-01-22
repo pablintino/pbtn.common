@@ -65,16 +65,16 @@ def nstp_filter_ip2conn(data, ip):
 
 
 def nmcli_connections_filter(data, ifaces=None, active=None):
-    if not isinstance(data, dict):
-        raise AnsibleFilterTypeError(f"data expected to be a dict {type(data)}")
+    if not isinstance(data, list):
+        raise AnsibleFilterTypeError(f"data expected to be a list {type(data)}")
 
-    results = {}
-    for conn, conn_data in data.items():
+    results = []
+    for conn_data in data:
         active_criteria = (active is None) or (
             nmcli_filters.is_connection_active(conn_data) == active
         )
         if active_criteria and __filter_iface(ifaces, conn_data):
-            results[conn] = conn_data
+            results.append(conn_data)
     return results
 
 
@@ -96,10 +96,18 @@ def nstp_filter_applyres2conns(data):
     return result
 
 
+def nmcli_filters_map_field(data, field_name):
+    if not isinstance(data, list):
+        raise AnsibleFilterTypeError(f"data expected to be a list {type(data)}")
+
+    return [conn_data[field_name] for conn_data in data if field_name in conn_data]
+
+
 class FilterModule(object):
     def filters(self):
         return {
             "nstp_filter_ip2conn": nstp_filter_ip2conn,
             "nstp_filter_applyres2conns": nstp_filter_applyres2conns,
             "nmcli_filters_connections_by": nmcli_connections_filter,
+            "nmcli_filters_map_field": nmcli_filters_map_field,
         }

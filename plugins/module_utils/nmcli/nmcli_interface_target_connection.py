@@ -157,6 +157,7 @@ class TargetConnectionDataFactory:
             conn_config.name,
             nmcli_constants.map_config_to_nmcli_type_field(conn_config),
             is_main_conn=True,
+            prio_active=True,
         )
 
         if not target_connection:
@@ -164,7 +165,7 @@ class TargetConnectionDataFactory:
                 next(
                     (
                         conn
-                        for conn in iter(self.__connections.values())
+                        for conn in self.__connections
                         if nmcli_filters.is_connection_active(conn)
                         and nmcli_filters.is_for_interface_name(
                             conn, conn_config.interface.iface_name
@@ -191,12 +192,13 @@ class TargetConnectionDataFactory:
                 self.__connections,
                 conn_slave_config.name,
                 nmcli_constants.map_config_to_nmcli_type_field(conn_slave_config),
+                prio_active=True,
             )
             if not target_slave_connection and conn_slave_config.interface:
                 target_slave_connection = next(
                     (
                         slave_conn_data
-                        for slave_conn_data in self.__connections.values()
+                        for slave_conn_data in self.__connections
                         if nmcli_filters.is_for_interface_name(
                             slave_conn_data, conn_slave_config.interface.iface_name
                         )
@@ -219,7 +221,7 @@ class TargetConnectionDataFactory:
             connection_data_builder.main_connection = next(
                 (
                     conn_data
-                    for conn_data in self.__connections.values()
+                    for conn_data in self.__connections
                     if nmcli_filters.is_main_connection_of(conn_data, target_connection)
                 ),
                 None,
@@ -238,7 +240,7 @@ class TargetConnectionDataFactory:
         main_conn_others = (
             [
                 conn_data
-                for conn_data in self.__connections.values()
+                for conn_data in self.__connections
                 if (
                     # If the connection has no existing connection, we should take into account only the
                     # interface name criteria. Connections that will affect the further created connection
@@ -272,7 +274,7 @@ class TargetConnectionDataFactory:
         connections_uuids = target_connection_data.uuids()
         duplicated_conns = [
             conn_data
-            for conn_data in self.__connections.values()
+            for conn_data in self.__connections
             if (
                 conn_data[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_ID]
                 == target_connection_data.conn_config.name
@@ -349,7 +351,7 @@ class TargetConnectionDataFactory:
             main_conn_data = next(
                 (
                     conn_data
-                    for conn_data in self.__connections.values()
+                    for conn_data in self.__connections
                     if nmcli_filters.is_main_connection_of(
                         conn_data, slave_connection_data
                     )
@@ -367,7 +369,7 @@ class TargetConnectionDataFactory:
                 # Let's try to find how many connections the main one has
                 slaves = [
                     conn_data
-                    for conn_data in self.__connections.values()
+                    for conn_data in self.__connections
                     if nmcli_filters.is_main_connection_of(main_conn_data, conn_data)
                 ]
                 if len(slaves) <= 1:
@@ -395,7 +397,7 @@ class TargetConnectionDataFactory:
                 slaves_related_conns.extend(
                     [
                         conn_data
-                        for conn_data in self.__connections.values()
+                        for conn_data in self.__connections
                         if conn_data.get(
                             nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_INTERFACE_NAME,
                             None,
@@ -412,7 +414,7 @@ class TargetConnectionDataFactory:
             slaves_related_conns.extend(
                 [
                     conn_data
-                    for conn_data in self.__connections.values()
+                    for conn_data in self.__connections
                     if nmcli_filters.is_main_connection_of(
                         target_connection_data, conn_data
                     )

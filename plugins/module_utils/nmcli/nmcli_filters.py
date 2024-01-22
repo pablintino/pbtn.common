@@ -63,13 +63,10 @@ def is_connection_related_to_interface(conn_data, interface_name):
     )
 
 
-def all_connections_without_uuids(connections, not_uuids: typing.Container):
+def all_connections_without_uuids(
+    connections: typing.List[typing.Dict[str, typing.Any]], not_uuids: typing.Container
+):
     not_uuids = [not_uuids] if isinstance(not_uuids, str) else not_uuids
-    connections = (
-        connections.values()
-        if isinstance(connections, collections.abc.Mapping)
-        else connections
-    )
     return [
         conn_data
         for conn_data in connections
@@ -78,25 +75,28 @@ def all_connections_without_uuids(connections, not_uuids: typing.Container):
 
 
 def first_connection_with_name_and_type(
-    connections, conn_name, conn_type, is_main_conn=None
-) -> typing.Tuple[typing.Dict[str, typing.Any], None]:
-    return next(
-        (
-            conn_data
-            for conn_data in (
-                connections.values()
-                if isinstance(connections, collections.abc.Mapping)
-                else connections
-            )
-            if (
-                conn_data.get(nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_ID, None)
-                == conn_name
-            )
-            and (
-                conn_data.get(nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_TYPE, None)
-                == conn_type
-            )
-            and ((is_main_conn is None) or not is_connection_slave(conn_data))
-        ),
-        None,
-    )
+    connections: typing.List[typing.Dict[str, typing.Any]],
+    conn_name: str,
+    conn_type: str,
+    is_main_conn=None,
+    prio_active: bool = True,
+) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    results = [
+        conn_data
+        for conn_data in connections
+        if (
+            conn_data.get(nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_ID, None)
+            == conn_name
+        )
+        and (
+            conn_data.get(nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_TYPE, None)
+            == conn_type
+        )
+        and ((is_main_conn is None) or not is_connection_slave(conn_data))
+    ]
+    active_results = [
+        conn_data for conn_data in results if is_connection_active(conn_data)
+    ]
+    # We prioritize active results if prio_active is active
+    final_list = active_results if prio_active and active_results else results
+    return next(iter(final_list), None)
