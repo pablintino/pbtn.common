@@ -174,6 +174,7 @@ class TargetConnectionDataFactory:
                         # so, if a slave connection is matched, we should
                         # remove it and start from scratch
                         and not nmcli_filters.is_connection_slave(conn)
+                        and nmcli_filters.is_for_configuration_type(conn, conn_config)
                     ),
                     None,
                 )

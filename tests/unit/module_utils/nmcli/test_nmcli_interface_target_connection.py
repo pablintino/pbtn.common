@@ -159,3 +159,79 @@ def test_target_connection_data_factory_build_conn_data_ether_basic_2_ok(mocker)
         assert len(result.uuids()) == 1
         assert result[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID] == target_uuid
         assert result.conn_config == conn_config
+
+
+def test_target_connection_data_factory_build_conn_data_ether_basic_3_ok(mocker):
+    """
+    Tests that the factory is able to handle the case when no connection can be
+    picked as there is no direct match and no match by interface
+    :param mocker:
+    :return:
+    """
+    # Create a list of queries with all the possible combinations
+    # of connections order to ensure the result is not order
+    # dependant
+    queriers = __prepare_permute_queriers(
+        mocker,
+        [
+            # Tempt the logic to pick up this one. Wrong interface name.
+            {
+                "connection.id": "testing-conn-001",
+                "connection.type": "802-3-ethernet",
+                "connection.uuid": "dee81746-a627-452d-8af8-999e6dcfc83f",
+                "connection.interface-name": "eth0",
+                "general.state": "activated",
+            },
+            # Tempt the logic to pick up this one as is active, but the type
+            # is not of the same time and should be discarded.
+            {
+                "connection.id": "testing-conn-001",
+                "connection.type": "vlan",
+                "connection.uuid": "3db1fc19-1b98-46a7-b549-8ad14f5848ec",
+                "connection.interface-name": "eth1",
+                "general.state": "activated",
+            },
+            # Tempt the logic to pick up this one as it's the same type, but
+            # it's not active.
+            {
+                "connection.id": "testing-conn-002",
+                "connection.type": "802-3-ethernet",
+                "connection.uuid": "03adae0d-2224-47a7-a115-4e7583cd0e85",
+                "connection.interface-name": "eth1",
+            },
+            # Tempt the logic to pick up this one, but it's a slave of another
+            # connection, and we are trying to match the main connections
+            {
+                "connection.id": "testing-conn-002",
+                "connection.type": "802-3-ethernet",
+                "connection.uuid": "03adae0d-2224-47a7-a115-4e7583cd0e85",
+                "connection.interface-name": "eth1",
+                "general.state": "activated",
+                "connection.master": "1f561874-4367-40c3-abaf-6fa63cf991a9",
+            },
+        ],
+    )
+    for querier in queriers:
+        factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
+            querier,
+            nmcli_interface_types.NetworkManagerConfiguratorOptions(),
+            mocker.Mock(),
+        )
+
+        conn_config = net_config.EthernetConnectionConfig(
+            conn_name="non-existing-conn-name",
+            raw_config={
+                "type": "ethernet",
+                "iface": "eth1",
+            },
+            ip_links=[],
+            connection_config_factory=mocker.Mock(),
+        )
+        result = factory.build_target_connection_data(conn_config)
+        assert isinstance(
+            result, nmcli_interface_target_connection.TargetConnectionData
+        )
+        assert result.empty
+        assert not result.uuids()
+        assert len(result.uuids()) == 0
+        assert result.conn_config == conn_config
