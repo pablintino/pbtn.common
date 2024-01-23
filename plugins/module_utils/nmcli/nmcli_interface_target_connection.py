@@ -27,15 +27,21 @@ class ConfigurableConnectionData(collections.abc.Mapping):
         connection_data: typing.Dict[str, typing.Any],
         conn_config: net_config.BaseConnectionConfig,
     ):
-        self.__conn_data = connection_data
+        self.__conn_data = connection_data or {}
         self.__conn_config = conn_config
 
     @property
     def conn_config(self) -> net_config.BaseConnectionConfig:
         return self.__conn_config
 
-    def as_dict(self) -> typing.Dict[str, typing.Any]:
-        return copy.deepcopy(self.__conn_data)
+    @property
+    def conn_data(self) -> typing.Optional[typing.Dict[str, typing.Any]]:
+        """
+        A copy of the internal connection data, if available.
+        :return: The connection data as a copy of the internal dict if it's available.
+                 None is returned if the instance doesn't have associated connection data.
+        """
+        return copy.deepcopy(self.__conn_data) if self.__conn_data else None
 
     @property
     def empty(self) -> bool:
@@ -47,7 +53,7 @@ class ConfigurableConnectionData(collections.abc.Mapping):
     def __len__(self) -> int:
         return len(self.__conn_data)
 
-    def __iter__(self) -> typing.Iterator[typing.Tuple[str, typing.Any]]:
+    def __iter__(self) -> typing.Iterator[str]:
         return self.__conn_data.__iter__()
 
 
@@ -96,12 +102,12 @@ class TargetConnectionData(ConfigurableConnectionData):
         slave_connections: typing.List[ConfigurableConnectionData],
         connection_data: typing.Dict[str, typing.Any] = None,
     ):
-        # Connection_data can be empty for main and slave connections.
+        # connection_data can be empty for main and slave connections.
         # For connections that admit having slaves, an empty main connections
         # means that slaves may be already there (but not part of the target
         # connection, like Ethernet connections that will be part of a bridge
         # when it gets created) but the main connection is not yet created.
-        super().__init__(connection_data or {}, conn_config)
+        super().__init__(connection_data, conn_config)
         self.__main_connection = main_conn
         self.__slave_connections = self.SlavesList(slave_connections)
 

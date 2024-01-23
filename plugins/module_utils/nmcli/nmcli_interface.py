@@ -183,7 +183,7 @@ class NetworkManagerConfigurator(
         configuration_result: nmcli_interface_types.MainConfigurationResult,
         target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
     ):
-        # Slave connections goes first
+        # Slave connections go first
         # i.e.: bridge slaves need to be activated before
         # the main connection is ready as doc examples suggest
         for conn_result in configuration_result.slaves:
@@ -250,8 +250,8 @@ class NetworkManagerConfigurator(
         connection_configuration_result: nmcli_interface_types.ConnectionConfigurationResult,
         target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
     ) -> bool:
-        # If the connection is a main one or it doesn't go up -> Skip
-        # Adopted conns are those ones that were "main ones" but
+        # If the connection is a main one, or it doesn't go up -> Skip
+        # Adopted conns are those that were "main ones" but
         # now they are slaves of another connection
         # Base on the docs, when a connection goes from a main one
         # to a slave, an explicit up is needed before making the main
@@ -262,10 +262,9 @@ class NetworkManagerConfigurator(
         ):
             return False
 
-        original_conn_data = (
-            target_connection_data.as_dict() if not target_connection_data.empty else {}
+        return not nmcli_filters.is_connection_slave(
+            target_connection_data.conn_data or {}
         )
-        return not nmcli_filters.is_connection_slave(original_conn_data)
 
     def _validate(
         self,
@@ -350,27 +349,18 @@ class IfaceBasedNetworkManagerConfigurator(
         self,
         target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
     ) -> nmcli_interface_types.MainConfigurationResult:
-        current_conn_data = (
-            target_connection_data.as_dict()
-            if not target_connection_data.empty
-            else None
-        )
-        current_uuid = (
-            current_conn_data[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]
-            if current_conn_data
-            else None
-        )
-
         builder_args = self._builder_factory(target_connection_data.conn_config).build(
             target_connection_data.conn_config,
-            current_conn_data,
+            target_connection_data.conn_data,
             target_connection_data.conn_config.interface.iface_name,
             None,
         )
         uuid, changed = self._apply_builder_args(
             builder_args,
             target_connection_data.conn_config.name,
-            conn_uuid=current_uuid,
+            conn_uuid=target_connection_data.get(
+                nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID, None
+            ),
         )
 
         return nmcli_interface_types.MainConfigurationResult.from_result_required_data(
@@ -415,23 +405,19 @@ class VlanNetworkManagerConfigurator(
             target_connection_data.conn_config,
         )
 
-        current_conn_data = (
-            target_connection_data.as_dict()
-            if not target_connection_data.empty
-            else None
-        )
-        current_uuid = (
-            current_conn_data[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]
-            if current_conn_data
-            else None
-        )
-
         vlan_iface_name = self.__get_iface_name(conn_config)
         builder_args = self._builder_factory(conn_config).build(
-            conn_config, current_conn_data, vlan_iface_name, None
+            conn_config,
+            target_connection_data.conn_data,
+            vlan_iface_name,
+            None,
         )
         uuid, changed = self._apply_builder_args(
-            builder_args, conn_config.name, conn_uuid=current_uuid
+            builder_args,
+            conn_config.name,
+            conn_uuid=target_connection_data.get(
+                nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID, None
+            ),
         )
 
         return nmcli_interface_types.MainConfigurationResult.from_result_required_data(
@@ -468,15 +454,6 @@ class BridgeNetworkManagerConfigurator(NetworkManagerConfigurator):
         slave_connection_data: nmcli_interface_target_connection.ConfigurableConnectionData,
         configuration_result: nmcli_interface_types.MainConfigurationResult,
     ):
-        current_conn_data = (
-            slave_connection_data.as_dict() if not slave_connection_data.empty else None
-        )
-        current_uuid = (
-            current_conn_data[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]
-            if current_conn_data
-            else None
-        )
-
         conn_config = typing.cast(
             net_config.SlaveConnectionConfig,
             slave_connection_data.conn_config,
@@ -484,13 +461,17 @@ class BridgeNetworkManagerConfigurator(NetworkManagerConfigurator):
 
         builder_args = self._builder_factory(conn_config).build(
             slave_connection_data.conn_config,
-            current_conn_data,
+            slave_connection_data.conn_data,
             conn_config.interface.iface_name if conn_config.interface else None,
             configuration_result.result.uuid,
         )
 
         uuid, changed = self._apply_builder_args(
-            builder_args, conn_config.name, conn_uuid=current_uuid
+            builder_args,
+            conn_config.name,
+            conn_uuid=slave_connection_data.get(
+                nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID, None
+            ),
         )
 
         configuration_result.update_slave_from_required_data(uuid, changed, conn_config)
@@ -517,26 +498,19 @@ class BridgeNetworkManagerConfigurator(NetworkManagerConfigurator):
             target_connection_data.conn_config,
         )
 
-        current_conn_data = (
-            target_connection_data.as_dict()
-            if not target_connection_data.empty
-            else None
-        )
-        current_uuid = (
-            current_conn_data[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]
-            if current_conn_data
-            else None
-        )
-
         builder_args = self._builder_factory(conn_config).build(
             conn_config,
-            current_conn_data,
+            target_connection_data.conn_data,
             conn_config.interface.iface_name if conn_config.interface else None,
             None,
         )
 
         uuid, changed = self._apply_builder_args(
-            builder_args, conn_config.name, conn_uuid=current_uuid
+            builder_args,
+            conn_config.name,
+            conn_uuid=target_connection_data.get(
+                nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID, None
+            ),
         )
         return nmcli_interface_types.MainConfigurationResult.from_result_required_data(
             uuid, changed, target_connection_data.conn_config
@@ -544,6 +518,14 @@ class BridgeNetworkManagerConfigurator(NetworkManagerConfigurator):
 
 
 class NetworkManagerConfiguratorFactory:  # pylint: disable=too-few-public-methods
+    __CONFIGURATORS_BY_CONFIG_TYPE: typing.Dict[
+        type[net_config.MainConnectionConfig], type[NetworkManagerConfigurator]
+    ] = {
+        net_config.EthernetConnectionConfig: EthernetNetworkManagerConfigurator,
+        net_config.VlanConnectionConfig: VlanNetworkManagerConfigurator,
+        net_config.BridgeConnectionConfig: BridgeNetworkManagerConfigurator,
+    }
+
     def __init__(
         self,
         runner_fn: module_command_utils.CommandRunnerFn,
@@ -561,35 +543,19 @@ class NetworkManagerConfiguratorFactory:  # pylint: disable=too-few-public-metho
         conn_config: net_config.MainConnectionConfig,
         options: nmcli_interface_types.NetworkManagerConfiguratorOptions = None,
     ) -> NetworkManagerConfigurator:
-        if isinstance(conn_config, net_config.EthernetConnectionConfig):
-            configurator = EthernetNetworkManagerConfigurator(
-                self.__runner_fn,
-                self.__nmcli_querier,
-                self.__builder_factory,
-                self.__config_handler,
-                options=options,
-            )
-        elif isinstance(conn_config, net_config.VlanConnectionConfig):
-            configurator = VlanNetworkManagerConfigurator(
-                self.__runner_fn,
-                self.__nmcli_querier,
-                self.__builder_factory,
-                self.__config_handler,
-                options=options,
-            )
-        elif isinstance(conn_config, net_config.BridgeConnectionConfig):
-            configurator = BridgeNetworkManagerConfigurator(
-                self.__runner_fn,
-                self.__nmcli_querier,
-                self.__builder_factory,
-                self.__config_handler,
-                options=options,
-            )
-
-        else:
+        configurator_type = self.__CONFIGURATORS_BY_CONFIG_TYPE.get(
+            type(conn_config), None
+        )
+        if not configurator_type:
             # Shouldn't reach this one if config logic and this one is properly aligned
             raise ValueError(
                 f"Unsupported connection type {type(conn_config)} for connection {conn_config.name}"
             )
 
-        return configurator
+        return configurator_type(
+            self.__runner_fn,
+            self.__nmcli_querier,
+            self.__builder_factory,
+            self.__config_handler,
+            options=options,
+        )
