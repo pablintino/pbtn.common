@@ -84,15 +84,11 @@ class TargetConnectionData(ConfigurableConnectionData):
         ):
             self.__connection_data = connection_data
             self.__conn_config = conn_config
-            self.main_connection: typing.Union[
-                typing.Dict[str, typing.Any], None
-            ] = None
             self.__slave_connections: typing.Dict[str, ConfigurableConnectionData] = {}
 
         def build(self) -> "TargetConnectionData":
             return TargetConnectionData(
                 self.__conn_config,
-                self.main_connection,
                 list(self.__slave_connections.values()),
                 connection_data=self.__connection_data,
             )
@@ -106,7 +102,7 @@ class TargetConnectionData(ConfigurableConnectionData):
     def __init__(
         self,
         conn_config: net_config.BaseConnectionConfig,
-        main_conn: typing.Dict[str, typing.Any],
+        # main_conn: typing.Dict[str, typing.Any],
         slave_connections: typing.List[ConfigurableConnectionData],
         connection_data: typing.Dict[str, typing.Any] = None,
     ):
@@ -116,16 +112,11 @@ class TargetConnectionData(ConfigurableConnectionData):
         # connection, like Ethernet connections that will be part of a bridge
         # when it gets created) but the main connection is not yet created.
         super().__init__(connection_data, conn_config)
-        self.__main_connection = main_conn
         self.__slave_connections = self.SlavesList(slave_connections)
 
     @property
     def slave_connections(self) -> "TargetConnectionData.SlavesList":
         return self.__slave_connections
-
-    @property
-    def main_connection(self) -> typing.Union[typing.Dict[str, typing.Any], None]:
-        return self.__main_connection
 
     def uuids(self) -> typing.Set[str]:
         return set(
@@ -226,16 +217,6 @@ class TargetConnectionDataFactory:
             # be prepared to handle that.
             connection_data_builder.append_slave(
                 ConfigurableConnectionData(target_slave_connection, conn_slave_config)
-            )
-
-        if target_connection and nmcli_filters.is_connection_slave(target_connection):
-            connection_data_builder.main_connection = next(
-                (
-                    conn_data
-                    for conn_data in self.__connections
-                    if nmcli_filters.is_main_connection_of(conn_data, target_connection)
-                ),
-                None,
             )
 
         return connection_data_builder.build()
