@@ -358,9 +358,7 @@ class IfaceBasedNetworkManagerConfigurator(
         uuid, changed = self._apply_builder_args(
             builder_args,
             target_connection_data.conn_config.name,
-            conn_uuid=target_connection_data.get(
-                nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID, None
-            ),
+            conn_uuid=target_connection_data.uuid,
         )
 
         return nmcli_interface_types.MainConfigurationResult.from_result_required_data(
@@ -415,9 +413,7 @@ class VlanNetworkManagerConfigurator(
         uuid, changed = self._apply_builder_args(
             builder_args,
             conn_config.name,
-            conn_uuid=target_connection_data.get(
-                nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID, None
-            ),
+            conn_uuid=target_connection_data.uuid,
         )
 
         return nmcli_interface_types.MainConfigurationResult.from_result_required_data(
@@ -469,9 +465,7 @@ class BridgeNetworkManagerConfigurator(NetworkManagerConfigurator):
         uuid, changed = self._apply_builder_args(
             builder_args,
             conn_config.name,
-            conn_uuid=slave_connection_data.get(
-                nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID, None
-            ),
+            conn_uuid=slave_connection_data.uuid,
         )
 
         configuration_result.update_slave_from_required_data(uuid, changed, conn_config)
@@ -508,9 +502,7 @@ class BridgeNetworkManagerConfigurator(NetworkManagerConfigurator):
         uuid, changed = self._apply_builder_args(
             builder_args,
             conn_config.name,
-            conn_uuid=target_connection_data.get(
-                nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID, None
-            ),
+            conn_uuid=target_connection_data.uuid,
         )
         return nmcli_interface_types.MainConfigurationResult.from_result_required_data(
             uuid, changed, target_connection_data.conn_config

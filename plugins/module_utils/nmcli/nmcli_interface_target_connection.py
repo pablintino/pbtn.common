@@ -47,6 +47,14 @@ class ConfigurableConnectionData(collections.abc.Mapping):
     def empty(self) -> bool:
         return not bool(self.__conn_data)
 
+    @property
+    def uuid(self) -> typing.Optional[str]:
+        return (
+            self[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]
+            if self.__conn_data
+            else None
+        )
+
     def __getitem__(self, key: str) -> typing.Any:
         return self.__conn_data[key]
 
@@ -58,7 +66,7 @@ class ConfigurableConnectionData(collections.abc.Mapping):
 
 
 class TargetConnectionData(ConfigurableConnectionData):
-    class SlavesList(collections.abc.Sequence):
+    class SlavesList(collections.abc.Sequence[ConfigurableConnectionData]):
         def __init__(self, data: typing.List[ConfigurableConnectionData]):
             self.__data = data
 
@@ -121,13 +129,9 @@ class TargetConnectionData(ConfigurableConnectionData):
 
     def uuids(self) -> typing.Set[str]:
         return set(
-            (
-                [self[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]]
-                if not self.empty
-                else []
-            )
+            ([self.uuid] if not self.empty else [])
             + [
-                conn_data[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]
+                conn_data.uuid
                 for conn_data in self.__slave_connections
                 if not conn_data.empty
             ]
