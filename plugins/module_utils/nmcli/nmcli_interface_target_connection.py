@@ -428,11 +428,8 @@ class TargetConnectionDataFactory:
         # Not critical, because it's going to be added by the
         # caller probably, but try to return only uuids that
         # are not the passed one to have a clean interface
-        target_uuid = (
-            target_connection_data[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]
-            if not target_connection_data.empty
-            else None
-        )
+        target_uuid = target_connection_data.uuid
+
         # Get all the configurations that use the ongoing connection
         child_conn_configs = [
             conn_config
@@ -445,11 +442,7 @@ class TargetConnectionDataFactory:
 
         for child_conn_config in child_conn_configs:
             child_target_data = self.build_target_connection_data(child_conn_config)
-            uuid = (
-                child_target_data[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]
-                if not child_target_data.empty
-                else None
-            )
+            uuid = child_target_data.uuid
             if uuid and ((not target_uuid) or target_uuid != uuid):
                 uuids.add(uuid)
 
