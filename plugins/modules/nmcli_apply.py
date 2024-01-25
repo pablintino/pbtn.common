@@ -67,6 +67,7 @@ def main():
             nmcli_interface_target_connection.TargetConnectionDataFactory(
                 querier, config_handler
             ),
+            ip_iface,
         )
 
         config_handler.parse()

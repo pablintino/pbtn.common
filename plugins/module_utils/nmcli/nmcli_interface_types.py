@@ -6,15 +6,10 @@ __metaclass__ = type
 import dataclasses
 import typing
 
+
 from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
     net_config,
 )
-
-
-@dataclasses.dataclass
-class TargetLinksData:
-    target_link: typing.Union[typing.Dict[str, typing.Any], None]
-    master_link: typing.Union[typing.Dict[str, typing.Any], None]
 
 
 @dataclasses.dataclass

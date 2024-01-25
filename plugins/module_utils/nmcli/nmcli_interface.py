@@ -3,22 +3,18 @@ from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
 import abc
-import json
+import dataclasses
 import re
 import time
 import typing
 
-
-# TODO List
-# - Validate slaves, VLANs and Ethernet need their checks on the link
-# - Validate that multiple connections don't use the same interface :) (config)
-# - Think about ensuring interface name is always given in config. We only
-#   need to generate it there instead of here
-
 from ansible_collections.pablintino.base_infra.plugins.module_utils import (
+    ip_interface,
     module_command_utils,
 )
-
+from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
+    net_config,
+)
 from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
     nmcli_constants,
     nmcli_filters,
@@ -29,9 +25,18 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import
     nmcli_interface_types,
 )
 
-from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
-    net_config,
-)
+
+# TODO List
+# - Validate slaves, VLANs and Ethernet need their checks on the link
+# - Validate that multiple connections don't use the same interface :) (config)
+# - Think about ensuring interface name is always given in config. We only
+#   need to generate it there instead of here
+
+
+@dataclasses.dataclass
+class TargetLinksData:
+    target_link: typing.Optional[ip_interface.IPLinkData]
+    master_link: typing.Optional[ip_interface.IPLinkData]
 
 
 class NetworkManagerConfigurator(
@@ -47,26 +52,29 @@ class NetworkManagerConfigurator(
         querier: nmcli_querier.NetworkManagerQuerier,
         builder_factory: nmcli_interface_args_builders.NmcliArgsBuilderFactoryType,
         target_connection_data_factory: nmcli_interface_target_connection.TargetConnectionDataFactory,
+        ip_iface: ip_interface.IPInterface,
         options: nmcli_interface_types.NetworkManagerConfiguratorOptions = None,
     ):
         self._command_fn = command_fn
         self._nmcli_querier = querier
         self._builder_factory = builder_factory
+        self._ip_iface = ip_iface
         self._options = (
             options or nmcli_interface_types.NetworkManagerConfiguratorOptions()
         )
-        self.__target_connection_data_factory = target_connection_data_factory
+        self._target_connection_data_factory = target_connection_data_factory
 
-    def __get_links(self) -> typing.Dict[str, typing.Dict[str, typing.Any]]:
-        result = self._command_fn(["ip", "-j", "link"])
-        return {link["ifname"]: link for link in json.loads(result.stdout)}
-
-    def _get_link_by_ifname(self, interface_name: str):
-        for link_data in self.__get_links().values():
-            if link_data.get("ifname", "").lower() == interface_name.lower():
-                return link_data
-
-        return None
+    def _get_link_by_ifname(
+        self, interface_name: str
+    ) -> typing.Optional[TargetLinksData]:
+        return next(
+            (
+                ip_link
+                for ip_link in self._ip_iface.get_ip_links()
+                if ip_link.if_name == interface_name.lower()
+            ),
+            None,
+        )
 
     @classmethod
     def _parse_connection_uuid_from_output(cls, output: str) -> str:
@@ -265,14 +273,14 @@ class NetworkManagerConfigurator(
     def _validate(
         self,
         target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
-        target_links: nmcli_interface_types.TargetLinksData,
+        target_links: TargetLinksData,
     ):
         pass
 
     @abc.abstractmethod
     def _fetch_links(
         self, conn_config: net_config.MainConnectionConfig
-    ) -> nmcli_interface_types.TargetLinksData:
+    ) -> TargetLinksData:
         pass
 
     @abc.abstractmethod
@@ -288,11 +296,11 @@ class NetworkManagerConfigurator(
         config_session: nmcli_interface_types.ConfigurationSession,
     ) -> nmcli_interface_types.MainConfigurationResult:
         target_connection_data = (
-            self.__target_connection_data_factory.build_target_connection_data(
+            self._target_connection_data_factory.build_target_connection_data(
                 conn_config
             )
         )
-        delete_conn_list = self.__target_connection_data_factory.build_delete_conn_list(
+        delete_conn_list = self._target_connection_data_factory.build_delete_conn_list(
             target_connection_data, config_session
         )
 
@@ -319,18 +327,18 @@ class IfaceBasedNetworkManagerConfigurator(
 ):  # pylint: disable=too-few-public-methods
     def _fetch_links(
         self, conn_config: net_config.MainConnectionConfig
-    ) -> nmcli_interface_types.TargetLinksData:
+    ) -> TargetLinksData:
         target_link = (
             self._get_link_by_ifname(conn_config.interface.iface_name)
             if conn_config.interface
             else None
         )
-        return nmcli_interface_types.TargetLinksData(target_link, None)
+        return TargetLinksData(target_link, None)
 
     def _validate(
         self,
         target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
-        target_links: nmcli_interface_types.TargetLinksData,
+        target_links: TargetLinksData,
     ):
         super()._validate(target_connection_data, target_links)
         # This manager requires having a proper target link.
@@ -383,12 +391,12 @@ class VlanNetworkManagerConfigurator(
 
     def _fetch_links(
         self, conn_config: net_config.MainConnectionConfig
-    ) -> nmcli_interface_types.TargetLinksData:
+    ) -> TargetLinksData:
         conn_config = typing.cast(net_config.VlanConnectionConfig, conn_config)
         vlan_iface_name = self.__get_iface_name(conn_config)
         target_link = self._get_link_by_ifname(vlan_iface_name)
         parent_link = self._get_link_by_ifname(conn_config.parent_interface.iface_name)
-        return nmcli_interface_types.TargetLinksData(target_link, parent_link)
+        return TargetLinksData(target_link, parent_link)
 
     def _configure(
         self,
@@ -419,7 +427,7 @@ class VlanNetworkManagerConfigurator(
     def _validate(
         self,
         target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
-        target_links: nmcli_interface_types.TargetLinksData,
+        target_links: TargetLinksData,
     ):
         # DO NOT CALL SUPER: As it checks that target link exists, that is not
         # mandatory for VLAN connections.
@@ -433,13 +441,13 @@ class VlanNetworkManagerConfigurator(
 class BridgeNetworkManagerConfigurator(NetworkManagerConfigurator):
     def _fetch_links(
         self, conn_config: net_config.MainConnectionConfig
-    ) -> nmcli_interface_types.TargetLinksData:
+    ) -> TargetLinksData:
         target_link = (
             self._get_link_by_ifname(conn_config.interface.iface_name)
             if conn_config.interface
             else None
         )
-        return nmcli_interface_types.TargetLinksData(target_link, None)
+        return TargetLinksData(target_link, None)
 
     def __configure_slave(
         self,
@@ -520,11 +528,13 @@ class NetworkManagerConfiguratorFactory:  # pylint: disable=too-few-public-metho
         querier: nmcli_querier.NetworkManagerQuerier,
         builder_factory: nmcli_interface_args_builders.NmcliArgsBuilderFactoryType,
         target_connection_data_factory: nmcli_interface_target_connection.TargetConnectionDataFactory,
+        ip_iface: ip_interface.IPInterface,
     ):
         self.__runner_fn = runner_fn
         self.__nmcli_querier = querier
         self.__builder_factory = builder_factory
         self.__target_connection_data_factory = target_connection_data_factory
+        self.__ip_iface = ip_iface
 
     def build_configurator(
         self,
@@ -545,5 +555,6 @@ class NetworkManagerConfiguratorFactory:  # pylint: disable=too-few-public-metho
             self.__nmcli_querier,
             self.__builder_factory,
             self.__target_connection_data_factory,
+            self.__ip_iface,
             options=options,
         )
