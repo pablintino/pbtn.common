@@ -133,11 +133,9 @@ class TargetConnectionDataFactory:
     def __init__(
         self,
         querier: nmcli_querier.NetworkManagerQuerier,
-        options: nmcli_interface_types.NetworkManagerConfiguratorOptions,
         conn_config_handler: net_config.ConnectionsConfigurationHandler,
     ):
         self.__connections = querier.get_connections()
-        self.__options = options
         self.__conn_config_handler: net_config.ConnectionsConfigurationHandler = (
             conn_config_handler
         )
@@ -284,13 +282,9 @@ class TargetConnectionDataFactory:
         ]
 
         # We will search for every non-target connection that points to
-        # a targeted interface and delete it
-        owned_interfaces_unknown_connections = (
-            self.__fetch_owned_unknown_connections(
-                target_connection_data, config_session
-            )
-            if self.__options.strict_connections_ownership
-            else []
+        # a targeted interface and delete them
+        owned_interfaces_unknown_connections = self.__fetch_owned_unknown_connections(
+            target_connection_data, config_session
         )
 
         return list(

@@ -18,6 +18,7 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
 from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
     nmcli_interface,
     nmcli_interface_args_builders,
+    nmcli_interface_target_connection,
     nmcli_querier,
     nmcli_interface_types,
 )
@@ -58,11 +59,14 @@ def main():
         config_handler = net_config.ConnectionsConfigurationHandler(
             __parse_get_connections(module), config_factory
         )
+        querier = nmcli_querier.NetworkManagerQuerier(command_runner)
         nmcli_factory = nmcli_interface.NetworkManagerConfiguratorFactory(
             command_runner,
-            nmcli_querier.NetworkManagerQuerier(command_runner),
+            querier,
             nmcli_interface_args_builders.nmcli_args_builder_factory,
-            config_handler,
+            nmcli_interface_target_connection.TargetConnectionDataFactory(
+                querier, config_handler
+            ),
         )
 
         config_handler.parse()

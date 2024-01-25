@@ -46,7 +46,7 @@ class NetworkManagerConfigurator(
         command_fn: module_command_utils.CommandRunnerFn,
         querier: nmcli_querier.NetworkManagerQuerier,
         builder_factory: nmcli_interface_args_builders.NmcliArgsBuilderFactoryType,
-        config_handler: net_config.ConnectionsConfigurationHandler,
+        target_connection_data_factory: nmcli_interface_target_connection.TargetConnectionDataFactory,
         options: nmcli_interface_types.NetworkManagerConfiguratorOptions = None,
     ):
         self._command_fn = command_fn
@@ -55,11 +55,7 @@ class NetworkManagerConfigurator(
         self._options = (
             options or nmcli_interface_types.NetworkManagerConfiguratorOptions()
         )
-        self.__target_connection_data_factory = (
-            nmcli_interface_target_connection.TargetConnectionDataFactory(
-                querier, self._options, config_handler
-            )
-        )
+        self.__target_connection_data_factory = target_connection_data_factory
 
     def __get_links(self) -> typing.Dict[str, typing.Dict[str, typing.Any]]:
         result = self._command_fn(["ip", "-j", "link"])
@@ -523,12 +519,12 @@ class NetworkManagerConfiguratorFactory:  # pylint: disable=too-few-public-metho
         runner_fn: module_command_utils.CommandRunnerFn,
         querier: nmcli_querier.NetworkManagerQuerier,
         builder_factory: nmcli_interface_args_builders.NmcliArgsBuilderFactoryType,
-        config_handler: net_config.ConnectionsConfigurationHandler,
+        target_connection_data_factory: nmcli_interface_target_connection.TargetConnectionDataFactory,
     ):
         self.__runner_fn = runner_fn
         self.__nmcli_querier = querier
         self.__builder_factory = builder_factory
-        self.__config_handler = config_handler
+        self.__target_connection_data_factory = target_connection_data_factory
 
     def build_configurator(
         self,
@@ -548,6 +544,6 @@ class NetworkManagerConfiguratorFactory:  # pylint: disable=too-few-public-metho
             self.__runner_fn,
             self.__nmcli_querier,
             self.__builder_factory,
-            self.__config_handler,
+            self.__target_connection_data_factory,
             options=options,
         )

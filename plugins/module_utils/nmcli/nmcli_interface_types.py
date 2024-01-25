@@ -19,7 +19,6 @@ class TargetLinksData:
 
 @dataclasses.dataclass
 class NetworkManagerConfiguratorOptions:
-    strict_connections_ownership: bool = True
     state_apply_timeout_secs: int = 180
 
 

@@ -7,7 +7,6 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
 from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
     nmcli_constants,
     nmcli_interface_target_connection,
-    nmcli_interface_types,
 )
 
 from tests.unit.module_utils.test_utils import config_stub_data
@@ -92,7 +91,6 @@ def test_target_connection_data_factory_build_conn_data_ether_basic_1_ok(mocker)
     for querier in queriers:
         factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
             querier,
-            nmcli_interface_types.NetworkManagerConfiguratorOptions(),
             mocker.Mock(),
         )
         conn_config_raw = {
@@ -156,9 +154,7 @@ def test_target_connection_data_factory_build_conn_data_ether_basic_2_ok(mocker)
     )
     for querier in queriers:
         factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
-            querier,
-            nmcli_interface_types.NetworkManagerConfiguratorOptions(),
-            mocker.Mock(),
+            querier, mocker.Mock()
         )
 
         conn_config = net_config.EthernetConnectionConfig(
@@ -233,7 +229,6 @@ def test_target_connection_data_factory_build_conn_data_ether_basic_3_ok(mocker)
     for querier in queriers:
         factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
             querier,
-            nmcli_interface_types.NetworkManagerConfiguratorOptions(),
             mocker.Mock(),
         )
 
@@ -315,7 +310,6 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_1_ok(mocker
     for querier in queriers:
         factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
             querier,
-            nmcli_interface_types.NetworkManagerConfiguratorOptions(),
             mocker.Mock(),
         )
 
@@ -401,7 +395,6 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_2_ok(mocker
     for querier in queriers:
         factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
             querier,
-            nmcli_interface_types.NetworkManagerConfiguratorOptions(),
             mocker.Mock(),
         )
 
@@ -497,7 +490,6 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_3_ok(mocker
     for querier in queriers:
         factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
             querier,
-            nmcli_interface_types.NetworkManagerConfiguratorOptions(),
             mocker.Mock(),
         )
 
@@ -600,7 +592,6 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_4_ok(mocker
     for querier in queriers:
         factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
             querier,
-            nmcli_interface_types.NetworkManagerConfiguratorOptions(),
             mocker.Mock(),
         )
 
@@ -681,7 +672,6 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_5_ok(mocker
     for querier in queriers:
         factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
             querier,
-            nmcli_interface_types.NetworkManagerConfiguratorOptions(),
             mocker.Mock(),
         )
 
@@ -772,7 +762,6 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_6_ok(mocker
     for querier in queriers:
         factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
             querier,
-            nmcli_interface_types.NetworkManagerConfiguratorOptions(),
             mocker.Mock(),
         )
 
