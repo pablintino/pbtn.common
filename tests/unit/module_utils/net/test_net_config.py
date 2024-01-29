@@ -501,7 +501,7 @@ def test_net_config_ipx_static_ip_auto_fail(ip_version: int):
     }
     with pytest.raises(exceptions.ValueInfraException) as err:
         ip_config_type(cfg_1)
-    assert f"is not allowed in auto mode" in str(err.value)
+    assert "is not allowed in auto mode" in str(err.value)
     assert err.value.field == "ip"
 
 
@@ -524,7 +524,7 @@ def test_net_config_ipx_static_gw_fail(ip_version: int):
     }
     with pytest.raises(exceptions.ValueInfraException) as err:
         ip_config_type(cfg_1)
-    assert f"is not allowed in auto mode" in str(err.value)
+    assert "is not allowed in auto mode" in str(err.value)
     assert err.value.field == "gw"
 
 
@@ -549,7 +549,7 @@ def test_net_config_ipx_mode_fail(ip_version: int):
 
     with pytest.raises(exceptions.ValueInfraException) as err:
         ip_config_type({})
-    assert f"mode is a mandatory field" in str(err.value)
+    assert "mode is a mandatory field" in str(err.value)
     assert err.value.field == "mode"
 
 
@@ -567,7 +567,7 @@ def test_net_config_ipx_static_missing_ip_fail(ip_version: int):
     }
     with pytest.raises(exceptions.ValueInfraException) as err:
         ip_config_type(cfg_1)
-    assert f"is a mandatory field" in str(err.value)
+    assert "is a mandatory field" in str(err.value)
     assert err.value.field == "ip"
 
 
@@ -608,7 +608,7 @@ def test_net_config_ipx_static_disable_default_route_fail(ip_version: int):
     ip_config_type = net_config.IPv4Config if ip_version == 4 else net_config.IPv6Config
     with pytest.raises(exceptions.ValueInfraException) as err:
         ip_config_type({"mode": "auto", "disable-default-route": "invalid-value"})
-    assert f"is not a proper boolean value" in str(err.value)
+    assert "is not a proper boolean value" in str(err.value)
     assert err.value.field == "disable-default-route"
     assert err.value.value == "invalid-value"
 
@@ -773,12 +773,12 @@ def test_net_config_ipx_route_invalid_metric_fail(ip_version: int):
     }
     with pytest.raises(exceptions.ValueInfraException) as err:
         ip_route_type({**base_cfg, "metric": 0}, ip_version)
-    assert f"metric must be a positive number" == str(err.value)
+    assert "metric must be a positive number" == str(err.value)
     assert err.value.field == "metric"
 
     with pytest.raises(exceptions.ValueInfraException) as err:
         ip_route_type({**base_cfg, "metric": "98dd"}, ip_version)
-    assert f"metric is not a proper integer value" == str(err.value)
+    assert "metric is not a proper integer value" == str(err.value)
     assert err.value.field == "metric"
 
 
