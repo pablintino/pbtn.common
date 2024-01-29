@@ -196,8 +196,9 @@ class ConfigurationSession:
         ] = conn_config_result
         self.__uuids.update(conn_config_result.get_uuids())
 
-    def get_session_conn_uuids(self) -> typing.Set[str]:
-        return self.__uuids
+    @property
+    def uuids(self) -> typing.Sequence[str]:
+        return tuple(self.__uuids)
 
     def get_result(self) -> typing.Tuple[typing.Dict[str, typing.Any], bool]:
         result = {}

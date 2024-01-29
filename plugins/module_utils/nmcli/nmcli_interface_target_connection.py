@@ -8,6 +8,10 @@ import collections
 import copy
 import typing
 
+from ansible_collections.pablintino.base_infra.plugins.module_utils import (
+    exceptions,
+)
+
 
 from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
     nmcli_constants,
@@ -24,9 +28,11 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
 class ConfigurableConnectionData(collections.abc.Mapping):
     def __init__(
         self,
-        connection_data: typing.Dict[str, typing.Any],
+        connection_data: typing.Optional[typing.Dict[str, typing.Any]],
         conn_config: net_config.BaseConnectionConfig,
     ):
+        if not conn_config:
+            raise exceptions.ValueInfraException("conn_config must be provided")
         self.__conn_data = connection_data or {}
         self.__conn_config = conn_config
 
@@ -93,11 +99,14 @@ class TargetConnectionData(ConfigurableConnectionData):
                 connection_data=self.__connection_data,
             )
 
-        def append_slave(self, slave_connection_data: ConfigurableConnectionData):
+        def append_slave(
+            self, slave_connection_data: ConfigurableConnectionData
+        ) -> "TargetConnectionData.Builder":
             if slave_connection_data.conn_config.name not in self.__slave_connections:
                 self.__slave_connections[
                     slave_connection_data.conn_config.name
                 ] = slave_connection_data
+            return self
 
     def __init__(
         self,
@@ -113,20 +122,24 @@ class TargetConnectionData(ConfigurableConnectionData):
         # when it gets created) but the main connection is not yet created.
         super().__init__(connection_data, conn_config)
         self.__slave_connections = self.SlavesList(slave_connections)
+        self.__uuids = tuple(
+            set(
+                ([self.uuid] if not self.empty else [])
+                + [
+                    conn_data.uuid
+                    for conn_data in self.__slave_connections
+                    if not conn_data.empty
+                ]
+            )
+        )
 
     @property
     def slave_connections(self) -> "TargetConnectionData.SlavesList":
         return self.__slave_connections
 
-    def uuids(self) -> typing.Set[str]:
-        return set(
-            ([self.uuid] if not self.empty else [])
-            + [
-                conn_data.uuid
-                for conn_data in self.__slave_connections
-                if not conn_data.empty
-            ]
-        )
+    @property
+    def uuids(self) -> typing.Sequence[str]:
+        return self.__uuids
 
 
 class TargetConnectionDataFactory:
@@ -165,15 +178,13 @@ class TargetConnectionDataFactory:
                     (
                         conn
                         for conn in self.__connections
-                        if nmcli_filters.is_connection_active(conn)
-                        and nmcli_filters.is_for_interface_name(
-                            conn, conn_config.interface.iface_name
+                        if self.__is_connection_for_target_active_type_iface(
+                            conn, conn_config
                         )
                         # As stated above, we are targeting a main connection,
                         # so, if a slave connection is matched, we should
                         # remove it and start from scratch
                         and not nmcli_filters.is_connection_slave(conn)
-                        and nmcli_filters.is_for_configuration_type(conn, conn_config)
                     ),
                     None,
                 )
@@ -199,11 +210,7 @@ class TargetConnectionDataFactory:
                     (
                         slave_conn_data
                         for slave_conn_data in self.__connections
-                        if nmcli_filters.is_for_interface_name(
-                            slave_conn_data, conn_slave_config.interface.iface_name
-                        )
-                        and nmcli_filters.is_connection_active(slave_conn_data)
-                        and nmcli_filters.is_for_configuration_type(
+                        if self.__is_connection_for_target_active_type_iface(
                             slave_conn_data, conn_slave_config
                         )
                     ),
@@ -224,33 +231,30 @@ class TargetConnectionDataFactory:
         target_connection_data: TargetConnectionData,
         config_session: nmcli_interface_types.ConfigurationSession,
     ) -> typing.List[typing.Dict[str, typing.Any]]:
-        # Compute the connections that use the same device as the target main connection
-        # cause those may be removed to avoid interfering with the target one once created
-        # updated.
-        main_conn_others = (
-            [
-                conn_data
-                for conn_data in self.__connections
-                if (
-                    # If the connection has no existing connection, we should take into account only the
-                    # interface name criteria. Connections that will affect the further created connection
-                    # should be removed before creation.
-                    target_connection_data.empty
-                    or (
-                        conn_data.get(
-                            nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID, None
-                        )
-                        != target_connection_data.get(
-                            nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID, None
-                        )
-                    )
-                )
-                and nmcli_filters.is_for_interface_name(
-                    conn_data, target_connection_data.conn_config.interface.iface_name
-                )
-            ]
-            if target_connection_data.conn_config.interface
-            else []
+        # Important: We should skip connections configured in the same session,
+        # as if not we may delete the parent connection (that may or not be
+        # declared in the configuration, but if declared, we should
+        # preserve it)
+        # Example: Two configs Ether + VLAN (points to the Ether).
+        # The VLAN one relates to both, so, if we do not preserve the Ether
+        # one, we will delete it
+        to_preserve_uuids = set(target_connection_data.uuids)
+
+        # Preserves the already configured ones
+        to_preserve_uuids.update(config_session.uuids)
+
+        # Preserves the ones that are going to be configured after the current one
+        to_preserve_uuids.update(self.__get_children_uuids(target_connection_data))
+
+        main_conns_dict = self.__build_main_conns_dict()
+
+        # Compute the connections that use the same device as the targeted connections
+        # (main and slaves) cause those may be removed to avoid interfering with the
+        # target one once created updated.
+        owned_interfaces_unknown_connections = self.__fetch_owned_unknown_connections(
+            target_connection_data,
+            to_preserve_uuids,
+            main_conns_dict,
         )
 
         # We will delete any connection that has the same name as the
@@ -261,7 +265,6 @@ class TargetConnectionDataFactory:
         #     types that doesn't use an interface directly, like a bridge,
         #     than it's not going to be picked by the previous code to
         #     a connection that is based on an interface like ethernet
-        connections_uuids = target_connection_data.uuids()
         duplicated_conns = [
             conn_data
             for conn_data in self.__connections
@@ -277,47 +280,63 @@ class TargetConnectionDataFactory:
             #    preserve the connection
             and (
                 conn_data[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]
-                not in connections_uuids
+                not in to_preserve_uuids
             )
         ]
 
-        # We will search for every non-target connection that points to
-        # a targeted interface and delete them
-        owned_interfaces_unknown_connections = self.__fetch_owned_unknown_connections(
-            target_connection_data, config_session
+        to_delete_connections = duplicated_conns + owned_interfaces_unknown_connections
+        to_delete_slave_connections = self.__fetch_target_conn_slaves_related(
+            target_connection_data,
+            to_preserve_uuids,
+            main_conns_dict,
+            to_delete_connections,
         )
+        # Make candidates a dict to remove duplicates by UUID
+        delete_candidates = {
+            candidate[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]: candidate
+            for candidate in (to_delete_connections + to_delete_slave_connections)
+        }
+        return list(delete_candidates.values())
 
-        return list(
-            main_conn_others
-            + duplicated_conns
-            + owned_interfaces_unknown_connections
-            + self.__fetch_target_conn_slaves_related(target_connection_data)
-        )
+    def __build_main_conns_dict(
+        self,
+    ) -> typing.Dict[str, typing.List[str]]:
+        main_groups = {}
+        for conn_data in self.__connections:
+            # Discard all connections that are not slaves
+            if not nmcli_filters.is_connection_slave(conn_data):
+                continue
+
+            # Try to fetch its main connection
+            main_conn_data = next(
+                (
+                    main_conn_data
+                    for main_conn_data in self.__connections
+                    if (not nmcli_filters.is_connection_slave(main_conn_data))
+                    and nmcli_filters.is_main_connection_of(main_conn_data, conn_data)
+                ),
+                None,
+            )
+            if not main_conn_data:
+                continue
+            main_uuid = main_conn_data[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]
+            if main_uuid not in main_groups:
+                main_groups[main_uuid] = []
+            main_groups[main_uuid].append(
+                conn_data[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]
+            )
+        return main_groups
 
     def __fetch_owned_unknown_connections(
         self,
         target_connection_data: TargetConnectionData,
-        config_session: nmcli_interface_types.ConfigurationSession,
+        to_preserve_uuids: typing.Set[str],
+        main_conns_dict: typing.Dict[str, typing.List[str]],
     ):
         owned_interfaces_unknown_connections = []
 
         # Fetch the interfaces that targets/relates to an interface
         # we manage, but are unknown connections
-        # Important: We should skip connections configured in the same session,
-        # as if not we may delete the parent connection (that may or not be
-        # declared in the configuration, but if declared, we should
-        # preserve it)
-        # Example: Two configs Ether + VLAN (points to the Ether).
-        # The VLAN one relates to both, so, if we do not preserve the Ether
-        # one, we will delete it
-        to_preserve_uuids = set(target_connection_data.uuids())
-
-        # Preserves the already configured ones
-        to_preserve_uuids.update(config_session.get_session_conn_uuids())
-
-        # Preserves the ones that are going to be configured after the current one
-        to_preserve_uuids.update(self.__get_children_uuids(target_connection_data))
-
         for conn_data in nmcli_filters.all_connections_without_uuids(
             self.__connections, to_preserve_uuids
         ):
@@ -327,38 +346,31 @@ class TargetConnectionDataFactory:
                 ):
                     owned_interfaces_unknown_connections.append(conn_data)
 
-        # Try to remove their main connections if only a single interface is attached
-        for slave_connection_data in [
-            conn_data
+        # Try to remove their main connections if no more interfaces are attached
+        to_delete_slave_uuids = [
+            conn_data[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]
             for conn_data in owned_interfaces_unknown_connections
             if nmcli_filters.is_connection_slave(conn_data)
-        ]:
-            # Try to fetch its main connection
-            main_conn_data = next(
-                (
-                    conn_data
-                    for conn_data in self.__connections
-                    if nmcli_filters.is_main_connection_of(
-                        conn_data, slave_connection_data
+        ]
+        if to_delete_slave_uuids:
+            for main_uuid, slave_uuids in main_conns_dict.items():
+                # If all the interfaces from a main connection
+                # are about to be deleted and it's not a connection
+                # that must be preserved add it to the delete list
+                if (
+                    set(slave_uuids).issubset(to_delete_slave_uuids)
+                    and main_uuid not in to_preserve_uuids
+                ):
+                    main_conn_data = next(
+                        (
+                            conn_data
+                            for conn_data in self.__connections
+                            if main_uuid
+                            == conn_data[
+                                nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID
+                            ]
+                        ),
                     )
-                    # Avoid picking up a known main connections.
-                    # Tricky case that raises when reusing slave based connections
-                    # while trashing the slaves
-                    and (
-                        conn_data[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]
-                        not in to_preserve_uuids
-                    )
-                ),
-                None,
-            )
-            if main_conn_data:
-                # Let's try to find how many connections the main one has
-                slaves = [
-                    conn_data
-                    for conn_data in self.__connections
-                    if nmcli_filters.is_main_connection_of(main_conn_data, conn_data)
-                ]
-                if len(slaves) <= 1:
                     owned_interfaces_unknown_connections.append(main_conn_data)
 
         return owned_interfaces_unknown_connections
@@ -366,10 +378,10 @@ class TargetConnectionDataFactory:
     def __fetch_target_conn_slaves_related(
         self,
         target_connection_data: TargetConnectionData,
+        to_preserve_uuids: typing.Set[str],
+        main_conns_dict: typing.Dict[str, typing.List[str]],
+        do_delete_list: typing.List[typing.Dict[str, typing.Any]],
     ):
-        # Fetch slaves uuids to avoid including them in the related
-        # connections list
-        target_slaves_uuids = target_connection_data.uuids()
         slaves_related_conns = []
         for slave_conn_data in target_connection_data.slave_connections:
             slave_iface_name = (
@@ -390,9 +402,19 @@ class TargetConnectionDataFactory:
                         )
                         == slave_iface_name
                         and conn_data[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]
-                        not in target_slaves_uuids
+                        not in to_preserve_uuids
                     ]
                 )
+
+            main_free_conn = self.__fetch_for_free_main_connection(
+                do_delete_list,
+                main_conns_dict,
+                slave_conn_data,
+                target_connection_data,
+                to_preserve_uuids,
+            )
+            if main_free_conn:
+                slaves_related_conns.append(main_free_conn)
 
         # If the main connection exists, ensure we add to delete all slave
         # connections that aren't part of the main one anymore
@@ -405,11 +427,64 @@ class TargetConnectionDataFactory:
                         target_connection_data, conn_data
                     )
                     and conn_data[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]
-                    not in target_slaves_uuids
+                    not in to_preserve_uuids
                 ]
             )
 
         return slaves_related_conns
+
+    def __fetch_for_free_main_connection(
+        self,
+        do_delete_list: typing.List[typing.Dict[str, typing.List[str]]],
+        main_conns_dict: typing.Dict[str, typing.List[str]],
+        slave_conn_data: ConfigurableConnectionData,
+        target_connection_data: TargetConnectionData,
+        to_preserve_uuids: typing.Set[str],
+    ) -> typing.Optional[typing.Dict[str, typing.Any]]:
+        # Check if a slave is moving from one main to another
+        if (
+            (not slave_conn_data.empty)
+            and (not target_connection_data.empty)
+            and not nmcli_filters.is_main_connection_of(
+                target_connection_data.conn_data, slave_conn_data.conn_data
+            )
+        ):
+            # Get the connection that it's now its main
+            current_main_conn = next(
+                (
+                    conn_data
+                    for conn_data in self.__connections
+                    if nmcli_filters.is_main_connection_of(conn_data, slave_conn_data)
+                ),
+                None,
+            )
+            current_main_conn_uuid = (
+                current_main_conn[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]
+                if current_main_conn
+                else None
+            )
+            # Check, if all the slaves of the main connection are gone
+            # If so, we can get rid of it
+            if current_main_conn_uuid and current_main_conn_uuid in main_conns_dict:
+                current_main_uuids = set(main_conns_dict[current_main_conn_uuid])
+
+                # Remove the one we are targeting, as this one will move to another
+                # main connection when configuring
+                current_main_uuids.discard(slave_conn_data.uuid)
+
+                # Remove from here the ones that are already scheduled to be removed
+                current_main_uuids.difference_update(
+                    [
+                        conn_data[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]
+                        for conn_data in do_delete_list
+                    ]
+                )
+                if (
+                    len(current_main_uuids) == 0
+                    and current_main_conn_uuid not in to_preserve_uuids
+                ):
+                    return current_main_conn
+        return None
 
     def __get_children_uuids(
         self, target_connection_data: TargetConnectionData
@@ -417,12 +492,6 @@ class TargetConnectionDataFactory:
         uuids = set()
         if not target_connection_data.conn_config.interface:
             return uuids
-
-        # Fetch the current uuid to avoid returning it.
-        # Not critical, because it's going to be added by the
-        # caller probably, but try to return only uuids that
-        # are not the passed one to have a clean interface
-        target_uuid = target_connection_data.uuid
 
         # Get all the configurations that use the ongoing connection
         child_conn_configs = [
@@ -436,8 +505,39 @@ class TargetConnectionDataFactory:
 
         for child_conn_config in child_conn_configs:
             child_target_data = self.build_target_connection_data(child_conn_config)
-            uuid = child_target_data.uuid
-            if uuid and ((not target_uuid) or target_uuid != uuid):
-                uuids.add(uuid)
+            for child_conn_data in [child_target_data] + list(
+                child_target_data.slave_connections
+            ):
+                if (
+                    # No sense to continue if the connection data doesn't contain
+                    # an actual connection
+                    child_conn_data.empty
+                    # Skip adding itself to the list
+                    or child_conn_data.uuid == target_connection_data.uuid
+                    # Protection mechanism to avoid keeping more than one connection
+                    # if they point to the same interface. If the future connection points
+                    # to the same interface as the target one will win and the
+                    # child_conn_data one should never be preserved.
+                    or (
+                        child_conn_data.conn_config.interface
+                        and target_connection_data.conn_config.interface
+                        and child_conn_data.conn_config.interface.iface_name
+                        == target_connection_data.conn_config.interface.iface_name
+                    )
+                ):
+                    continue
+
+                uuids.add(child_conn_data.uuid)
 
         return uuids
+
+    @staticmethod
+    def __is_connection_for_target_active_type_iface(
+        conn_data: typing.Dict[str, typing.Any],
+        config: net_config.BaseConnectionConfig,
+    ) -> bool:
+        return config.interface and (
+            nmcli_filters.is_for_interface_name(conn_data, config.interface.iface_name)
+            and nmcli_filters.is_connection_active(conn_data)
+            and nmcli_filters.is_for_configuration_type(conn_data, config)
+        )

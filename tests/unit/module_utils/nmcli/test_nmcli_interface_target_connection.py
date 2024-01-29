@@ -1,5 +1,13 @@
+import collections.abc
 import itertools
 import typing
+
+import mock
+import pytest
+
+from ansible_collections.pablintino.base_infra.plugins.module_utils import (
+    exceptions,
+)
 
 from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
     net_config,
@@ -7,6 +15,7 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
 from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
     nmcli_constants,
     nmcli_interface_target_connection,
+    nmcli_interface_types,
 )
 
 from tests.unit.module_utils.test_utils import config_stub_data
@@ -41,6 +50,44 @@ def __prepare_permute_queriers(
         querier.get_connections.return_value = permutation
         queriers.append(querier)
     return queriers
+
+
+def __test_build_delete_conn_list_from_mocks(
+    querier,
+    mocker,
+    target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
+    expected_uuids: typing.List[str],
+    config_handler_connections: typing.List[net_config.MainConnectionConfig] = None,
+    config_session_uuids: typing.Sequence[str] = None,
+):
+    with mock.patch(
+        "ansible_collections.pablintino.base_infra.plugins.module_utils."
+        "net.net_config.ConnectionsConfigurationHandler.connections",
+        new_callable=mock.PropertyMock,
+    ) as mock_connections, mock.patch(
+        "ansible_collections.pablintino.base_infra.plugins.module_utils."
+        "nmcli.nmcli_interface_types.ConfigurationSession.uuids",
+        new_callable=mock.PropertyMock,
+    ) as mock_config_session:
+        mock_connections.return_value = config_handler_connections or []
+        mock_config_session.return_value = config_session_uuids or []
+        mocked_handler = net_config.ConnectionsConfigurationHandler({}, mocker.Mock())
+        mocked_config_session = nmcli_interface_types.ConfigurationSession()
+        factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
+            querier,
+            mocked_handler,
+        )
+        conns_list = factory.build_delete_conn_list(
+            target_connection_data, mocked_config_session
+        )
+        assert isinstance(conns_list, collections.abc.Sequence)
+        assert len(conns_list) == len(expected_uuids)
+        for conn_data in conns_list:
+            assert isinstance(conn_data, collections.abc.Mapping)
+            conn_uuid = conn_data.get(
+                nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID, None
+            )
+            assert conn_uuid in expected_uuids
 
 
 def test_target_connection_data_factory_build_conn_data_ether_basic_1_ok(mocker):
@@ -108,8 +155,8 @@ def test_target_connection_data_factory_build_conn_data_ether_basic_1_ok(mocker)
             result, nmcli_interface_target_connection.TargetConnectionData
         )
         assert not result.empty
-        assert result.uuids() == {target_uuid}
-        assert len(result.uuids()) == 1
+        assert len(result.uuids) == 1
+        assert next(iter(result.uuids)) == target_uuid
         assert result[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID] == target_uuid
         assert result.conn_config == conn_config
 
@@ -171,8 +218,8 @@ def test_target_connection_data_factory_build_conn_data_ether_basic_2_ok(mocker)
             result, nmcli_interface_target_connection.TargetConnectionData
         )
         assert not result.empty
-        assert result.uuids() == {target_uuid}
-        assert len(result.uuids()) == 1
+        assert len(result.uuids) == 1
+        assert next(iter(result.uuids)) == target_uuid
         assert result[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID] == target_uuid
         assert result.conn_config == conn_config
 
@@ -246,8 +293,8 @@ def test_target_connection_data_factory_build_conn_data_ether_basic_3_ok(mocker)
             result, nmcli_interface_target_connection.TargetConnectionData
         )
         assert result.empty
-        assert not result.uuids()
-        assert len(result.uuids()) == 0
+        assert not result.uuids
+        assert len(result.uuids) == 0
         assert result.conn_config == conn_config
 
 
@@ -332,11 +379,11 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_1_ok(mocker
         assert not result.empty
         assert result.uuid == bridge_conn_uuid
         assert result.conn_config == conn_config
-        assert len(result.uuids()) == 3
+        assert len(result.uuids) == 3
         assert all(not slave_conn.empty for slave_conn in result.slave_connections)
-        assert bridge_conn_uuid in result.uuids()
-        assert ether_conn_uuid_1 in result.uuids()
-        assert ether_conn_uuid_2 in result.uuids()
+        assert bridge_conn_uuid in result.uuids
+        assert ether_conn_uuid_1 in result.uuids
+        assert ether_conn_uuid_2 in result.uuids
 
 
 def test_target_connection_data_factory_build_conn_data_bridge_basic_2_ok(mocker):
@@ -418,10 +465,10 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_2_ok(mocker
         assert result.empty
         assert result.uuid is None
         assert result.conn_config == conn_config
-        assert len(result.uuids()) == 2
+        assert len(result.uuids) == 2
         assert all(not slave_conn.empty for slave_conn in result.slave_connections)
-        assert ether_conn_uuid_1 in result.uuids()
-        assert ether_conn_uuid_2 in result.uuids()
+        assert ether_conn_uuid_1 in result.uuids
+        assert ether_conn_uuid_2 in result.uuids
 
 
 def test_target_connection_data_factory_build_conn_data_bridge_basic_3_ok(mocker):
@@ -512,9 +559,9 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_3_ok(mocker
         assert not result.empty
         assert result.uuid == bridge_conn_uuid
         assert result.conn_config == conn_config
-        assert len(result.uuids()) == 2
-        assert bridge_conn_uuid in result.uuids()
-        assert ether_conn_uuid_1 in result.uuids()
+        assert len(result.uuids) == 2
+        assert bridge_conn_uuid in result.uuids
+        assert ether_conn_uuid_1 in result.uuids
         __check_slave_conn_id_not_present(ether_conn_id_2, result)
 
 
@@ -615,11 +662,11 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_4_ok(mocker
         assert not result.empty
         assert result.uuid == bridge_conn_uuid
         assert result.conn_config == conn_config
-        assert len(result.uuids()) == 3
+        assert len(result.uuids) == 3
         assert all(not slave_conn.empty for slave_conn in result.slave_connections)
-        assert bridge_conn_uuid in result.uuids()
-        assert ether_conn_uuid_1 in result.uuids()
-        assert ether_conn_uuid_2 in result.uuids()
+        assert bridge_conn_uuid in result.uuids
+        assert ether_conn_uuid_1 in result.uuids
+        assert ether_conn_uuid_2 in result.uuids
 
 
 def test_target_connection_data_factory_build_conn_data_bridge_basic_5_ok(mocker):
@@ -694,8 +741,8 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_5_ok(mocker
         assert not result.empty
         assert result.uuid == bridge_conn_uuid
         assert result.conn_config == conn_config
-        assert len(result.uuids()) == 1
-        assert bridge_conn_uuid in result.uuids()
+        assert len(result.uuids) == 1
+        assert bridge_conn_uuid in result.uuids
         __check_slave_conn_id_not_present(ether_conn_id_1, result)
         __check_slave_conn_id_not_present(ether_conn_id_2, result)
 
@@ -784,5 +831,677 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_6_ok(mocker
         )
         assert result.empty
         assert result.conn_config == conn_config
-        assert not result.uuids()
+        assert not result.uuids
         assert all(slave_conn.empty for slave_conn in result.slave_connections)
+
+
+def test_target_connection_data_factory_build_delete_conn_list_1_ok(mocker):
+    """
+    Test that the delete list if properly build in cases without slave connections.
+    :param mocker: The pytest mocker fixture
+    """
+    # Create a list of queries with all the possible combinations
+    # of connections order to ensure the result is not order
+    # dependant
+    connection_data_raw = {
+        "connection.id": "ether-conn-001",
+        "connection.type": "802-3-ethernet",
+        "general.state": "activated",
+        "connection.uuid": "98ef06cf-a80e-4771-ad96-8375b123c8a7",
+    }
+
+    conn_config = net_config.EthernetConnectionConfig(
+        conn_name="ether-conn-001",
+        raw_config={
+            "type": "ethernet",
+            "iface": "eth0",
+        },
+        ip_links=[],
+        connection_config_factory=mocker.Mock(),
+    )
+    target_connection_data = (
+        nmcli_interface_target_connection.TargetConnectionData.Builder(
+            connection_data_raw, conn_config
+        ).build()
+    )
+    to_remove_uuid_1 = "b15bd50c-c613-4fca-9303-8db4cc14a876"
+    to_remove_uuid_2 = "6ffd5837-4274-4d3f-b0d2-472400bbd3f3"
+    to_remove_uuid_3 = "0e6ad240-f8ea-4fb2-82ea-e1737dad2556"
+    queriers = __prepare_permute_queriers(
+        mocker,
+        [
+            connection_data_raw,
+            {
+                "connection.id": "ether-conn-002",
+                "connection.type": "802-3-ethernet",
+                "connection.uuid": "694bacc5-f167-47bd-8688-bb4a83067cba",
+            },
+            # Should be deleted as it's for the same interface, and it's not
+            # the picked one
+            {
+                "connection.id": "ether-conn-003",
+                "connection.type": "vlan",
+                "connection.uuid": to_remove_uuid_1,
+                "general.state": "activated",
+                "connection.interface-name": "eth0",
+            },
+            # Should be deleted. Same as the previous but active. It shouldn't
+            # care about the status of the connection.
+            {
+                "connection.id": "ether-conn-004",
+                "connection.type": "vlan",
+                "connection.uuid": to_remove_uuid_2,
+                "connection.interface-name": "eth0",
+            },
+            # Shouldn't be picked up as it has not interface to relate
+            # the connection to the targeted one
+            {
+                "connection.id": "testing-conn",
+                "connection.type": "802-3-ethernet",
+                "connection.uuid": "763f90fe-1c84-4f33-9e65-825f1e30cd1e",
+            },
+            # Should be deleted as we do not allow ID duplications
+            {
+                "connection.id": conn_config.name,
+                "connection.type": "vlan",
+                "connection.uuid": to_remove_uuid_3,
+                "connection.interface-name": "eth0",
+            },
+        ],
+    )
+    for querier in queriers:
+        __test_build_delete_conn_list_from_mocks(
+            querier,
+            mocker,
+            target_connection_data,
+            [to_remove_uuid_1, to_remove_uuid_2, to_remove_uuid_3],
+        )
+
+
+def test_target_connection_data_factory_build_delete_conn_list_2_ok(mocker):
+    # Create a list of queries with all the possible combinations
+    # of connections order to ensure the result is not order
+    # dependant
+    bridge_uuid_1 = "98ef06cf-a80e-4771-ad96-8375b123c8a7"
+    vlan_uuid_1 = "f7e59009-1367-47e9-9414-ac35b89ec8a4"
+    ether_uuid_1 = "ceb771f1-b183-4ce4-89be-95bea292d917"
+    ether_uuid_2 = "10ba7df7-ed98-4e00-b128-a26919640fb2"
+    connection_data_raw_bridge = {
+        "connection.id": "bridge-conn-1",
+        "connection.type": "bridge",
+        "general.state": "activated",
+        "connection.uuid": bridge_uuid_1,
+    }
+    connection_data_raw_vlan_slave = {
+        "connection.id": "vlan-conn-1",
+        "connection.type": "vlan",
+        "general.state": "activated",
+        "connection.master": bridge_uuid_1,
+        "connection.uuid": vlan_uuid_1,
+    }
+    connection_data_raw_ether = {
+        "connection.id": "ether-conn-1",
+        "connection.type": "802-3-ethernet",
+        "general.state": "activated",
+        "connection.interface-name": "eth0",
+        "connection.uuid": ether_uuid_1,
+    }
+
+    conn_config = net_config.BridgeConnectionConfig(
+        conn_name="bridge-conn-001",
+        raw_config={
+            "type": "bridge",
+            "iface": "br0",
+            "slaves": {
+                "vlan-conn-1": {
+                    "type": "vlan",
+                    "iface": "eth0.200",
+                    "vlan": {
+                        "id": 200,
+                        "parent": "eth0",
+                    },
+                }
+            },
+        },
+        ip_links=[],
+        connection_config_factory=__build_testing_config_factory(mocker),
+    )
+    target_connection_data = (
+        nmcli_interface_target_connection.TargetConnectionData.Builder(
+            connection_data_raw_bridge, conn_config
+        )
+        .append_slave(
+            nmcli_interface_target_connection.ConfigurableConnectionData(
+                connection_data_raw_vlan_slave, conn_config.slaves[0]
+            )
+        )
+        .build()
+    )
+
+    queriers = __prepare_permute_queriers(
+        mocker,
+        [
+            connection_data_raw_bridge,
+            connection_data_raw_vlan_slave,
+            connection_data_raw_ether,
+            # Should be deleted as it touches a related interface
+            # and is not part of the config session
+            {
+                "connection.id": "ether-conn-2",
+                "connection.type": "802-3-ethernet",
+                "general.state": "activated",
+                "connection.interface-name": "eth0",
+                "connection.uuid": ether_uuid_2,
+            },
+        ],
+    )
+    for querier in queriers:
+        __test_build_delete_conn_list_from_mocks(
+            querier,
+            mocker,
+            target_connection_data,
+            [ether_uuid_2],
+            config_session_uuids=[ether_uuid_1],
+        )
+
+
+def test_target_connection_data_factory_build_delete_conn_list_3_ok(mocker):
+    """
+    Tests that the factory is able to build the to-delete connections list taking
+    into account connections that will be configured afterward, like a bridge slave
+    VLANs connection configured after their parent interface (the ethernet one).
+    If connection data exists, for another connection, not yet configured,
+    we should keep it.
+    This test ensures this mechanism works for main-slave based connections.
+    :param mocker: The pytest mocker fixture
+    """
+    # Create a list of queries with all the possible combinations
+    # of connections order to ensure the result is not order
+    # dependant
+    bridge_uuid_1 = "98ef06cf-a80e-4771-ad96-8375b123c8a7"
+    vlan_uuid_1 = "f7e59009-1367-47e9-9414-ac35b89ec8a4"
+    ether_uuid_1 = "ceb771f1-b183-4ce4-89be-95bea292d917"
+    ether_uuid_2 = "10ba7df7-ed98-4e00-b128-a26919640fb2"
+    ether_uuid_3 = "907355a9-3551-427e-b72c-0f69b509122c"
+    connection_data_raw_bridge = {
+        "connection.id": "bridge-conn-1",
+        "connection.type": "bridge",
+        "general.state": "activated",
+        "connection.uuid": bridge_uuid_1,
+    }
+    connection_data_raw_vlan_slave = {
+        "connection.id": "vlan-conn-1",
+        "connection.type": "vlan",
+        "general.state": "activated",
+        "connection.master": bridge_uuid_1,
+        "connection.interface-name": "eth1.200",
+        "vlan.parent": "eth1",
+        "connection.uuid": vlan_uuid_1,
+    }
+    connection_data_raw_ether = {
+        "connection.id": "ether-conn-1",
+        "connection.type": "802-3-ethernet",
+        "general.state": "activated",
+        "connection.interface-name": "eth1",
+        "connection.uuid": ether_uuid_1,
+    }
+
+    conn_config_target = net_config.EthernetConnectionConfig(
+        conn_name="ether-conn-001",
+        raw_config={
+            "type": "ethernet",
+            "iface": "eth1",
+        },
+        ip_links=[],
+        connection_config_factory=mocker.Mock(),
+    )
+    conn_config_dependant = net_config.BridgeConnectionConfig(
+        conn_name="bridge-conn-1",
+        raw_config={
+            "type": "bridge",
+            "iface": "br0",
+            "slaves": {
+                "vlan-conn-1": {
+                    "type": "vlan",
+                    "iface": f"{conn_config_target.interface.iface_name}.200",
+                    "vlan": {
+                        "id": 200,
+                        "parent": conn_config_target.interface.iface_name,
+                    },
+                }
+            },
+        },
+        ip_links=[],
+        connection_config_factory=__build_testing_config_factory(mocker),
+    )
+    target_connection_data = (
+        nmcli_interface_target_connection.TargetConnectionData.Builder(
+            connection_data_raw_ether, conn_config_target
+        )
+    ).build()
+    queriers = __prepare_permute_queriers(
+        mocker,
+        [
+            connection_data_raw_bridge,
+            connection_data_raw_vlan_slave,
+            connection_data_raw_ether,
+            # Should be deleted as it touches a related interface
+            # and is not part of the config session
+            {
+                "connection.id": "ether-conn-2",
+                "connection.type": "802-3-ethernet",
+                # Cannot be active as for that we have ether-conn-1
+                # For this test we will make it active to test the protection
+                # mechanism we have in place. The connection configuring the interface
+                # is the one that wins and other candidates are never preserved.
+                "general.state": "activated",
+                "connection.interface-name": "eth1",
+                "connection.uuid": ether_uuid_2,
+            },
+            # Should be deleted as it touches a related interface
+            # and is not part of the config session
+            {
+                "connection.id": "ether-conn-3",
+                "connection.type": "802-3-ethernet",
+                "connection.interface-name": "eth1",
+                "connection.uuid": ether_uuid_3,
+            },
+        ],
+    )
+    for querier in queriers:
+        __test_build_delete_conn_list_from_mocks(
+            querier,
+            mocker,
+            target_connection_data,
+            [ether_uuid_2, ether_uuid_3],
+            config_session_uuids=[ether_uuid_1],
+            config_handler_connections=[conn_config_dependant, conn_config_target],
+        )
+
+
+def test_target_connection_data_factory_build_delete_conn_list_4_ok(mocker):
+    """
+    Tests that the factory is able to build the to-delete connections list taking
+    into account connections that will be configured afterward, like a VLAN
+    connection configured after their parent interface (the ethernet one).
+    If connection data exists, for another connection, not yet configured,
+    we should keep it.
+    This test ensures this mechanism works for main-only based connections.
+    :param mocker: The pytest mocker fixture
+    """
+    # Create a list of queries with all the possible combinations
+    # of connections order to ensure the result is not order
+    # dependant
+    vlan_uuid_1 = "f7e59009-1367-47e9-9414-ac35b89ec8a4"
+    ether_uuid_1 = "ceb771f1-b183-4ce4-89be-95bea292d917"
+    ether_uuid_2 = "10ba7df7-ed98-4e00-b128-a26919640fb2"
+    connection_data_raw_vlan_slave = {
+        "connection.id": "vlan-conn-1",
+        "connection.type": "vlan",
+        "general.state": "activated",
+        "connection.interface-name": "eth1.200",
+        "vlan.parent": "eth1",
+        "connection.uuid": vlan_uuid_1,
+    }
+    connection_data_raw_ether = {
+        "connection.id": "ether-conn-1",
+        "connection.type": "802-3-ethernet",
+        "general.state": "activated",
+        "connection.interface-name": "eth1",
+        "connection.uuid": ether_uuid_1,
+    }
+
+    conn_config_target = net_config.EthernetConnectionConfig(
+        conn_name="ether-conn-1",
+        raw_config={
+            "type": "ethernet",
+            "iface": "eth1",
+        },
+        ip_links=[],
+        connection_config_factory=mocker.Mock(),
+    )
+    conn_config_dependant = net_config.VlanConnectionConfig(
+        conn_name="bridge-conn-1",
+        raw_config={
+            "type": "vlan",
+            "iface": f"{conn_config_target.interface.iface_name}.200",
+            "vlan": {
+                "id": 200,
+                "parent": conn_config_target.interface.iface_name,
+            },
+        },
+        ip_links=[],
+        connection_config_factory=__build_testing_config_factory(mocker),
+    )
+    target_connection_data = (
+        nmcli_interface_target_connection.TargetConnectionData.Builder(
+            connection_data_raw_ether, conn_config_target
+        )
+    ).build()
+    queriers = __prepare_permute_queriers(
+        mocker,
+        [
+            connection_data_raw_vlan_slave,
+            connection_data_raw_ether,
+            # Should be deleted as it touches a related interface
+            # and is not part of the config session
+            {
+                "connection.id": "ether-conn-2",
+                "connection.type": "802-3-ethernet",
+                # Cannot be active as for that we have ether-conn-1
+                # This test, that target the ether connection by name,
+                # doesn't really care if it's active or not
+                "connection.interface-name": "eth1",
+                "connection.uuid": ether_uuid_2,
+            },
+        ],
+    )
+    for querier in queriers:
+        __test_build_delete_conn_list_from_mocks(
+            querier,
+            mocker,
+            target_connection_data,
+            [ether_uuid_2],
+            config_session_uuids=[ether_uuid_1],
+            config_handler_connections=[conn_config_dependant, conn_config_target],
+        )
+
+
+def test_target_connection_data_factory_build_delete_conn_list_5_ok(mocker):
+    """
+    Tests that the factory is able to build the to-delete connections list taking
+    into account the main connections, like bridges; that may have only one slave
+    that will be deleted in place of another connection. If a main connection has
+    no more slaves,the main connection should be deleted too.
+    :param mocker: The pytest mocker fixture
+    """
+    # Create a list of queries with all the possible combinations
+    # of connections order to ensure the result is not order
+    # dependant
+    bridge_uuid_1 = "f7e59009-1367-47e9-9414-ac35b89ec8a4"
+    bridge_uuid_2 = "6b2eeafe-3611-484e-b5a3-3696712c49e9"
+    ether_uuid_1 = "ceb771f1-b183-4ce4-89be-95bea292d917"
+    ether_uuid_2 = "faf7d96c-6317-4883-8acb-0a7b0b59ddc1"
+    vlan_uuid_1 = "0243cae6-2ac5-442e-8386-d262f340ddcb"
+    connection_data_raw_bridge_1 = {
+        "connection.id": "bridge-conn-1",
+        "connection.type": "bridge",
+        "general.state": "activated",
+        "connection.uuid": bridge_uuid_1,
+    }
+    # As it's slave connections (ether-conn-2 and vlan-conn-1)
+    # will be deleted, this needs to be deleted too.
+    connection_data_raw_bridge_2 = {
+        "connection.id": "bridge-conn-2",
+        "connection.type": "bridge",
+        "general.state": "activated",
+        "connection.uuid": bridge_uuid_2,
+    }
+    connection_data_raw_ether_1 = {
+        "connection.id": "ether-conn-1",
+        "connection.type": "802-3-ethernet",
+        "connection.interface-name": "eth1",
+        "connection.uuid": ether_uuid_1,
+    }
+    # This one should be deleted as it's a related interface
+    # of ether-conn-1, but it's not the target one
+    connection_data_raw_ether_2 = {
+        "connection.id": "ether-conn-2",
+        "connection.type": "802-3-ethernet",
+        "general.state": "activated",
+        "connection.interface-name": "eth1",
+        "connection.master": bridge_uuid_2,
+        "connection.uuid": ether_uuid_2,
+    }
+    # This one should be deleted as it's a related interface
+    # of ether-conn-1, but it's not the target one
+    connection_data_raw_vlan_1 = {
+        "connection.id": "vlan-conn-1",
+        "connection.type": "vlan",
+        "general.state": "activated",
+        "connection.interface-name": "eth1.200",
+        "vlan.parent": "eth1",
+        "connection.master": bridge_uuid_2,
+        "connection.uuid": vlan_uuid_1,
+    }
+    conn_config_target = net_config.BridgeConnectionConfig(
+        conn_name="bridge-conn-1",
+        raw_config={
+            "type": "bridge",
+            "iface": "br0",
+            "slaves": {
+                "ether-conn-1": {
+                    "type": "ethernet",
+                    "iface": "eth1",
+                }
+            },
+        },
+        ip_links=[],
+        connection_config_factory=__build_testing_config_factory(mocker),
+    )
+    target_connection_data = (
+        nmcli_interface_target_connection.TargetConnectionData.Builder(
+            connection_data_raw_bridge_1, conn_config_target
+        )
+        .append_slave(
+            nmcli_interface_target_connection.ConfigurableConnectionData(
+                connection_data_raw_ether_1, conn_config_target.slaves[0]
+            )
+        )
+        .build()
+    )
+    queriers = __prepare_permute_queriers(
+        mocker,
+        [
+            connection_data_raw_bridge_1,
+            connection_data_raw_bridge_2,
+            connection_data_raw_ether_1,
+            connection_data_raw_ether_2,
+            connection_data_raw_vlan_1,
+        ],
+    )
+    for querier in queriers:
+        __test_build_delete_conn_list_from_mocks(
+            querier,
+            mocker,
+            target_connection_data,
+            [bridge_uuid_2, ether_uuid_2, vlan_uuid_1],
+        )
+
+
+def test_target_connection_data_factory_build_delete_conn_list_6_ok(mocker):
+    """
+    Tests that the factory is able to build the to-delete connections list taking
+    into account that if a main connection has connections that are no longer part
+    of the configuration, like an old slave, those need to be deleted.
+    :param mocker: The pytest mocker fixture
+    """
+    # Create a list of queries with all the possible combinations
+    # of connections order to ensure the result is not order
+    # dependant
+    bridge_uuid_1 = "f7e59009-1367-47e9-9414-ac35b89ec8a4"
+    ether_uuid_1 = "ceb771f1-b183-4ce4-89be-95bea292d917"
+    ether_uuid_2 = "93555842-8011-4ad5-b666-0f80f13a20dc"
+    # The bridge we want to configure
+    connection_data_raw_bridge_1 = {
+        "connection.id": "bridge-conn-1",
+        "connection.type": "bridge",
+        "general.state": "activated",
+        "connection.uuid": bridge_uuid_1,
+    }
+    # The ethernet connection the bridge will have
+    connection_data_raw_ether_1 = {
+        "connection.id": "ether-conn-1",
+        "connection.type": "802-3-ethernet",
+        "general.state": "activated",
+        "connection.interface-name": "eth1",
+        "connection.uuid": ether_uuid_1,
+    }
+    # A no longer in use ethernet connection that should
+    # be removed
+    connection_data_raw_ether_2 = {
+        "connection.id": "ether-conn-2",
+        "connection.type": "802-3-ethernet",
+        "general.state": "activated",
+        "connection.interface-name": "eth0",
+        "connection.master": bridge_uuid_1,
+        "connection.uuid": ether_uuid_2,
+    }
+    conn_config_target = net_config.BridgeConnectionConfig(
+        conn_name="bridge-conn-1",
+        raw_config={
+            "type": "bridge",
+            "iface": "br0",
+            "slaves": {
+                "ether-conn-1": {
+                    "type": "ethernet",
+                    "iface": "eth1",
+                }
+            },
+        },
+        ip_links=[],
+        connection_config_factory=__build_testing_config_factory(mocker),
+    )
+    target_connection_data = (
+        nmcli_interface_target_connection.TargetConnectionData.Builder(
+            connection_data_raw_bridge_1, conn_config_target
+        )
+        .append_slave(
+            nmcli_interface_target_connection.ConfigurableConnectionData(
+                connection_data_raw_ether_1, conn_config_target.slaves[0]
+            )
+        )
+        .build()
+    )
+
+    queriers = __prepare_permute_queriers(
+        mocker,
+        [
+            connection_data_raw_bridge_1,
+            connection_data_raw_ether_1,
+            connection_data_raw_ether_2,
+        ],
+    )
+    for querier in queriers:
+        __test_build_delete_conn_list_from_mocks(
+            querier,
+            mocker,
+            target_connection_data,
+            [ether_uuid_2],
+        )
+
+
+def test_target_connection_data_factory_build_delete_conn_list_7_ok(mocker):
+    """
+    Tests that the factory is able to build the to-delete connections list taking
+    into account that if a main connection loses all of its slaves the logic
+    will take care of cleanup it.
+    :param mocker: The pytest mocker fixture
+    """
+    # Create a list of queries with all the possible combinations
+    # of connections order to ensure the result is not order
+    # dependant
+    bridge_uuid_1 = "f7e59009-1367-47e9-9414-ac35b89ec8a4"
+    bridge_uuid_2 = "6b2eeafe-3611-484e-b5a3-3696712c49e9"
+    ether_uuid_1 = "ceb771f1-b183-4ce4-89be-95bea292d917"
+    connection_data_raw_bridge_1 = {
+        "connection.id": "bridge-conn-1",
+        "connection.type": "bridge",
+        "general.state": "activated",
+        "connection.uuid": bridge_uuid_1,
+    }
+    connection_data_raw_bridge_2 = {
+        "connection.id": "bridge-conn-2",
+        "connection.type": "bridge",
+        "general.state": "activated",
+        "connection.uuid": bridge_uuid_2,
+    }
+    connection_data_raw_ether_1 = {
+        "connection.id": "ether-conn-1",
+        "connection.type": "802-3-ethernet",
+        "connection.interface-name": "eth1",
+        "connection.master": bridge_uuid_2,
+        "general.state": "activated",
+        "connection.uuid": ether_uuid_1,
+    }
+    conn_config_target = net_config.BridgeConnectionConfig(
+        conn_name="bridge-conn-1",
+        raw_config={
+            "type": "bridge",
+            "iface": "br0",
+            "slaves": {
+                "ether-conn-1": {
+                    "type": "ethernet",
+                    "iface": "eth1",
+                }
+            },
+        },
+        ip_links=[],
+        connection_config_factory=__build_testing_config_factory(mocker),
+    )
+    target_connection_data = (
+        nmcli_interface_target_connection.TargetConnectionData.Builder(
+            connection_data_raw_bridge_1, conn_config_target
+        )
+        .append_slave(
+            nmcli_interface_target_connection.ConfigurableConnectionData(
+                connection_data_raw_ether_1, conn_config_target.slaves[0]
+            )
+        )
+        .build()
+    )
+
+    queriers = __prepare_permute_queriers(
+        mocker,
+        [
+            connection_data_raw_bridge_1,
+            connection_data_raw_bridge_2,
+            connection_data_raw_ether_1,
+        ],
+    )
+    for querier in queriers:
+        __test_build_delete_conn_list_from_mocks(
+            querier,
+            mocker,
+            target_connection_data,
+            [bridge_uuid_2],
+        )
+
+
+def test_target_connection_data_configurable_connection_data_fields_ok(mocker):
+    conn_data = {"connection.uuid": "18f9d3e4-0e2f-4222-82f2-57b13b4d0bbe"}
+    conn_config_target = net_config.EthernetConnectionConfig(
+        conn_name="ether-conn-1",
+        raw_config={
+            "type": "ethernet",
+            "iface": "eth1",
+        },
+        ip_links=[],
+        connection_config_factory=mocker.Mock(),
+    )
+    configurable_conn_data = (
+        nmcli_interface_target_connection.ConfigurableConnectionData(
+            conn_data, conn_config_target
+        )
+    )
+    assert not configurable_conn_data.empty
+    assert isinstance(configurable_conn_data, collections.abc.Mapping)
+    # Check that the ConfigurableConnectionData len can be called
+    assert len(configurable_conn_data) == len(conn_data)
+    # Check that the ConfigurableConnectionData can be accessed as an iterator
+    assert next(iter(configurable_conn_data)) == next(iter(conn_data.keys()))
+    assert configurable_conn_data.uuid == conn_data["connection.uuid"]
+    # Check that the ConfigurableConnectionData can be accessed as a mapping
+    assert configurable_conn_data["connection.uuid"] == conn_data["connection.uuid"]
+    assert configurable_conn_data.conn_config == conn_config_target
+
+    configurable_conn_data_empty = (
+        nmcli_interface_target_connection.ConfigurableConnectionData(
+            None, conn_config_target
+        )
+    )
+    assert configurable_conn_data_empty.empty
+
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        nmcli_interface_target_connection.ConfigurableConnectionData(conn_data, None)
+    assert "must be provided" in str(err.value)
