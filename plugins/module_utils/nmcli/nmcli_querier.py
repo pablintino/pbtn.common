@@ -56,16 +56,6 @@ class NetworkManagerQuerier:
             check_exists=check_exists,
         )
 
-    def get_connections_for_device(self, device_name):
-        return {
-            conn_name: conn_data
-            for conn_name, conn_data in self.get_connections().items()
-            if conn_data.get(
-                nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_INTERFACE_NAME, None
-            )
-            == device_name
-        }
-
     def get_connections(self) -> typing.List[typing.Dict[str, typing.Any]]:
         return self.__get_nm_object_list(
             self.__NMCLI_PARSER_GET_CONNECTIONS_LIST,
