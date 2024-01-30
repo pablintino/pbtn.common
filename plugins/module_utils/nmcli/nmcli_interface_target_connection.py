@@ -147,11 +147,13 @@ class TargetConnectionDataFactory:
         self,
         querier: nmcli_querier.NetworkManagerQuerier,
         conn_config_handler: net_config.ConnectionsConfigurationHandler,
+        config_session: nmcli_interface_types.ConfigurationSession,
     ):
         self.__connections = querier.get_connections()
         self.__conn_config_handler: net_config.ConnectionsConfigurationHandler = (
             conn_config_handler
         )
+        self.__config_session = config_session
 
     def build_target_connection_data(
         self,
@@ -227,9 +229,7 @@ class TargetConnectionDataFactory:
         return connection_data_builder.build()
 
     def build_delete_conn_list(
-        self,
-        target_connection_data: TargetConnectionData,
-        config_session: nmcli_interface_types.ConfigurationSession,
+        self, target_connection_data: TargetConnectionData
     ) -> typing.List[typing.Dict[str, typing.Any]]:
         # Important: We should skip connections configured in the same session,
         # as if not we may delete the parent connection (that may or not be
@@ -241,7 +241,7 @@ class TargetConnectionDataFactory:
         to_preserve_uuids = set(target_connection_data.uuids)
 
         # Preserves the already configured ones
-        to_preserve_uuids.update(config_session.uuids)
+        to_preserve_uuids.update(self.__config_session.uuids)
 
         # Preserves the ones that are going to be configured after the current one
         to_preserve_uuids.update(self.__get_children_uuids(target_connection_data))

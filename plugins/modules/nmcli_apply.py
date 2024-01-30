@@ -55,28 +55,29 @@ def main():
     try:
         command_runner = get_module_command_runner(module)
         ip_iface = ip_interface.IPInterface(command_runner)
-        config_factory = net_config.ConnectionConfigFactory(ip_iface)
         config_handler = net_config.ConnectionsConfigurationHandler(
-            __parse_get_connections(module), config_factory
+            __parse_get_connections(module),
+            net_config.ConnectionConfigFactory(ip_iface),
         )
         querier = nmcli_querier.NetworkManagerQuerier(command_runner)
+        config_session = nmcli_interface_types.ConfigurationSession()
         nmcli_factory = nmcli_interface.NetworkManagerConfiguratorFactory(
             command_runner,
             querier,
             nmcli_interface_args_builders.nmcli_args_builder_factory,
             nmcli_interface_target_connection.TargetConnectionDataFactory(
-                querier, config_handler
+                querier,
+                config_handler,
+                config_session,
             ),
             ip_iface,
         )
 
         config_handler.parse()
-        config_session = nmcli_interface_types.ConfigurationSession()
         for conn_config in config_handler.connections:
-            conn_config_result = nmcli_factory.build_configurator(
-                conn_config
-            ).configure(conn_config, config_session)
-            config_session.add_result(conn_config_result)
+            config_session.add_result(
+                nmcli_factory.build_configurator(conn_config).configure(conn_config)
+            )
 
         session_result, changed = config_session.get_result()
         result["success"] = True

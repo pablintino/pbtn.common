@@ -76,10 +76,9 @@ def __test_build_delete_conn_list_from_mocks(
         factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
             querier,
             mocked_handler,
+            mocked_config_session,
         )
-        conns_list = factory.build_delete_conn_list(
-            target_connection_data, mocked_config_session
-        )
+        conns_list = factory.build_delete_conn_list(target_connection_data)
         assert isinstance(conns_list, collections.abc.Sequence)
         assert len(conns_list) == len(expected_uuids)
         for conn_data in conns_list:
@@ -138,6 +137,7 @@ def test_target_connection_data_factory_build_conn_data_ether_basic_1_ok(mocker)
     for querier in queriers:
         factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
             querier,
+            mocker.Mock(),
             mocker.Mock(),
         )
         conn_config_raw = {
@@ -201,7 +201,9 @@ def test_target_connection_data_factory_build_conn_data_ether_basic_2_ok(mocker)
     )
     for querier in queriers:
         factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
-            querier, mocker.Mock()
+            querier,
+            mocker.Mock(),
+            mocker.Mock(),
         )
 
         conn_config = net_config.EthernetConnectionConfig(
@@ -276,6 +278,7 @@ def test_target_connection_data_factory_build_conn_data_ether_basic_3_ok(mocker)
     for querier in queriers:
         factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
             querier,
+            mocker.Mock(),
             mocker.Mock(),
         )
 
@@ -357,6 +360,7 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_1_ok(mocker
     for querier in queriers:
         factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
             querier,
+            mocker.Mock(),
             mocker.Mock(),
         )
 
@@ -442,6 +446,7 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_2_ok(mocker
     for querier in queriers:
         factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
             querier,
+            mocker.Mock(),
             mocker.Mock(),
         )
 
@@ -537,6 +542,7 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_3_ok(mocker
     for querier in queriers:
         factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
             querier,
+            mocker.Mock(),
             mocker.Mock(),
         )
 
@@ -640,6 +646,7 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_4_ok(mocker
         factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
             querier,
             mocker.Mock(),
+            mocker.Mock(),
         )
 
         conn_config = net_config.BridgeConnectionConfig(
@@ -719,6 +726,7 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_5_ok(mocker
     for querier in queriers:
         factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
             querier,
+            mocker.Mock(),
             mocker.Mock(),
         )
 
@@ -809,6 +817,7 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_6_ok(mocker
     for querier in queriers:
         factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
             querier,
+            mocker.Mock(),
             mocker.Mock(),
         )
 

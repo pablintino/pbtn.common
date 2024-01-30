@@ -87,18 +87,12 @@ class NetworkManagerConfigurator(
         return uuid.group() if uuid else None
 
     def _delete_connections(
-        self, connections: typing.List[typing.Union[typing.Dict[str, typing.Any], str]]
+        self, connections: typing.List[typing.Dict[str, typing.Any]]
     ) -> int:
-        if all(isinstance(item, str) for item in connections):
-            uuids = set(connections)
-        elif all(isinstance(item, dict) for item in connections):
-            uuids = {
-                conn_data[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]
-                for conn_data in connections
-            }
-        else:
-            raise ValueError(f"unexpected connections type {type(connections)}")
-
+        uuids = {
+            conn_data[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]
+            for conn_data in connections
+        }
         for conn_uuid in uuids:
             self._command_fn(
                 [
@@ -293,7 +287,6 @@ class NetworkManagerConfigurator(
     def configure(
         self,
         conn_config: net_config.MainConnectionConfig,
-        config_session: nmcli_interface_types.ConfigurationSession,
     ) -> nmcli_interface_types.MainConfigurationResult:
         target_connection_data = (
             self._target_connection_data_factory.build_target_connection_data(
@@ -301,7 +294,7 @@ class NetworkManagerConfigurator(
             )
         )
         delete_conn_list = self._target_connection_data_factory.build_delete_conn_list(
-            target_connection_data, config_session
+            target_connection_data
         )
 
         delete_count = self._delete_connections(delete_conn_list)
