@@ -15,6 +15,7 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
 @dataclasses.dataclass
 class NetworkManagerConfiguratorOptions:
     state_apply_timeout_secs: int = 180
+    state_apply_poll_secs: float = 5
 
 
 class ConnectionConfigurationResult:

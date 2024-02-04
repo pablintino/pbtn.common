@@ -378,3 +378,97 @@ def test_nmcli_interface_ethernet_network_manager_configurator_3_ok(
     __test_assert_target_connection_data_factory_calls(
         target_connection_data_factory, conn_config
     )
+
+
+def test_nmcli_interface_ethernet_network_manager_configurator_4_ok(
+    command_mocker_builder, mocker
+):
+    """
+    Tests that the EthernetNetworkManagerConfigurator is able to configure
+    a simple new Ethernet connection with a given explicit state that
+    requires some time to become active.
+
+    :param command_mocker_builder: The pytest mocked command runner fixture
+    :param mocker: The pytest mocker fixture
+    """
+    conn_config = net_config.EthernetConnectionConfig(
+        conn_name="new-conn-name",
+        raw_config={"type": "ethernet", "iface": "eth0", "state": "up"},
+        ip_links=[],
+        connection_config_factory=mocker.Mock(),
+    )
+
+    target_connection_data = (
+        nmcli_interface_target_connection.TargetConnectionData.Builder(
+            {},
+            conn_config,
+        ).build()
+    )
+    target_connection_data_factory_delete_uuids = []
+    target_connection_data_factory = __build_mocked_target_connection_data_factory(
+        mocker, target_connection_data, target_connection_data_factory_delete_uuids
+    )
+    conn_uuid = "fb157a65-ad32-47ed-858c-102a48e064a2"
+    result_conn_data = {
+        "connection.uuid": conn_uuid,
+    }
+    querier = __build_mocked_nmcli_querier(
+        mocker,
+        [
+            MockedNmcliQuerierStackEntry(
+                result_conn_data,
+                True,
+            ),
+            # Add a second call to mock the need
+            # of a retry waiting for activation.
+            MockedNmcliQuerierStackEntry(
+                result_conn_data,
+                True,
+            ),
+            MockedNmcliQuerierStackEntry(
+                {
+                    **result_conn_data,
+                    "general.state": "activated",
+                },
+                True,
+            ),
+        ],
+    )
+    nmcli_computed_args = ["nmcli-arg", "nmcli-value"]
+    command_mocker = command_mocker_builder.build()
+    for delete_uuid in target_connection_data_factory_delete_uuids:
+        command_mocker.add_call_definition(
+            MockCall(["nmcli", "connection", "delete", delete_uuid], True),
+        )
+    command_mocker.add_call_definition(
+        MockCall(["nmcli", "connection", "add"] + nmcli_computed_args, True),
+        stdout=f"Connection '{conn_config.name}' ({conn_uuid}) successfully added.",
+    )
+    command_mocker.add_call_definition(
+        MockCall(["nmcli", "connection", "up", conn_uuid], True), rc=0
+    )
+    configurator = nmcli_interface.EthernetNetworkManagerConfigurator(
+        command_mocker.run,
+        querier,
+        __build_mocked_builder_factory(
+            mocker,
+            conn_config,
+            target_connection_data,
+            nmcli_arg_list=nmcli_computed_args,
+        ),
+        target_connection_data_factory,
+        __build_mocked_ip_interface(mocker, conn_config),
+        options=nmcli_interface_types.NetworkManagerConfiguratorOptions(
+            state_apply_timeout_secs=2, state_apply_poll_secs=0.25
+        ),
+    )
+
+    result = configurator.configure(conn_config)
+
+    # Make assertions
+    __test_assert_configuration_result(
+        conn_config, result_conn_data, nmcli_computed_args, result
+    )
+    __test_assert_target_connection_data_factory_calls(
+        target_connection_data_factory, conn_config
+    )

@@ -147,8 +147,10 @@ class NetworkManagerConfigurator(
                     conn_name=conn_name,
                 )
             else:
-                remaining_time_secs = remaining_time_secs - 5
-                time.sleep(5)
+                remaining_time_secs = (
+                    remaining_time_secs - self._options.state_apply_poll_secs
+                )
+                time.sleep(self._options.state_apply_poll_secs)
 
     def _apply_builder_args(
         self, builder_args: typing.List[str], conn_name: str, conn_uuid: str = None
