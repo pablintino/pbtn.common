@@ -89,10 +89,10 @@ class NetworkManagerConfigurator(
     def _delete_connections(
         self, connections: typing.List[typing.Dict[str, typing.Any]]
     ) -> int:
-        uuids = {
+        uuids = [
             conn_data[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]
             for conn_data in connections
-        }
+        ]
         for conn_uuid in uuids:
             self._command_fn(
                 [
@@ -104,7 +104,9 @@ class NetworkManagerConfigurator(
             )
         return len(uuids)
 
-    def _apply_connection_state(self, conn_uuid: str, conn_name: str, up: bool):
+    def _apply_connection_state(
+        self, conn_uuid: str, conn_name: str, up: bool
+    ) -> typing.Dict[str, typing.Any]:
         # Command the state change
         try:
             self._command_fn(
@@ -126,7 +128,9 @@ class NetworkManagerConfigurator(
 
         remaining_time_secs = self._options.state_apply_timeout_secs
         while True:
-            conn_data = self._nmcli_querier.get_connection_details(conn_uuid)
+            conn_data = self._nmcli_querier.get_connection_details(
+                conn_uuid, check_exists=True
+            )
             if (up and nmcli_filters.is_connection_active(conn_data)) or (
                 (not up) and (not nmcli_filters.is_connection_active(conn_data))
             ):
@@ -134,7 +138,7 @@ class NetworkManagerConfigurator(
                 # Note: down is not that "clear" as usually the state field is not even
                 # present.
                 # There is no explicit state saying state is "down"
-                return
+                return conn_data
             elif remaining_time_secs <= 0:
                 raise nmcli_interface_exceptions.NmcliInterfaceApplyException(
                     f"Cannot change the state of connection '{conn_name} in "
@@ -230,17 +234,13 @@ class NetworkManagerConfigurator(
         ) or (in_target_state and not connection_configuration_result.changed):
             return
 
-        self._apply_connection_state(
+        conn_data = self._apply_connection_state(
             connection_configuration_result.uuid,
             connection_configuration_result.applied_config.name,
             should_up,
         )
 
-        connection_configuration_result.status = (
-            self._nmcli_querier.get_connection_details(
-                connection_configuration_result.uuid, check_exists=True
-            )
-        )
+        connection_configuration_result.status = conn_data
         connection_configuration_result.set_changed()
 
     def __enforce_connection_state_should_enforce_adopted(
