@@ -29,14 +29,18 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import
 # TODO List
 # - Validate slaves, VLANs and Ethernet need their checks on the link
 # - Validate that multiple connections don't use the same interface :) (config)
-# - Think about ensuring interface name is always given in config. We only
-#   need to generate it there instead of here
 
 
 @dataclasses.dataclass
-class TargetLinksData:
+class ConnectionLinksData:
     target_link: typing.Optional[ip_interface.IPLinkData]
     master_link: typing.Optional[ip_interface.IPLinkData]
+
+
+@dataclasses.dataclass
+class TargetConnectionsLinksData:
+    main_conn_link_data: ConnectionLinksData
+    slaves_conn_link_data: typing.List[ConnectionLinksData]
 
 
 class NetworkManagerConfigurator(
@@ -66,7 +70,7 @@ class NetworkManagerConfigurator(
 
     def _get_link_by_ifname(
         self, interface_name: str
-    ) -> typing.Optional[TargetLinksData]:
+    ) -> typing.Optional[ip_interface.IPLinkData]:
         return next(
             (
                 ip_link
@@ -267,14 +271,14 @@ class NetworkManagerConfigurator(
     def _validate(
         self,
         target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
-        target_links: TargetLinksData,
+        target_links: TargetConnectionsLinksData,
     ):
         pass
 
     @abc.abstractmethod
     def _fetch_links(
         self, conn_config: net_config.MainConnectionConfig
-    ) -> TargetLinksData:
+    ) -> TargetConnectionsLinksData:
         pass
 
     @abc.abstractmethod
@@ -327,23 +331,25 @@ class IfaceBasedNetworkManagerConfigurator(
 ):  # pylint: disable=too-few-public-methods
     def _fetch_links(
         self, conn_config: net_config.MainConnectionConfig
-    ) -> TargetLinksData:
+    ) -> TargetConnectionsLinksData:
         target_link = (
             self._get_link_by_ifname(conn_config.interface.iface_name)
             if conn_config.interface
             else None
         )
-        return TargetLinksData(target_link, None)
+        return TargetConnectionsLinksData(ConnectionLinksData(target_link, None), [])
 
     def _validate(
         self,
         target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
-        target_links: TargetLinksData,
+        target_links: TargetConnectionsLinksData,
     ):
         super()._validate(target_connection_data, target_links)
         # This manager requires having a proper target link.
         # Ethernet and VLAN types, supported by this manager, must use it
-        if not target_links.target_link:
+        if (not target_links.main_conn_link_data) or (
+            not target_links.main_conn_link_data.target_link
+        ):
             raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
                 "Cannot determine the interface to use for "
                 f"{target_connection_data.conn_config.name} connection"
@@ -391,12 +397,16 @@ class VlanNetworkManagerConfigurator(
 
     def _fetch_links(
         self, conn_config: net_config.MainConnectionConfig
-    ) -> TargetLinksData:
+    ) -> TargetConnectionsLinksData:
         conn_config = typing.cast(net_config.VlanConnectionConfig, conn_config)
         vlan_iface_name = self.__get_iface_name(conn_config)
-        target_link = self._get_link_by_ifname(vlan_iface_name)
-        parent_link = self._get_link_by_ifname(conn_config.parent_interface.iface_name)
-        return TargetLinksData(target_link, parent_link)
+        return TargetConnectionsLinksData(
+            ConnectionLinksData(
+                self._get_link_by_ifname(vlan_iface_name),
+                self._get_link_by_ifname(conn_config.parent_interface.iface_name),
+            ),
+            [],
+        )
 
     def _configure(
         self,
@@ -427,29 +437,32 @@ class VlanNetworkManagerConfigurator(
     def _validate(
         self,
         target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
-        target_links: TargetLinksData,
+        target_links: TargetConnectionsLinksData,
     ):
         # DO NOT CALL SUPER: As it checks that target link exists, that is not
         # mandatory for VLAN connections.
         # This configurator requires having a proper main/parent link.
-        if not target_links.master_link:
+        if (not target_links.main_conn_link_data) or (
+            not target_links.main_conn_link_data.master_link
+        ):
             raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                f"Cannot determine the parent interface to use for {target_connection_data.conn_config.name} connection"
+                "Cannot determine the parent interface to use for "
+                f"{target_connection_data.conn_config.name} connection"
             )
 
 
-class BridgeNetworkManagerConfigurator(NetworkManagerConfigurator):
+class MainSlavesNetworkManagerConfigurator(NetworkManagerConfigurator):
     def _fetch_links(
         self, conn_config: net_config.MainConnectionConfig
-    ) -> TargetLinksData:
+    ) -> TargetConnectionsLinksData:
         target_link = (
             self._get_link_by_ifname(conn_config.interface.iface_name)
             if conn_config.interface
             else None
         )
-        return TargetLinksData(target_link, None)
+        return TargetConnectionsLinksData(ConnectionLinksData(target_link, None), [])
 
-    def __configure_slave(
+    def _configure_slave(
         self,
         slave_connection_data: nmcli_interface_target_connection.ConfigurableConnectionData,
         configuration_result: nmcli_interface_types.MainConfigurationResult,
@@ -478,16 +491,16 @@ class BridgeNetworkManagerConfigurator(NetworkManagerConfigurator):
         self,
         target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
     ) -> nmcli_interface_types.MainConfigurationResult:
-        configuration_result = self.__configure_main_connection(
+        configuration_result = self._configure_main_connection(
             target_connection_data,
         )
 
         for slave_connection_data in target_connection_data.slave_connections:
-            self.__configure_slave(slave_connection_data, configuration_result)
+            self._configure_slave(slave_connection_data, configuration_result)
 
         return configuration_result
 
-    def __configure_main_connection(
+    def _configure_main_connection(
         self,
         target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
     ) -> nmcli_interface_types.MainConfigurationResult:
@@ -511,6 +524,10 @@ class BridgeNetworkManagerConfigurator(NetworkManagerConfigurator):
         return nmcli_interface_types.MainConfigurationResult.from_result_required_data(
             uuid, changed, target_connection_data.conn_config
         )
+
+
+class BridgeNetworkManagerConfigurator(MainSlavesNetworkManagerConfigurator):
+    pass
 
 
 class NetworkManagerConfiguratorFactory:  # pylint: disable=too-few-public-methods
