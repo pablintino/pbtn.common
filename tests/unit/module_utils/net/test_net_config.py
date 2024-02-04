@@ -693,9 +693,11 @@ def test_net_config_ipx_route_missing_gw_fail(ip_version: int):
         else net_config.IPRouteConfig[ipaddress.IPv6Address, ipaddress.IPv6Network]
     )
     cfg_1 = {
-        "dst": str(config_stub_data.TEST_ROUTE_1_DST_IP4)
-        if ip_version == 4
-        else str(config_stub_data.TEST_ROUTE_1_DST_IP6)
+        "dst": (
+            str(config_stub_data.TEST_ROUTE_1_DST_IP4)
+            if ip_version == 4
+            else str(config_stub_data.TEST_ROUTE_1_DST_IP6)
+        )
     }
     with pytest.raises(exceptions.ValueInfraException) as err:
         ip_route_type(cfg_1, ip_version)
@@ -764,12 +766,16 @@ def test_net_config_ipx_route_invalid_metric_fail(ip_version: int):
         else net_config.IPRouteConfig[ipaddress.IPv6Address, ipaddress.IPv6Network]
     )
     base_cfg = {
-        "dst": str(config_stub_data.TEST_ROUTE_1_DST_IP4)
-        if ip_version == 4
-        else str(config_stub_data.TEST_ROUTE_1_DST_IP6),
-        "gw": str(config_stub_data.TEST_ROUTE_1_GW_IP4)
-        if ip_version == 4
-        else str(config_stub_data.TEST_ROUTE_1_GW_IP6),
+        "dst": (
+            str(config_stub_data.TEST_ROUTE_1_DST_IP4)
+            if ip_version == 4
+            else str(config_stub_data.TEST_ROUTE_1_DST_IP6)
+        ),
+        "gw": (
+            str(config_stub_data.TEST_ROUTE_1_GW_IP4)
+            if ip_version == 4
+            else str(config_stub_data.TEST_ROUTE_1_GW_IP6)
+        ),
     }
     with pytest.raises(exceptions.ValueInfraException) as err:
         ip_route_type({**base_cfg, "metric": 0}, ip_version)

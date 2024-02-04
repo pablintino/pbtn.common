@@ -86,7 +86,7 @@ class NetworkManagerConfigurator(
 
         return uuid.group() if uuid else None
 
-    def _delete_connections(
+    def __delete_connections(
         self, connections: typing.List[typing.Dict[str, typing.Any]]
     ) -> int:
         uuids = [
@@ -134,15 +134,14 @@ class NetworkManagerConfigurator(
             if (up and nmcli_filters.is_connection_active(conn_data)) or (
                 (not up) and (not nmcli_filters.is_connection_active(conn_data))
             ):
-                # Ready
+                # Reached the desired state
                 # Note: down is not that "clear" as usually the state field is not even
-                # present.
-                # There is no explicit state saying state is "down"
+                # present as there is no explicit state saying state is "down"
                 return conn_data
             elif remaining_time_secs <= 0:
                 raise nmcli_interface_exceptions.NmcliInterfaceApplyException(
-                    f"Cannot change the state of connection '{conn_name} in "
-                    f" the given time ({self._options.state_apply_timeout_secs} secs)'",
+                    f"Cannot change the state of connection '{conn_name}' in "
+                    f"the given time ({self._options.state_apply_timeout_secs} secs)",
                     conn_uuid=conn_uuid,
                     conn_name=conn_name,
                 )
@@ -161,8 +160,7 @@ class NetworkManagerConfigurator(
 
         cmd = ["nmcli", "connection"]
         if conn_uuid:
-            cmd.append("modify")
-            cmd.append(conn_uuid)
+            cmd.extend(("modify", conn_uuid))
         else:
             cmd.append("add")
         cmd.extend(builder_args)
@@ -245,8 +243,8 @@ class NetworkManagerConfigurator(
         connection_configuration_result.status = conn_data
         connection_configuration_result.set_changed()
 
+    @staticmethod
     def __enforce_connection_state_should_enforce_adopted(
-        self,
         connection_configuration_result: nmcli_interface_types.ConnectionConfigurationResult,
         target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
     ) -> bool:
@@ -290,16 +288,23 @@ class NetworkManagerConfigurator(
         self,
         conn_config: net_config.MainConnectionConfig,
     ) -> nmcli_interface_types.MainConfigurationResult:
+        # Fetch the target connection data for the connection to configure
+        # That's the set of configurations with their already existing connection
+        # data if it exists.
         target_connection_data = (
             self._target_connection_data_factory.build_target_connection_data(
                 conn_config
             )
         )
+
+        # Calculate the connections, that for some reason, as duplication,
+        # inactivity, type change, etc. need to be removed before
+        # configuring the current connection.
         delete_conn_list = self._target_connection_data_factory.build_delete_conn_list(
             target_connection_data
         )
 
-        delete_count = self._delete_connections(delete_conn_list)
+        delete_count = self.__delete_connections(delete_conn_list)
 
         # Validation, at manager level, comes after deletion as some
         # validations depends on the current connection to be dropped
