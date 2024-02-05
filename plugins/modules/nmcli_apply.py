@@ -18,6 +18,7 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
 from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
     nmcli_interface,
     nmcli_interface_args_builders,
+    nmcli_interface_link_validator,
     nmcli_interface_target_connection,
     nmcli_querier,
     nmcli_interface_types,
@@ -70,7 +71,7 @@ def main():
                 config_handler,
                 config_session,
             ),
-            ip_iface,
+            nmcli_interface_link_validator.NmcliLinkValidator(ip_iface),
         )
 
         config_handler.parse()

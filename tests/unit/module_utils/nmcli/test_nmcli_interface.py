@@ -55,19 +55,6 @@ def __build_mocked_target_connection_data_factory(
     return target_connection_data_factory
 
 
-def __build_mocked_ip_interface(mocker, conn_config, ip_links=None):
-    ip_face = mocker.Mock()
-    links = ip_links or []
-    ip_face.get_ip_links.return_value = links
-    if ip_links is None:
-        if isinstance(conn_config, net_config.EthernetConnectionConfig):
-            links.append(
-                ip_interface.IPLinkData({"ifname": conn_config.interface.iface_name})
-            )
-
-    return ip_face
-
-
 def __build_mocked_builder_factory(
     mocker,
     test_conn_config,
@@ -202,7 +189,7 @@ def test_nmcli_interface_ethernet_network_manager_configurator_1_ok(
             nmcli_arg_list=nmcli_computed_args,
         ),
         target_connection_data_factory,
-        __build_mocked_ip_interface(mocker, conn_config),
+        mocker.Mock(),
     )
 
     result = configurator.configure(conn_config)
@@ -289,7 +276,7 @@ def test_nmcli_interface_ethernet_network_manager_configurator_2_ok(
             nmcli_arg_list=nmcli_computed_args,
         ),
         target_connection_data_factory,
-        __build_mocked_ip_interface(mocker, conn_config),
+        mocker.Mock(),
     )
 
     result = configurator.configure(conn_config)
@@ -366,7 +353,7 @@ def test_nmcli_interface_ethernet_network_manager_configurator_3_ok(
             nmcli_arg_list=nmcli_computed_args,
         ),
         target_connection_data_factory,
-        __build_mocked_ip_interface(mocker, conn_config),
+        mocker.Mock(),
     )
 
     result = configurator.configure(conn_config)
@@ -456,7 +443,7 @@ def test_nmcli_interface_ethernet_network_manager_configurator_4_ok(
             nmcli_arg_list=nmcli_computed_args,
         ),
         target_connection_data_factory,
-        __build_mocked_ip_interface(mocker, conn_config),
+        mocker.Mock(),
         options=nmcli_interface_types.NetworkManagerConfiguratorOptions(
             state_apply_timeout_secs=2, state_apply_poll_secs=0.25
         ),
@@ -530,7 +517,7 @@ def test_nmcli_interface_ethernet_network_manager_configurator_5_ok(
             nmcli_arg_list=nmcli_computed_args,
         ),
         target_connection_data_factory,
-        __build_mocked_ip_interface(mocker, conn_config),
+        mocker.Mock(),
     )
 
     result = configurator.configure(conn_config)
@@ -622,7 +609,7 @@ def test_nmcli_interface_ethernet_network_manager_configurator_6_ok(
             nmcli_arg_list=nmcli_computed_args,
         ),
         target_connection_data_factory,
-        __build_mocked_ip_interface(mocker, conn_config),
+        mocker.Mock(),
         options=nmcli_interface_types.NetworkManagerConfiguratorOptions(
             state_apply_timeout_secs=2, state_apply_poll_secs=0.25
         ),
@@ -714,7 +701,7 @@ def test_nmcli_interface_ethernet_network_manager_configurator_7_fail(
             nmcli_arg_list=nmcli_computed_args,
         ),
         target_connection_data_factory,
-        __build_mocked_ip_interface(mocker, conn_config),
+        mocker.Mock(),
     )
 
     with pytest.raises(nmcli_interface_exceptions.NmcliInterfaceApplyException) as err:
@@ -789,7 +776,7 @@ def test_nmcli_interface_ethernet_network_manager_configurator_8_fail(
             nmcli_arg_list=nmcli_computed_args,
         ),
         target_connection_data_factory,
-        __build_mocked_ip_interface(mocker, conn_config),
+        mocker.Mock(),
         options=nmcli_interface_types.NetworkManagerConfiguratorOptions(
             state_apply_timeout_secs=1, state_apply_poll_secs=0.5
         ),
@@ -871,7 +858,7 @@ def test_nmcli_interface_ethernet_network_manager_configurator_9_fail(
             nmcli_arg_list=nmcli_computed_args,
         ),
         target_connection_data_factory,
-        __build_mocked_ip_interface(mocker, conn_config),
+        mocker.Mock(),
     )
 
     with pytest.raises(nmcli_interface_exceptions.NmcliInterfaceApplyException) as err:
@@ -912,32 +899,22 @@ def test_nmcli_interface_ethernet_network_manager_configurator_10_fail(
     target_connection_data_factory = __build_mocked_target_connection_data_factory(
         mocker, target_connection_data, target_connection_data_factory_delete_uuids
     )
-    conn_uuid = "fb157a65-ad32-47ed-858c-102a48e064a2"
-    result_conn_data = {
-        "connection.uuid": conn_uuid,
-    }
-    returned_mocked_connections = [
-        MockedNmcliQuerierStackEntry(
-            result_conn_data,
-            True,
-        )
-        for _ in range(2)
-    ]
-    querier = __build_mocked_nmcli_querier(
-        mocker,
-        returned_mocked_connections,
+
+    link_validator_mock = mocker.Mock()
+    validation_exception = nmcli_interface_exceptions.NmcliInterfaceValidationException(
+        "Validation error"
     )
+    link_validator_mock.validate_mandatory_links.side_effect = validation_exception
     configurator = nmcli_interface.EthernetNetworkManagerConfigurator(
         mocker.Mock(),
-        querier,
+        mocker.Mock(),
         __build_mocked_builder_factory(
             mocker,
             conn_config,
             target_connection_data,
         ),
         target_connection_data_factory,
-        # Pass and empty ip_links list to avoid returning the connection based one
-        __build_mocked_ip_interface(mocker, conn_config, ip_links=[]),
+        link_validator_mock,
     )
 
     with pytest.raises(
@@ -945,7 +922,5 @@ def test_nmcli_interface_ethernet_network_manager_configurator_10_fail(
     ) as err:
         configurator.configure(conn_config)
 
-    assert (
-        err.value.msg
-        == f"Cannot determine the interface to use for {conn_config.name} connection"
-    )
+    assert err.value == validation_exception
+    link_validator_mock.validate_mandatory_links.assert_called_once_with(conn_config)

@@ -3,13 +3,11 @@ from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
 import abc
-import dataclasses
 import re
 import time
 import typing
 
 from ansible_collections.pablintino.base_infra.plugins.module_utils import (
-    ip_interface,
     module_command_utils,
 )
 from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
@@ -21,26 +19,14 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import
     nmcli_querier,
     nmcli_interface_args_builders,
     nmcli_interface_exceptions,
+    nmcli_interface_link_validator,
     nmcli_interface_target_connection,
     nmcli_interface_types,
 )
 
 
 # TODO List
-# - Validate slaves, VLANs and Ethernet need their checks on the link
 # - Validate that multiple connections don't use the same interface :) (config)
-
-
-@dataclasses.dataclass
-class ConnectionLinksData:
-    target_link: typing.Optional[ip_interface.IPLinkData]
-    master_link: typing.Optional[ip_interface.IPLinkData]
-
-
-@dataclasses.dataclass
-class TargetConnectionsLinksData:
-    main_conn_link_data: ConnectionLinksData
-    slaves_conn_link_data: typing.List[ConnectionLinksData]
 
 
 class NetworkManagerConfigurator(
@@ -56,29 +42,17 @@ class NetworkManagerConfigurator(
         querier: nmcli_querier.NetworkManagerQuerier,
         builder_factory: nmcli_interface_args_builders.NmcliArgsBuilderFactoryType,
         target_connection_data_factory: nmcli_interface_target_connection.TargetConnectionDataFactory,
-        ip_iface: ip_interface.IPInterface,
+        link_validator: nmcli_interface_link_validator.NmcliLinkValidator,
         options: nmcli_interface_types.NetworkManagerConfiguratorOptions = None,
     ):
         self._command_fn = command_fn
         self._nmcli_querier = querier
         self._builder_factory = builder_factory
-        self._ip_iface = ip_iface
         self._options = (
             options or nmcli_interface_types.NetworkManagerConfiguratorOptions()
         )
         self._target_connection_data_factory = target_connection_data_factory
-
-    def _get_link_by_ifname(
-        self, interface_name: str
-    ) -> typing.Optional[ip_interface.IPLinkData]:
-        return next(
-            (
-                ip_link
-                for ip_link in self._ip_iface.get_ip_links()
-                if ip_link.if_name == interface_name.lower()
-            ),
-            None,
-        )
+        self._link_validator = link_validator
 
     @classmethod
     def _parse_connection_uuid_from_output(cls, output: str) -> str:
@@ -271,15 +245,10 @@ class NetworkManagerConfigurator(
     def _validate(
         self,
         target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
-        target_links: TargetConnectionsLinksData,
     ):
-        pass
-
-    @abc.abstractmethod
-    def _fetch_links(
-        self, conn_config: net_config.MainConnectionConfig
-    ) -> TargetConnectionsLinksData:
-        pass
+        self._link_validator.validate_mandatory_links(
+            target_connection_data.conn_config
+        )
 
     @abc.abstractmethod
     def _configure(
@@ -313,8 +282,7 @@ class NetworkManagerConfigurator(
         # Validation, at manager level, comes after deletion as some
         # validations depends on the current connection to be dropped
         # if a type change is needed
-        target_links = self._fetch_links(conn_config)
-        self._validate(target_connection_data, target_links)
+        self._validate(target_connection_data)
 
         configuration_result = self._configure(target_connection_data)
         self.__enforce_connection_states(configuration_result, target_connection_data)
@@ -329,32 +297,6 @@ class NetworkManagerConfigurator(
 class IfaceBasedNetworkManagerConfigurator(
     NetworkManagerConfigurator
 ):  # pylint: disable=too-few-public-methods
-    def _fetch_links(
-        self, conn_config: net_config.MainConnectionConfig
-    ) -> TargetConnectionsLinksData:
-        target_link = (
-            self._get_link_by_ifname(conn_config.interface.iface_name)
-            if conn_config.interface
-            else None
-        )
-        return TargetConnectionsLinksData(ConnectionLinksData(target_link, None), [])
-
-    def _validate(
-        self,
-        target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
-        target_links: TargetConnectionsLinksData,
-    ):
-        super()._validate(target_connection_data, target_links)
-        # This manager requires having a proper target link.
-        # Ethernet and VLAN types, supported by this manager, must use it
-        if (not target_links.main_conn_link_data) or (
-            not target_links.main_conn_link_data.target_link
-        ):
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                "Cannot determine the interface to use for "
-                f"{target_connection_data.conn_config.name} connection"
-            )
-
     def _configure(
         self,
         target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
@@ -395,19 +337,6 @@ class VlanNetworkManagerConfigurator(
             else f"{conn_config.parent_interface}.{conn_config.vlan_id}"
         )
 
-    def _fetch_links(
-        self, conn_config: net_config.MainConnectionConfig
-    ) -> TargetConnectionsLinksData:
-        conn_config = typing.cast(net_config.VlanConnectionConfig, conn_config)
-        vlan_iface_name = self.__get_iface_name(conn_config)
-        return TargetConnectionsLinksData(
-            ConnectionLinksData(
-                self._get_link_by_ifname(vlan_iface_name),
-                self._get_link_by_ifname(conn_config.parent_interface.iface_name),
-            ),
-            [],
-        )
-
     def _configure(
         self,
         target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
@@ -434,34 +363,8 @@ class VlanNetworkManagerConfigurator(
             uuid, changed, target_connection_data.conn_config
         )
 
-    def _validate(
-        self,
-        target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
-        target_links: TargetConnectionsLinksData,
-    ):
-        # DO NOT CALL SUPER: As it checks that target link exists, that is not
-        # mandatory for VLAN connections.
-        # This configurator requires having a proper main/parent link.
-        if (not target_links.main_conn_link_data) or (
-            not target_links.main_conn_link_data.master_link
-        ):
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                "Cannot determine the parent interface to use for "
-                f"{target_connection_data.conn_config.name} connection"
-            )
-
 
 class MainSlavesNetworkManagerConfigurator(NetworkManagerConfigurator):
-    def _fetch_links(
-        self, conn_config: net_config.MainConnectionConfig
-    ) -> TargetConnectionsLinksData:
-        target_link = (
-            self._get_link_by_ifname(conn_config.interface.iface_name)
-            if conn_config.interface
-            else None
-        )
-        return TargetConnectionsLinksData(ConnectionLinksData(target_link, None), [])
-
     def _configure_slave(
         self,
         slave_connection_data: nmcli_interface_target_connection.ConfigurableConnectionData,
@@ -545,13 +448,13 @@ class NetworkManagerConfiguratorFactory:  # pylint: disable=too-few-public-metho
         querier: nmcli_querier.NetworkManagerQuerier,
         builder_factory: nmcli_interface_args_builders.NmcliArgsBuilderFactoryType,
         target_connection_data_factory: nmcli_interface_target_connection.TargetConnectionDataFactory,
-        ip_iface: ip_interface.IPInterface,
+        link_validator: nmcli_interface_link_validator.NmcliLinkValidator,
     ):
         self.__runner_fn = runner_fn
         self.__nmcli_querier = querier
         self.__builder_factory = builder_factory
         self.__target_connection_data_factory = target_connection_data_factory
-        self.__ip_iface = ip_iface
+        self.__link_validator = link_validator
 
     def build_configurator(
         self,
@@ -572,6 +475,6 @@ class NetworkManagerConfiguratorFactory:  # pylint: disable=too-few-public-metho
             self.__nmcli_querier,
             self.__builder_factory,
             self.__target_connection_data_factory,
-            self.__ip_iface,
+            self.__link_validator,
             options=options,
         )
