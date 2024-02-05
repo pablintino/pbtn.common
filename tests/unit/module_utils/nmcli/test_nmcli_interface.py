@@ -2,12 +2,6 @@ import dataclasses
 import typing
 
 import pytest
-from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_utils.command_mocker import (
-    MockCall,
-)
-from ansible_collections.pablintino.base_infra.plugins.module_utils import (
-    ip_interface,
-)
 from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
     net_config,
 )
@@ -16,6 +10,9 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import
     nmcli_interface_exceptions,
     nmcli_interface_target_connection,
     nmcli_interface_types,
+)
+from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_utils.command_mocker import (
+    MockCall,
 )
 
 
@@ -115,11 +112,11 @@ def __build_mocked_nmcli_querier(
     return mocked_querier
 
 
-def test_nmcli_interface_ethernet_network_manager_configurator_1_ok(
+def test_nmcli_interface_network_manager_configurator_single_conn_1_ok(
     command_mocker_builder, mocker
 ):
     """
-    Tests that the EthernetNetworkManagerConfigurator is able to configure
+    Tests that the NetworkManagerConfigurator is able to configure
     a simple new Ethernet connection with a given explicit state.
     This test enforces the deletion of already existing connections that
     should be deleted before creating the new connection.
@@ -179,7 +176,7 @@ def test_nmcli_interface_ethernet_network_manager_configurator_1_ok(
     command_mocker.add_call_definition(
         MockCall(["nmcli", "connection", "up", conn_uuid], True)
     )
-    configurator = nmcli_interface.EthernetNetworkManagerConfigurator(
+    configurator = nmcli_interface.NetworkManagerConfigurator(
         command_mocker.run,
         querier,
         __build_mocked_builder_factory(
@@ -203,12 +200,12 @@ def test_nmcli_interface_ethernet_network_manager_configurator_1_ok(
     )
 
 
-def test_nmcli_interface_ethernet_network_manager_configurator_2_ok(
+def test_nmcli_interface_network_manager_configurator_single_conn_2_ok(
     command_mocker_builder, mocker
 ):
     """
-    Tests that the EthernetNetworkManagerConfigurator is able to configure
-    a simple reused Ethernet connection with a given explicit state.
+    Tests that the NetworkManagerConfigurator is able to configure a simple,
+    reused, Ethernet connection with a given explicit state.
     :param command_mocker_builder: The pytest mocked command runner fixture
     :param mocker: The pytest mocker fixture
     """
@@ -266,7 +263,7 @@ def test_nmcli_interface_ethernet_network_manager_configurator_2_ok(
         MockCall(["nmcli", "connection", "up", conn_uuid], True)
     )
 
-    configurator = nmcli_interface.EthernetNetworkManagerConfigurator(
+    configurator = nmcli_interface.NetworkManagerConfigurator(
         command_mocker.run,
         querier,
         __build_mocked_builder_factory(
@@ -290,12 +287,12 @@ def test_nmcli_interface_ethernet_network_manager_configurator_2_ok(
     )
 
 
-def test_nmcli_interface_ethernet_network_manager_configurator_3_ok(
+def test_nmcli_interface_network_manager_configurator_single_conn_3_ok(
     command_mocker_builder, mocker
 ):
     """
-    Tests that the EthernetNetworkManagerConfigurator is able to configure
-    a simple Ethernet connection that already matches the desired state.
+    Tests that the NetworkManagerConfigurator is able to configure a simple
+    Ethernet connection that already matches the desired state.
     No changes should be applied in this case.
     :param command_mocker_builder: The pytest mocked command runner fixture
     :param mocker: The pytest mocker fixture
@@ -343,7 +340,7 @@ def test_nmcli_interface_ethernet_network_manager_configurator_3_ok(
     )
     command_mocker = command_mocker_builder.build()
     nmcli_computed_args = []
-    configurator = nmcli_interface.EthernetNetworkManagerConfigurator(
+    configurator = nmcli_interface.NetworkManagerConfigurator(
         command_mocker.run,
         querier,
         __build_mocked_builder_factory(
@@ -370,13 +367,13 @@ def test_nmcli_interface_ethernet_network_manager_configurator_3_ok(
     )
 
 
-def test_nmcli_interface_ethernet_network_manager_configurator_4_ok(
+def test_nmcli_interface_network_manager_configurator_single_conn_4_ok(
     command_mocker_builder, mocker
 ):
     """
-    Tests that the EthernetNetworkManagerConfigurator is able to configure
-    a simple new Ethernet connection with a given explicit state that
-    requires some time to become active.
+    Tests that the NetworkManagerConfigurator is able to configure a simple new
+    Ethernet connection with a given explicit state that requires some time
+    to become active.
 
     :param command_mocker_builder: The pytest mocked command runner fixture
     :param mocker: The pytest mocker fixture
@@ -433,7 +430,7 @@ def test_nmcli_interface_ethernet_network_manager_configurator_4_ok(
     command_mocker.add_call_definition(
         MockCall(["nmcli", "connection", "up", conn_uuid], True), rc=0
     )
-    configurator = nmcli_interface.EthernetNetworkManagerConfigurator(
+    configurator = nmcli_interface.NetworkManagerConfigurator(
         command_mocker.run,
         querier,
         __build_mocked_builder_factory(
@@ -460,12 +457,12 @@ def test_nmcli_interface_ethernet_network_manager_configurator_4_ok(
     )
 
 
-def test_nmcli_interface_ethernet_network_manager_configurator_5_ok(
+def test_nmcli_interface_network_manager_configurator_single_conn_5_ok(
     command_mocker_builder, mocker
 ):
     """
-    Tests that the EthernetNetworkManagerConfigurator is able to configure
-    a simple new Ethernet connection without a given explicit state.
+    Tests that the NetworkManagerConfigurator is able to configure a simple new
+    Ethernet connection without a given explicit state.
 
     :param command_mocker_builder: The pytest mocked command runner fixture
     :param mocker: The pytest mocker fixture
@@ -507,7 +504,7 @@ def test_nmcli_interface_ethernet_network_manager_configurator_5_ok(
         MockCall(["nmcli", "connection", "add"] + nmcli_computed_args, True),
         stdout=f"Connection '{conn_config.name}' ({conn_uuid}) successfully added.",
     )
-    configurator = nmcli_interface.EthernetNetworkManagerConfigurator(
+    configurator = nmcli_interface.NetworkManagerConfigurator(
         command_mocker.run,
         querier,
         __build_mocked_builder_factory(
@@ -531,12 +528,12 @@ def test_nmcli_interface_ethernet_network_manager_configurator_5_ok(
     )
 
 
-def test_nmcli_interface_ethernet_network_manager_configurator_6_ok(
+def test_nmcli_interface_network_manager_configurator_single_conn_6_ok(
     command_mocker_builder, mocker
 ):
     """
-    Tests that the EthernetNetworkManagerConfigurator is able to configure
-    a simple new Ethernet connection and turn it down.
+    Tests that the NetworkManagerConfigurator is able to configure a simple new
+    Ethernet connection and turn it down.
     The deactivation process simulates that it requires sometime becoming
     inactive.
 
@@ -599,7 +596,7 @@ def test_nmcli_interface_ethernet_network_manager_configurator_6_ok(
     command_mocker.add_call_definition(
         MockCall(["nmcli", "connection", "down", conn_uuid], True), rc=0
     )
-    configurator = nmcli_interface.EthernetNetworkManagerConfigurator(
+    configurator = nmcli_interface.NetworkManagerConfigurator(
         command_mocker.run,
         querier,
         __build_mocked_builder_factory(
@@ -626,12 +623,12 @@ def test_nmcli_interface_ethernet_network_manager_configurator_6_ok(
     )
 
 
-def test_nmcli_interface_ethernet_network_manager_configurator_7_fail(
+def test_nmcli_interface_network_manager_configurator_apply_args_fail(
     command_mocker_builder, mocker
 ):
     """
-    Tests that the EthernetNetworkManagerConfigurator properly handles
-    a failure of the underneath NM call during the creation of the connection.
+    Tests that the NetworkManagerConfigurator properly handles a failure
+    of the underneath NM call during the creation of the connection.
 
     :param command_mocker_builder: The pytest mocked command runner fixture
     :param mocker: The pytest mocker fixture
@@ -691,7 +688,7 @@ def test_nmcli_interface_ethernet_network_manager_configurator_7_fail(
         rc=1,
     )
 
-    configurator = nmcli_interface.EthernetNetworkManagerConfigurator(
+    configurator = nmcli_interface.NetworkManagerConfigurator(
         command_mocker.run,
         querier,
         __build_mocked_builder_factory(
@@ -714,13 +711,13 @@ def test_nmcli_interface_ethernet_network_manager_configurator_7_fail(
     assert err.value.cmd == nmcli_expected_cmd
 
 
-def test_nmcli_interface_ethernet_network_manager_configurator_8_fail(
+def test_nmcli_interface_network_manager_configurator_state_timeout_fail(
     command_mocker_builder, mocker
 ):
     """
-    Tests that the EthernetNetworkManagerConfigurator is able to handle
-    a simple new Ethernet connection that is not able to become
-    active in the given time.
+    Tests that the NetworkManagerConfigurator is able to handle a
+    failure because of the connection not being able to active in
+    the given time.
 
     :param command_mocker_builder: The pytest mocked command runner fixture
     :param mocker: The pytest mocker fixture
@@ -766,7 +763,7 @@ def test_nmcli_interface_ethernet_network_manager_configurator_8_fail(
     command_mocker.add_call_definition(
         MockCall(["nmcli", "connection", "up", conn_uuid], True), rc=0
     )
-    configurator = nmcli_interface.EthernetNetworkManagerConfigurator(
+    configurator = nmcli_interface.NetworkManagerConfigurator(
         command_mocker.run,
         querier,
         __build_mocked_builder_factory(
@@ -793,13 +790,12 @@ def test_nmcli_interface_ethernet_network_manager_configurator_8_fail(
     )
 
 
-def test_nmcli_interface_ethernet_network_manager_configurator_9_fail(
+def test_nmcli_interface_network_manager_configurator_activation_failure_fail(
     command_mocker_builder, mocker
 ):
     """
-    Tests that the EthernetNetworkManagerConfigurator is able to handle
-    a simple new Ethernet connection that is not able to become
-    active because an error raises activating the connection.
+    Tests that the NetworkManagerConfigurator is able to handle a failure
+    during the activation of the connection being configured.
 
     :param command_mocker_builder: The pytest mocked command runner fixture
     :param mocker: The pytest mocker fixture
@@ -848,7 +844,7 @@ def test_nmcli_interface_ethernet_network_manager_configurator_9_fail(
         stdout="Stdout text",
         stderr="Stderr text",
     )
-    configurator = nmcli_interface.EthernetNetworkManagerConfigurator(
+    configurator = nmcli_interface.NetworkManagerConfigurator(
         command_mocker.run,
         querier,
         __build_mocked_builder_factory(
@@ -872,12 +868,12 @@ def test_nmcli_interface_ethernet_network_manager_configurator_9_fail(
     )
 
 
-def test_nmcli_interface_ethernet_network_manager_configurator_10_fail(
+def test_nmcli_interface_network_manager_configurator_link_validation_fail(
     command_mocker_builder, mocker
 ):
     """
-    Tests that the EthernetNetworkManagerConfigurator is able to handle
-    a simple new Ethernet connection that points to a non-existing link.
+    Tests that the NetworkManagerConfigurator properly validates the links
+    of a connection and passes the errors up.
 
     :param command_mocker_builder: The pytest mocked command runner fixture
     :param mocker: The pytest mocker fixture
@@ -905,7 +901,7 @@ def test_nmcli_interface_ethernet_network_manager_configurator_10_fail(
         "Validation error"
     )
     link_validator_mock.validate_mandatory_links.side_effect = validation_exception
-    configurator = nmcli_interface.EthernetNetworkManagerConfigurator(
+    configurator = nmcli_interface.NetworkManagerConfigurator(
         mocker.Mock(),
         mocker.Mock(),
         __build_mocked_builder_factory(

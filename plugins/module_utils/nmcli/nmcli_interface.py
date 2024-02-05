@@ -2,7 +2,6 @@ from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
-import abc
 import re
 import time
 import typing
@@ -29,9 +28,7 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import
 # - Validate that multiple connections don't use the same interface :) (config)
 
 
-class NetworkManagerConfigurator(
-    metaclass=abc.ABCMeta
-):  # pylint: disable=too-few-public-methods
+class NetworkManagerConfigurator:  # pylint: disable=too-few-public-methods
     __NETWORK_MANAGER_CONFIGURATOR_REGEX_UUID = (
         r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
     )
@@ -250,12 +247,68 @@ class NetworkManagerConfigurator(
             target_connection_data.conn_config
         )
 
-    @abc.abstractmethod
+    def _configure_slave(
+        self,
+        slave_connection_data: nmcli_interface_target_connection.ConfigurableConnectionData,
+        configuration_result: nmcli_interface_types.MainConfigurationResult,
+    ):
+        conn_config = typing.cast(
+            net_config.SlaveConnectionConfig,
+            slave_connection_data.conn_config,
+        )
+
+        builder_args = self._builder_factory(conn_config).build(
+            slave_connection_data.conn_config,
+            slave_connection_data.conn_data,
+            conn_config.interface.iface_name if conn_config.interface else None,
+            configuration_result.result.uuid,
+        )
+
+        uuid, changed = self._apply_builder_args(
+            builder_args,
+            conn_config.name,
+            conn_uuid=slave_connection_data.uuid,
+        )
+
+        configuration_result.update_slave_from_required_data(uuid, changed, conn_config)
+
+    def _configure_main_connection(
+        self,
+        target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
+    ) -> nmcli_interface_types.MainConfigurationResult:
+        conn_config = typing.cast(
+            net_config.BridgeConnectionConfig,
+            target_connection_data.conn_config,
+        )
+
+        builder_args = self._builder_factory(conn_config).build(
+            conn_config,
+            target_connection_data.conn_data,
+            conn_config.interface.iface_name if conn_config.interface else None,
+            None,
+        )
+
+        uuid, changed = self._apply_builder_args(
+            builder_args,
+            conn_config.name,
+            conn_uuid=target_connection_data.uuid,
+        )
+        return nmcli_interface_types.MainConfigurationResult.from_result_required_data(
+            uuid, changed, target_connection_data.conn_config
+        )
+
     def _configure(
         self,
         target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
     ) -> nmcli_interface_types.MainConfigurationResult:
-        pass
+        configuration_result = self._configure_main_connection(
+            target_connection_data,
+        )
+
+        for slave_connection_data in target_connection_data.slave_connections:
+            self._configure_slave(slave_connection_data, configuration_result)
+
+        return configuration_result
 
     def configure(
         self,
@@ -294,152 +347,13 @@ class NetworkManagerConfigurator(
         return configuration_result
 
 
-class IfaceBasedNetworkManagerConfigurator(
-    NetworkManagerConfigurator
-):  # pylint: disable=too-few-public-methods
-    def _configure(
-        self,
-        target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
-    ) -> nmcli_interface_types.MainConfigurationResult:
-        builder_args = self._builder_factory(target_connection_data.conn_config).build(
-            target_connection_data.conn_config,
-            target_connection_data.conn_data,
-            target_connection_data.conn_config.interface.iface_name,
-            None,
-        )
-        uuid, changed = self._apply_builder_args(
-            builder_args,
-            target_connection_data.conn_config.name,
-            conn_uuid=target_connection_data.uuid,
-        )
-
-        return nmcli_interface_types.MainConfigurationResult.from_result_required_data(
-            uuid, changed, target_connection_data.conn_config
-        )
-
-
-class EthernetNetworkManagerConfigurator(
-    IfaceBasedNetworkManagerConfigurator
-):  # pylint: disable=too-few-public-methods
-    pass
-
-
-class VlanNetworkManagerConfigurator(
-    IfaceBasedNetworkManagerConfigurator
-):  # pylint: disable=too-few-public-methods
-    @staticmethod
-    def __get_iface_name(
-        conn_config: net_config.VlanConnectionConfig,
-    ) -> str:
-        return (
-            conn_config.interface.iface_name
-            if conn_config.interface
-            else f"{conn_config.parent_interface}.{conn_config.vlan_id}"
-        )
-
-    def _configure(
-        self,
-        target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
-    ) -> nmcli_interface_types.MainConfigurationResult:
-        conn_config = typing.cast(
-            net_config.VlanConnectionConfig,
-            target_connection_data.conn_config,
-        )
-
-        vlan_iface_name = self.__get_iface_name(conn_config)
-        builder_args = self._builder_factory(conn_config).build(
-            conn_config,
-            target_connection_data.conn_data,
-            vlan_iface_name,
-            None,
-        )
-        uuid, changed = self._apply_builder_args(
-            builder_args,
-            conn_config.name,
-            conn_uuid=target_connection_data.uuid,
-        )
-
-        return nmcli_interface_types.MainConfigurationResult.from_result_required_data(
-            uuid, changed, target_connection_data.conn_config
-        )
-
-
-class MainSlavesNetworkManagerConfigurator(NetworkManagerConfigurator):
-    def _configure_slave(
-        self,
-        slave_connection_data: nmcli_interface_target_connection.ConfigurableConnectionData,
-        configuration_result: nmcli_interface_types.MainConfigurationResult,
-    ):
-        conn_config = typing.cast(
-            net_config.SlaveConnectionConfig,
-            slave_connection_data.conn_config,
-        )
-
-        builder_args = self._builder_factory(conn_config).build(
-            slave_connection_data.conn_config,
-            slave_connection_data.conn_data,
-            conn_config.interface.iface_name if conn_config.interface else None,
-            configuration_result.result.uuid,
-        )
-
-        uuid, changed = self._apply_builder_args(
-            builder_args,
-            conn_config.name,
-            conn_uuid=slave_connection_data.uuid,
-        )
-
-        configuration_result.update_slave_from_required_data(uuid, changed, conn_config)
-
-    def _configure(
-        self,
-        target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
-    ) -> nmcli_interface_types.MainConfigurationResult:
-        configuration_result = self._configure_main_connection(
-            target_connection_data,
-        )
-
-        for slave_connection_data in target_connection_data.slave_connections:
-            self._configure_slave(slave_connection_data, configuration_result)
-
-        return configuration_result
-
-    def _configure_main_connection(
-        self,
-        target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
-    ) -> nmcli_interface_types.MainConfigurationResult:
-        conn_config = typing.cast(
-            net_config.BridgeConnectionConfig,
-            target_connection_data.conn_config,
-        )
-
-        builder_args = self._builder_factory(conn_config).build(
-            conn_config,
-            target_connection_data.conn_data,
-            conn_config.interface.iface_name if conn_config.interface else None,
-            None,
-        )
-
-        uuid, changed = self._apply_builder_args(
-            builder_args,
-            conn_config.name,
-            conn_uuid=target_connection_data.uuid,
-        )
-        return nmcli_interface_types.MainConfigurationResult.from_result_required_data(
-            uuid, changed, target_connection_data.conn_config
-        )
-
-
-class BridgeNetworkManagerConfigurator(MainSlavesNetworkManagerConfigurator):
-    pass
-
-
 class NetworkManagerConfiguratorFactory:  # pylint: disable=too-few-public-methods
     __CONFIGURATORS_BY_CONFIG_TYPE: typing.Dict[
         type[net_config.MainConnectionConfig], type[NetworkManagerConfigurator]
     ] = {
-        net_config.EthernetConnectionConfig: EthernetNetworkManagerConfigurator,
-        net_config.VlanConnectionConfig: VlanNetworkManagerConfigurator,
-        net_config.BridgeConnectionConfig: BridgeNetworkManagerConfigurator,
+        net_config.EthernetConnectionConfig: NetworkManagerConfigurator,
+        net_config.VlanConnectionConfig: NetworkManagerConfigurator,
+        net_config.BridgeConnectionConfig: NetworkManagerConfigurator,
     }
 
     def __init__(
