@@ -164,9 +164,19 @@ class NetworkManagerConfigurator:  # pylint: disable=too-few-public-methods
         # i.e.: bridge slaves need to be activated before
         # the main connection is ready as doc examples suggest
         for conn_result in configuration_result.slaves:
+            # Pick the original data based on the connection name,
+            # that is unique in our implementation.
+            ## TODO Improve to avoid this search
+            configurable_connection_data = next(
+                (
+                    conn_data
+                    for conn_data in target_connection_data.slave_connections
+                    if conn_data.conn_config.name == conn_result.applied_config.name
+                )
+            )
             self.__enforce_connection_state(
                 conn_result,
-                target_connection_data,
+                configurable_connection_data,
             )
 
         self.__enforce_connection_state(
@@ -177,7 +187,7 @@ class NetworkManagerConfigurator:  # pylint: disable=too-few-public-methods
     def __enforce_connection_state(
         self,
         connection_configuration_result: nmcli_interface_types.ConnectionConfigurationResult,
-        target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
+        configurable_connection_data: nmcli_interface_target_connection.ConfigurableConnectionData,
     ):
         connection_configuration_result.status = (
             self._nmcli_querier.get_connection_details(
@@ -186,7 +196,7 @@ class NetworkManagerConfigurator:  # pylint: disable=too-few-public-methods
         )
 
         should_enforce_adopted = self.__enforce_connection_state_should_enforce_adopted(
-            connection_configuration_result, target_connection_data
+            connection_configuration_result, configurable_connection_data
         )
         should_up = (
             connection_configuration_result.applied_config.state
@@ -221,7 +231,7 @@ class NetworkManagerConfigurator:  # pylint: disable=too-few-public-methods
     @staticmethod
     def __enforce_connection_state_should_enforce_adopted(
         connection_configuration_result: nmcli_interface_types.ConnectionConfigurationResult,
-        target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
+        configurable_connection_data: nmcli_interface_target_connection.ConfigurableConnectionData,
     ) -> bool:
         # If the connection is a main one, or it doesn't go up -> Skip
         # Adopted conns are those that were "main ones" but
@@ -236,7 +246,7 @@ class NetworkManagerConfigurator:  # pylint: disable=too-few-public-methods
             return False
 
         return not nmcli_filters.is_connection_slave(
-            target_connection_data.conn_data or {}
+            configurable_connection_data.conn_data or {}
         )
 
     def _validate(
@@ -258,7 +268,6 @@ class NetworkManagerConfigurator:  # pylint: disable=too-few-public-methods
         )
 
         builder_args = self._builder_factory(conn_config).build(
-            slave_connection_data.conn_config,
             slave_connection_data.conn_data,
             conn_config.interface.iface_name if conn_config.interface else None,
             configuration_result.result.uuid,
@@ -276,21 +285,17 @@ class NetworkManagerConfigurator:  # pylint: disable=too-few-public-methods
         self,
         target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
     ) -> nmcli_interface_types.MainConfigurationResult:
-        conn_config = typing.cast(
-            net_config.BridgeConnectionConfig,
-            target_connection_data.conn_config,
-        )
-
-        builder_args = self._builder_factory(conn_config).build(
-            conn_config,
+        builder_args = self._builder_factory(target_connection_data.conn_config).build(
             target_connection_data.conn_data,
-            conn_config.interface.iface_name if conn_config.interface else None,
+            target_connection_data.conn_config.interface.iface_name
+            if target_connection_data.conn_config.interface
+            else None,
             None,
         )
 
         uuid, changed = self._apply_builder_args(
             builder_args,
-            conn_config.name,
+            target_connection_data.conn_config.name,
             conn_uuid=target_connection_data.uuid,
         )
         return nmcli_interface_types.MainConfigurationResult.from_result_required_data(
