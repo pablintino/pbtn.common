@@ -2,144 +2,17 @@ from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
-
-import collections.abc
-import collections
-import copy
 import typing
 
-from ansible_collections.pablintino.base_infra.plugins.module_utils import (
-    exceptions,
+from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
+    net_config,
 )
-
-
 from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
     nmcli_constants,
     nmcli_filters,
     nmcli_querier,
     nmcli_interface_types,
 )
-
-from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
-    net_config,
-)
-
-
-class ConfigurableConnectionData(collections.abc.Mapping):
-    def __init__(
-        self,
-        connection_data: typing.Optional[typing.Dict[str, typing.Any]],
-        conn_config: net_config.BaseConnectionConfig,
-    ):
-        if not conn_config:
-            raise exceptions.ValueInfraException("conn_config must be provided")
-        self.__conn_data = connection_data or {}
-        self.__conn_config = conn_config
-
-    @property
-    def conn_config(self) -> net_config.BaseConnectionConfig:
-        return self.__conn_config
-
-    @property
-    def conn_data(self) -> typing.Optional[typing.Dict[str, typing.Any]]:
-        """
-        A copy of the internal connection data, if available.
-        :return: The connection data as a copy of the internal dict if it's available.
-                 None is returned if the instance doesn't have associated connection data.
-        """
-        return copy.deepcopy(self.__conn_data) if self.__conn_data else None
-
-    @property
-    def empty(self) -> bool:
-        return not bool(self.__conn_data)
-
-    @property
-    def uuid(self) -> typing.Optional[str]:
-        return (
-            self[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID]
-            if self.__conn_data
-            else None
-        )
-
-    def __getitem__(self, key: str) -> typing.Any:
-        return self.__conn_data[key]
-
-    def __len__(self) -> int:
-        return len(self.__conn_data)
-
-    def __iter__(self) -> typing.Iterator[str]:
-        return self.__conn_data.__iter__()
-
-
-class TargetConnectionData(ConfigurableConnectionData):
-    class SlavesList(collections.abc.Sequence[ConfigurableConnectionData]):
-        def __init__(self, data: typing.List[ConfigurableConnectionData]):
-            self.__data = data
-
-        def __getitem__(self, index: int) -> ConfigurableConnectionData:
-            return self.__data[index]
-
-        def __len__(self) -> int:
-            return len(self.__data)
-
-    class Builder:
-        def __init__(
-            self,
-            connection_data: typing.Dict[str, typing.Any],
-            conn_config: net_config.BaseConnectionConfig,
-        ):
-            self.__connection_data = connection_data
-            self.__conn_config = conn_config
-            self.__slave_connections: typing.Dict[str, ConfigurableConnectionData] = {}
-
-        def build(self) -> "TargetConnectionData":
-            return TargetConnectionData(
-                self.__conn_config,
-                list(self.__slave_connections.values()),
-                connection_data=self.__connection_data,
-            )
-
-        def append_slave(
-            self, slave_connection_data: ConfigurableConnectionData
-        ) -> "TargetConnectionData.Builder":
-            if slave_connection_data.conn_config.name not in self.__slave_connections:
-                self.__slave_connections[
-                    slave_connection_data.conn_config.name
-                ] = slave_connection_data
-            return self
-
-    def __init__(
-        self,
-        conn_config: net_config.BaseConnectionConfig,
-        # main_conn: typing.Dict[str, typing.Any],
-        slave_connections: typing.List[ConfigurableConnectionData],
-        connection_data: typing.Dict[str, typing.Any] = None,
-    ):
-        # connection_data can be empty for main and slave connections.
-        # For connections that admit having slaves, an empty main connections
-        # means that slaves may be already there (but not part of the target
-        # connection, like Ethernet connections that will be part of a bridge
-        # when it gets created) but the main connection is not yet created.
-        super().__init__(connection_data, conn_config)
-        self.__slave_connections = self.SlavesList(slave_connections)
-        self.__uuids = tuple(
-            set(
-                ([self.uuid] if not self.empty else [])
-                + [
-                    conn_data.uuid
-                    for conn_data in self.__slave_connections
-                    if not conn_data.empty
-                ]
-            )
-        )
-
-    @property
-    def slave_connections(self) -> "TargetConnectionData.SlavesList":
-        return self.__slave_connections
-
-    @property
-    def uuids(self) -> typing.Sequence[str]:
-        return self.__uuids
 
 
 class TargetConnectionDataFactory:
@@ -158,7 +31,7 @@ class TargetConnectionDataFactory:
     def build_target_connection_data(
         self,
         conn_config: net_config.MainConnectionConfig,
-    ) -> TargetConnectionData:
+    ) -> nmcli_interface_types.TargetConnectionData:
         # Pickup oder:
         #   1) Connection name matches
         #   2) An active connection for the interface exists
@@ -194,7 +67,7 @@ class TargetConnectionDataFactory:
                 else None
             )
 
-        connection_data_builder = TargetConnectionData.Builder(
+        connection_data_builder = nmcli_interface_types.TargetConnectionData.Builder(
             target_connection, conn_config
         )
         for conn_slave_config in conn_config.slaves:
@@ -223,13 +96,15 @@ class TargetConnectionDataFactory:
             # connection, cause in that case it will be none and the code is/should
             # be prepared to handle that.
             connection_data_builder.append_slave(
-                ConfigurableConnectionData(target_slave_connection, conn_slave_config)
+                nmcli_interface_types.ConfigurableConnectionData(
+                    target_slave_connection, conn_slave_config
+                )
             )
 
         return connection_data_builder.build()
 
     def build_delete_conn_list(
-        self, target_connection_data: TargetConnectionData
+        self, target_connection_data: nmcli_interface_types.TargetConnectionData
     ) -> typing.List[typing.Dict[str, typing.Any]]:
         # Important: We should skip connections configured in the same session,
         # as if not we may delete the parent connection (that may or not be
@@ -329,7 +204,7 @@ class TargetConnectionDataFactory:
 
     def __fetch_owned_unknown_connections(
         self,
-        target_connection_data: TargetConnectionData,
+        target_connection_data: nmcli_interface_types.TargetConnectionData,
         to_preserve_uuids: typing.Set[str],
         main_conns_dict: typing.Dict[str, typing.List[str]],
     ):
@@ -377,7 +252,7 @@ class TargetConnectionDataFactory:
 
     def __fetch_target_conn_slaves_related(
         self,
-        target_connection_data: TargetConnectionData,
+        target_connection_data: nmcli_interface_types.TargetConnectionData,
         to_preserve_uuids: typing.Set[str],
         main_conns_dict: typing.Dict[str, typing.List[str]],
         do_delete_list: typing.List[typing.Dict[str, typing.Any]],
@@ -437,8 +312,8 @@ class TargetConnectionDataFactory:
         self,
         do_delete_list: typing.List[typing.Dict[str, typing.List[str]]],
         main_conns_dict: typing.Dict[str, typing.List[str]],
-        slave_conn_data: ConfigurableConnectionData,
-        target_connection_data: TargetConnectionData,
+        slave_conn_data: nmcli_interface_types.ConfigurableConnectionData,
+        target_connection_data: nmcli_interface_types.TargetConnectionData,
         to_preserve_uuids: typing.Set[str],
     ) -> typing.Optional[typing.Dict[str, typing.Any]]:
         # Check if a slave is moving from one main to another
@@ -487,7 +362,7 @@ class TargetConnectionDataFactory:
         return None
 
     def __get_children_uuids(
-        self, target_connection_data: TargetConnectionData
+        self, target_connection_data: nmcli_interface_types.TargetConnectionData
     ) -> typing.Set[str]:
         uuids = set()
         if not target_connection_data.conn_config.interface:

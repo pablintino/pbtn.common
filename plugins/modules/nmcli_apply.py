@@ -16,6 +16,7 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
     net_config,
 )
 from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
+    nmcli_ansible_encoding,
     nmcli_interface,
     nmcli_interface_args_builders,
     nmcli_interface_link_validator,
@@ -80,7 +81,9 @@ def main():
                 nmcli_factory.build_configurator(conn_config).configure(conn_config)
             )
 
-        session_result, changed = config_session.get_result()
+        session_result, changed = nmcli_ansible_encoding.encode_configuration_session(
+            config_session
+        )
         result["success"] = True
         result["changed"] = changed
         result["result"] = session_result

@@ -4,12 +4,13 @@ __metaclass__ = type
 
 
 import ipaddress
+import typing
 
 from ansible.errors import AnsibleFilterError, AnsibleFilterTypeError
 from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
+    nmcli_ansible_encoding,
     nmcli_constants,
     nmcli_filters,
-    nmcli_interface_types,
 )
 
 
@@ -34,6 +35,25 @@ def __filter_iface(ifaces, conn_data):
         name == conn_data[nmcli_constants.NMCLI_CONN_FIELD_GENERAL_DEVICES]
         for name in values
     )
+
+
+def __nstp_filter_applyres2conns_append_status(
+    connections_statuses: typing.Dict[str, typing.Any],
+    conn_name: str,
+    conn_config_result: typing.Dict[str, typing.Any],
+) -> typing.Dict[str, typing.Any]:
+    conn_status = conn_config_result.get(
+        nmcli_ansible_encoding.FIELD_CONN_RESULT_STATUS, None
+    )
+    if conn_status:
+        connections_statuses[conn_name] = conn_status
+        for slave_conn_name, slave_conn_data in conn_status.get(
+            nmcli_ansible_encoding.FIELD_MAIN_CONN_RESULT_SLAVES, {}
+        ).items():
+            __nstp_filter_applyres2conns_append_status(
+                connections_statuses, slave_conn_name, slave_conn_data
+            )
+    return connections_statuses
 
 
 def nstp_filter_ip2conn(data, ip):
@@ -87,11 +107,7 @@ def nstp_filter_applyres2conns(data):
 
     result = {}
     for conn_name, conn_data in data.get("result", {}).items():
-        conn_status = conn_data.get(
-            nmcli_interface_types.MainConfigurationResult.FIELD_RESULT_STATUS, None
-        )
-        if conn_status:
-            result[conn_name] = conn_status
+        __nstp_filter_applyres2conns_append_status(result, conn_name, conn_data)
 
     return result
 

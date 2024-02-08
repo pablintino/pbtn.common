@@ -26,6 +26,7 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import
 
 # TODO List
 # - Validate that multiple connections don't use the same interface :) (config)
+# - Validate that slave connections cannot use main conn-names
 
 
 class NetworkManagerConfigurator:  # pylint: disable=too-few-public-methods
@@ -156,38 +157,19 @@ class NetworkManagerConfigurator:  # pylint: disable=too-few-public-methods
             ) from err
 
     def __enforce_connection_states(
-        self,
-        configuration_result: nmcli_interface_types.MainConfigurationResult,
-        target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
+        self, configuration_result: nmcli_interface_types.MainConfigurationResult
     ):
         # Slave connections go first
         # i.e.: bridge slaves need to be activated before
         # the main connection is ready as doc examples suggest
         for conn_result in configuration_result.slaves:
-            # Pick the original data based on the connection name,
-            # that is unique in our implementation.
-            ## TODO Improve to avoid this search
-            configurable_connection_data = next(
-                (
-                    conn_data
-                    for conn_data in target_connection_data.slave_connections
-                    if conn_data.conn_config.name == conn_result.applied_config.name
-                )
-            )
-            self.__enforce_connection_state(
-                conn_result,
-                configurable_connection_data,
-            )
+            self.__enforce_connection_state(conn_result)
 
-        self.__enforce_connection_state(
-            configuration_result.result,
-            target_connection_data,
-        )
+        self.__enforce_connection_state(configuration_result.result)
 
     def __enforce_connection_state(
         self,
         connection_configuration_result: nmcli_interface_types.ConnectionConfigurationResult,
-        configurable_connection_data: nmcli_interface_target_connection.ConfigurableConnectionData,
     ):
         connection_configuration_result.status = (
             self._nmcli_querier.get_connection_details(
@@ -196,7 +178,7 @@ class NetworkManagerConfigurator:  # pylint: disable=too-few-public-methods
         )
 
         should_enforce_adopted = self.__enforce_connection_state_should_enforce_adopted(
-            connection_configuration_result, configurable_connection_data
+            connection_configuration_result
         )
         should_up = (
             connection_configuration_result.applied_config.state
@@ -231,7 +213,6 @@ class NetworkManagerConfigurator:  # pylint: disable=too-few-public-methods
     @staticmethod
     def __enforce_connection_state_should_enforce_adopted(
         connection_configuration_result: nmcli_interface_types.ConnectionConfigurationResult,
-        configurable_connection_data: nmcli_interface_target_connection.ConfigurableConnectionData,
     ) -> bool:
         # If the connection is a main one, or it doesn't go up -> Skip
         # Adopted conns are those that were "main ones" but
@@ -246,12 +227,12 @@ class NetworkManagerConfigurator:  # pylint: disable=too-few-public-methods
             return False
 
         return not nmcli_filters.is_connection_slave(
-            configurable_connection_data.conn_data or {}
+            connection_configuration_result.configurable_conn_data.conn_data or {}
         )
 
     def _validate(
         self,
-        target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
+        target_connection_data: nmcli_interface_types.TargetConnectionData,
     ):
         self._link_validator.validate_mandatory_links(
             target_connection_data.conn_config
@@ -259,7 +240,7 @@ class NetworkManagerConfigurator:  # pylint: disable=too-few-public-methods
 
     def _configure_slave(
         self,
-        slave_connection_data: nmcli_interface_target_connection.ConfigurableConnectionData,
+        slave_connection_data: nmcli_interface_types.ConfigurableConnectionData,
         configuration_result: nmcli_interface_types.MainConfigurationResult,
     ):
         conn_config = typing.cast(
@@ -279,11 +260,13 @@ class NetworkManagerConfigurator:  # pylint: disable=too-few-public-methods
             conn_uuid=slave_connection_data.uuid,
         )
 
-        configuration_result.update_slave_from_required_data(uuid, changed, conn_config)
+        configuration_result.update_slave_from_required_data(
+            uuid, changed, slave_connection_data
+        )
 
     def _configure_main_connection(
         self,
-        target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
+        target_connection_data: nmcli_interface_types.TargetConnectionData,
     ) -> nmcli_interface_types.MainConfigurationResult:
         builder_args = self._builder_factory(target_connection_data.conn_config).build(
             target_connection_data.conn_data,
@@ -299,12 +282,12 @@ class NetworkManagerConfigurator:  # pylint: disable=too-few-public-methods
             conn_uuid=target_connection_data.uuid,
         )
         return nmcli_interface_types.MainConfigurationResult.from_result_required_data(
-            uuid, changed, target_connection_data.conn_config
+            uuid, changed, target_connection_data
         )
 
     def _configure(
         self,
-        target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
+        target_connection_data: nmcli_interface_types.TargetConnectionData,
     ) -> nmcli_interface_types.MainConfigurationResult:
         configuration_result = self._configure_main_connection(
             target_connection_data,
@@ -343,7 +326,7 @@ class NetworkManagerConfigurator:  # pylint: disable=too-few-public-methods
         self._validate(target_connection_data)
 
         configuration_result = self._configure(target_connection_data)
-        self.__enforce_connection_states(configuration_result, target_connection_data)
+        self.__enforce_connection_states(configuration_result)
 
         # Ensure to propagate the changed flag if connections were deleted
         if delete_count != 0:

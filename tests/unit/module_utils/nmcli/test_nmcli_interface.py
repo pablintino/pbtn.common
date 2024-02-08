@@ -52,11 +52,12 @@ def __test_assert_target_connection_data_factory_calls(
 
 def __test_assert_connection_configuration_result(
     result: nmcli_interface_types.ConnectionConfigurationResult,
-    configurable_connection_data: nmcli_interface_target_connection.ConfigurableConnectionData,
+    configurable_connection_data: nmcli_interface_types.ConfigurableConnectionData,
     conn_last_state: typing.Dict[str, typing.Any],
 ):
     assert result.uuid
     assert result.uuid == conn_last_state["connection.uuid"]
+    assert result.configurable_conn_data == configurable_connection_data
     expected_status = copy.deepcopy(conn_last_state)
 
     should_go_up = __mocked_connection_check_should_go_up(configurable_connection_data)
@@ -68,7 +69,7 @@ def __test_assert_connection_configuration_result(
 
 
 def __test_assert_configuration_result(
-    target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
+    target_connection_data: nmcli_interface_types.TargetConnectionData,
     result_conn_data,
     connections_args,
     delete_uuids,
@@ -110,7 +111,7 @@ def __test_assert_configuration_result(
 
 def __build_mocked_target_connection_data_factory(
     mocker,
-    target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
+    target_connection_data: nmcli_interface_types.TargetConnectionData,
     to_delete_uuids: typing.List[str],
 ) -> nmcli_interface_target_connection.TargetConnectionDataFactory:
     target_connection_data_factory = mocker.Mock()
@@ -126,7 +127,7 @@ def __build_mocked_target_connection_data_factory(
 class MockedBuilder:
     def __init__(
         self,
-        configurable_connection_data: nmcli_interface_target_connection.ConfigurableConnectionData,
+        configurable_connection_data: nmcli_interface_types.ConfigurableConnectionData,
         connection_args: typing.List[str],
     ):
         self.configurable_connection_data = configurable_connection_data
@@ -155,7 +156,7 @@ class MockedBuilder:
 
 def __build_mocked_builder_factory(
     mocker,
-    target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
+    target_connection_data: nmcli_interface_types.TargetConnectionData,
     connections_args: typing.Dict[str, typing.List[str]],
 ):
     def _builder_factory_side_effect(conn_config):
@@ -212,7 +213,7 @@ def __build_mocked_nmcli_querier(
 
 def __build_generate_mocked_nmcli_querier_list_entry(
     mocked_calls,
-    conn_data: nmcli_interface_target_connection.ConfigurableConnectionData,
+    conn_data: nmcli_interface_types.ConfigurableConnectionData,
     connections_args: typing.Dict[str, typing.List[str]],
     wait_for_state,
     default_states,
@@ -255,7 +256,7 @@ def __build_generate_mocked_nmcli_querier_list_entry(
 
 
 def __build_generate_mocked_nmcli_querier_list(
-    target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
+    target_connection_data: nmcli_interface_types.TargetConnectionData,
     connections_args: typing.Dict[str, typing.List[str]],
     wait_for_state=0,
     default_states=None,
@@ -302,12 +303,10 @@ def test_nmcli_interface_network_manager_configurator_single_conn_1_ok(
         connection_config_factory=mocker.Mock(),
     )
 
-    target_connection_data = (
-        nmcli_interface_target_connection.TargetConnectionData.Builder(
-            {},
-            conn_config,
-        ).build()
-    )
+    target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
+        {},
+        conn_config,
+    ).build()
     target_connection_data_factory_delete_uuids = [
         "24a105ee-27bd-4075-9b2f-19cecb4fb26a",
         "0942731a-c598-4e1f-9028-ab75492dc3c0",
@@ -392,12 +391,10 @@ def test_nmcli_interface_network_manager_configurator_single_conn_2_ok(
         "connection.uuid": conn_uuid,
     }
 
-    target_connection_data = (
-        nmcli_interface_target_connection.TargetConnectionData.Builder(
-            conn_data,
-            conn_config,
-        ).build()
-    )
+    target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
+        conn_data,
+        conn_config,
+    ).build()
     target_connection_data_factory = __build_mocked_target_connection_data_factory(
         mocker, target_connection_data, []
     )
@@ -472,12 +469,10 @@ def test_nmcli_interface_network_manager_configurator_single_conn_3_ok(
         "connection.uuid": conn_uuid,
     }
 
-    target_connection_data = (
-        nmcli_interface_target_connection.TargetConnectionData.Builder(
-            conn_data,
-            conn_config,
-        ).build()
-    )
+    target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
+        conn_data,
+        conn_config,
+    ).build()
     target_connection_data_factory = __build_mocked_target_connection_data_factory(
         mocker, target_connection_data, []
     )
@@ -535,12 +530,10 @@ def test_nmcli_interface_network_manager_configurator_single_conn_4_ok(
         connection_config_factory=mocker.Mock(),
     )
 
-    target_connection_data = (
-        nmcli_interface_target_connection.TargetConnectionData.Builder(
-            {},
-            conn_config,
-        ).build()
-    )
+    target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
+        {},
+        conn_config,
+    ).build()
     target_connection_data_factory_delete_uuids = []
     target_connection_data_factory = __build_mocked_target_connection_data_factory(
         mocker, target_connection_data, target_connection_data_factory_delete_uuids
@@ -616,12 +609,10 @@ def test_nmcli_interface_network_manager_configurator_single_conn_5_ok(
         connection_config_factory=mocker.Mock(),
     )
 
-    target_connection_data = (
-        nmcli_interface_target_connection.TargetConnectionData.Builder(
-            {},
-            conn_config,
-        ).build()
-    )
+    target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
+        {},
+        conn_config,
+    ).build()
     target_connection_data_factory_delete_uuids = []
     target_connection_data_factory = __build_mocked_target_connection_data_factory(
         mocker, target_connection_data, target_connection_data_factory_delete_uuids
@@ -691,12 +682,10 @@ def test_nmcli_interface_network_manager_configurator_single_conn_6_ok(
         connection_config_factory=mocker.Mock(),
     )
 
-    target_connection_data = (
-        nmcli_interface_target_connection.TargetConnectionData.Builder(
-            {},
-            conn_config,
-        ).build()
-    )
+    target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
+        {},
+        conn_config,
+    ).build()
     target_connection_data_factory_delete_uuids = []
     target_connection_data_factory = __build_mocked_target_connection_data_factory(
         mocker, target_connection_data, target_connection_data_factory_delete_uuids
@@ -774,12 +763,10 @@ def test_nmcli_interface_network_manager_configurator_apply_args_fail(
         "connection.interface-name": conn_config.interface.iface_name,
         "connection.uuid": conn_uuid,
     }
-    target_connection_data = (
-        nmcli_interface_target_connection.TargetConnectionData.Builder(
-            conn_data,
-            conn_config,
-        ).build()
-    )
+    target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
+        conn_data,
+        conn_config,
+    ).build()
     target_connection_data_factory_delete_uuids = []
     target_connection_data_factory = __build_mocked_target_connection_data_factory(
         mocker, target_connection_data, target_connection_data_factory_delete_uuids
@@ -841,12 +828,10 @@ def test_nmcli_interface_network_manager_configurator_state_timeout_fail(
         connection_config_factory=mocker.Mock(),
     )
 
-    target_connection_data = (
-        nmcli_interface_target_connection.TargetConnectionData.Builder(
-            {},
-            conn_config,
-        ).build()
-    )
+    target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
+        {},
+        conn_config,
+    ).build()
     target_connection_data_factory_delete_uuids = []
     target_connection_data_factory = __build_mocked_target_connection_data_factory(
         mocker, target_connection_data, target_connection_data_factory_delete_uuids
@@ -917,12 +902,10 @@ def test_nmcli_interface_network_manager_configurator_activation_failure_fail(
         connection_config_factory=mocker.Mock(),
     )
 
-    target_connection_data = (
-        nmcli_interface_target_connection.TargetConnectionData.Builder(
-            {},
-            conn_config,
-        ).build()
-    )
+    target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
+        {},
+        conn_config,
+    ).build()
     target_connection_data_factory_delete_uuids = []
     target_connection_data_factory = __build_mocked_target_connection_data_factory(
         mocker, target_connection_data, target_connection_data_factory_delete_uuids
@@ -995,12 +978,10 @@ def test_nmcli_interface_network_manager_configurator_link_validation_fail(
         connection_config_factory=mocker.Mock(),
     )
 
-    target_connection_data = (
-        nmcli_interface_target_connection.TargetConnectionData.Builder(
-            {},
-            conn_config,
-        ).build()
-    )
+    target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
+        {},
+        conn_config,
+    ).build()
     target_connection_data_factory_delete_uuids = []
     target_connection_data_factory = __build_mocked_target_connection_data_factory(
         mocker, target_connection_data, target_connection_data_factory_delete_uuids
@@ -1058,11 +1039,11 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_1_ok(
         "connection.master": conn_bridge_uuid,
     }
     target_connection_data = (
-        nmcli_interface_target_connection.TargetConnectionData.Builder(
+        nmcli_interface_types.TargetConnectionData.Builder(
             connection_data_raw_bridge, conn_config
         )
         .append_slave(
-            nmcli_interface_target_connection.ConfigurableConnectionData(
+            nmcli_interface_types.ConfigurableConnectionData(
                 connection_data_raw_ether_slave, conn_config.slaves[0]
             )
         )
@@ -1176,11 +1157,11 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_2_ok(
         # This connection is declared as a main -> It's changing from main to slave
     }
     target_connection_data = (
-        nmcli_interface_target_connection.TargetConnectionData.Builder(
+        nmcli_interface_types.TargetConnectionData.Builder(
             connection_data_raw_bridge, conn_config
         )
         .append_slave(
-            nmcli_interface_target_connection.ConfigurableConnectionData(
+            nmcli_interface_types.ConfigurableConnectionData(
                 connection_data_raw_ether_slave, conn_config.slaves[0]
             )
         )
@@ -1291,11 +1272,11 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_3_ok(
         "connection.master": conn_bridge_uuid,
     }
     target_connection_data = (
-        nmcli_interface_target_connection.TargetConnectionData.Builder(
+        nmcli_interface_types.TargetConnectionData.Builder(
             connection_data_raw_bridge, conn_config
         )
         .append_slave(
-            nmcli_interface_target_connection.ConfigurableConnectionData(
+            nmcli_interface_types.ConfigurableConnectionData(
                 connection_data_raw_ether_slave, conn_config.slaves[0]
             )
         )
@@ -1388,11 +1369,11 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_4_ok(
         "connection.master": conn_bridge_uuid,
     }
     target_connection_data = (
-        nmcli_interface_target_connection.TargetConnectionData.Builder(
+        nmcli_interface_types.TargetConnectionData.Builder(
             connection_data_raw_bridge, conn_config
         )
         .append_slave(
-            nmcli_interface_target_connection.ConfigurableConnectionData(
+            nmcli_interface_types.ConfigurableConnectionData(
                 connection_data_raw_ether_slave, conn_config.slaves[0]
             )
         )
@@ -1504,14 +1485,12 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_5_ok(
         "connection.uuid": conn_vlan_uuid,
     }
     target_connection_data = (
-        nmcli_interface_target_connection.TargetConnectionData.Builder({}, conn_config)
+        nmcli_interface_types.TargetConnectionData.Builder({}, conn_config)
         .append_slave(
-            nmcli_interface_target_connection.ConfigurableConnectionData(
-                {}, conn_config.slaves[0]
-            )
+            nmcli_interface_types.ConfigurableConnectionData({}, conn_config.slaves[0])
         )
         .append_slave(
-            nmcli_interface_target_connection.ConfigurableConnectionData(
+            nmcli_interface_types.ConfigurableConnectionData(
                 connection_data_raw_vlan_slave, conn_config.slaves[1]
             )
         )

@@ -3,12 +3,6 @@ import itertools
 import typing
 
 import mock
-import pytest
-
-from ansible_collections.pablintino.base_infra.plugins.module_utils import (
-    exceptions,
-)
-
 from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
     net_config,
 )
@@ -30,7 +24,7 @@ def __build_testing_config_factory(
 
 
 def __check_slave_conn_id_not_present(
-    conn_id: str, result: nmcli_interface_target_connection.TargetConnectionData
+    conn_id: str, result: nmcli_interface_types.TargetConnectionData
 ):
     assert next(
         (
@@ -55,7 +49,7 @@ def __prepare_permute_queriers(
 def __test_build_delete_conn_list_from_mocks(
     querier,
     mocker,
-    target_connection_data: nmcli_interface_target_connection.TargetConnectionData,
+    target_connection_data: nmcli_interface_types.TargetConnectionData,
     expected_uuids: typing.List[str],
     config_handler_connections: typing.List[net_config.MainConnectionConfig] = None,
     config_session_uuids: typing.Sequence[str] = None,
@@ -151,9 +145,7 @@ def test_target_connection_data_factory_build_conn_data_ether_basic_1_ok(mocker)
             connection_config_factory=mocker.Mock(),
         )
         result = factory.build_target_connection_data(conn_config)
-        assert isinstance(
-            result, nmcli_interface_target_connection.TargetConnectionData
-        )
+        assert isinstance(result, nmcli_interface_types.TargetConnectionData)
         assert not result.empty
         assert len(result.uuids) == 1
         assert next(iter(result.uuids)) == target_uuid
@@ -216,9 +208,7 @@ def test_target_connection_data_factory_build_conn_data_ether_basic_2_ok(mocker)
             connection_config_factory=mocker.Mock(),
         )
         result = factory.build_target_connection_data(conn_config)
-        assert isinstance(
-            result, nmcli_interface_target_connection.TargetConnectionData
-        )
+        assert isinstance(result, nmcli_interface_types.TargetConnectionData)
         assert not result.empty
         assert len(result.uuids) == 1
         assert next(iter(result.uuids)) == target_uuid
@@ -292,9 +282,7 @@ def test_target_connection_data_factory_build_conn_data_ether_basic_3_ok(mocker)
             connection_config_factory=mocker.Mock(),
         )
         result = factory.build_target_connection_data(conn_config)
-        assert isinstance(
-            result, nmcli_interface_target_connection.TargetConnectionData
-        )
+        assert isinstance(result, nmcli_interface_types.TargetConnectionData)
         assert result.empty
         assert not result.uuids
         assert len(result.uuids) == 0
@@ -377,9 +365,7 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_1_ok(mocker
             connection_config_factory=__build_testing_config_factory(mocker),
         )
         result = factory.build_target_connection_data(conn_config)
-        assert isinstance(
-            result, nmcli_interface_target_connection.TargetConnectionData
-        )
+        assert isinstance(result, nmcli_interface_types.TargetConnectionData)
         assert not result.empty
         assert result.uuid == bridge_conn_uuid
         assert result.conn_config == conn_config
@@ -464,9 +450,7 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_2_ok(mocker
             connection_config_factory=__build_testing_config_factory(mocker),
         )
         result = factory.build_target_connection_data(conn_config)
-        assert isinstance(
-            result, nmcli_interface_target_connection.TargetConnectionData
-        )
+        assert isinstance(result, nmcli_interface_types.TargetConnectionData)
         assert result.empty
         assert result.uuid is None
         assert result.conn_config == conn_config
@@ -559,9 +543,7 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_3_ok(mocker
             connection_config_factory=__build_testing_config_factory(mocker),
         )
         result = factory.build_target_connection_data(conn_config)
-        assert isinstance(
-            result, nmcli_interface_target_connection.TargetConnectionData
-        )
+        assert isinstance(result, nmcli_interface_types.TargetConnectionData)
         assert not result.empty
         assert result.uuid == bridge_conn_uuid
         assert result.conn_config == conn_config
@@ -663,9 +645,7 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_4_ok(mocker
             connection_config_factory=__build_testing_config_factory(mocker),
         )
         result = factory.build_target_connection_data(conn_config)
-        assert isinstance(
-            result, nmcli_interface_target_connection.TargetConnectionData
-        )
+        assert isinstance(result, nmcli_interface_types.TargetConnectionData)
         assert not result.empty
         assert result.uuid == bridge_conn_uuid
         assert result.conn_config == conn_config
@@ -743,9 +723,7 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_5_ok(mocker
             connection_config_factory=__build_testing_config_factory(mocker),
         )
         result = factory.build_target_connection_data(conn_config)
-        assert isinstance(
-            result, nmcli_interface_target_connection.TargetConnectionData
-        )
+        assert isinstance(result, nmcli_interface_types.TargetConnectionData)
         assert not result.empty
         assert result.uuid == bridge_conn_uuid
         assert result.conn_config == conn_config
@@ -835,9 +813,7 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_6_ok(mocker
             connection_config_factory=__build_testing_config_factory(mocker),
         )
         result = factory.build_target_connection_data(conn_config)
-        assert isinstance(
-            result, nmcli_interface_target_connection.TargetConnectionData
-        )
+        assert isinstance(result, nmcli_interface_types.TargetConnectionData)
         assert result.empty
         assert result.conn_config == conn_config
         assert not result.uuids
@@ -868,11 +844,9 @@ def test_target_connection_data_factory_build_delete_conn_list_1_ok(mocker):
         ip_links=[],
         connection_config_factory=mocker.Mock(),
     )
-    target_connection_data = (
-        nmcli_interface_target_connection.TargetConnectionData.Builder(
-            connection_data_raw, conn_config
-        ).build()
-    )
+    target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
+        connection_data_raw, conn_config
+    ).build()
     to_remove_uuid_1 = "b15bd50c-c613-4fca-9303-8db4cc14a876"
     to_remove_uuid_2 = "6ffd5837-4274-4d3f-b0d2-472400bbd3f3"
     to_remove_uuid_3 = "0e6ad240-f8ea-4fb2-82ea-e1737dad2556"
@@ -976,11 +950,11 @@ def test_target_connection_data_factory_build_delete_conn_list_2_ok(mocker):
         connection_config_factory=__build_testing_config_factory(mocker),
     )
     target_connection_data = (
-        nmcli_interface_target_connection.TargetConnectionData.Builder(
+        nmcli_interface_types.TargetConnectionData.Builder(
             connection_data_raw_bridge, conn_config
         )
         .append_slave(
-            nmcli_interface_target_connection.ConfigurableConnectionData(
+            nmcli_interface_types.ConfigurableConnectionData(
                 connection_data_raw_vlan_slave, conn_config.slaves[0]
             )
         )
@@ -1084,7 +1058,7 @@ def test_target_connection_data_factory_build_delete_conn_list_3_ok(mocker):
         connection_config_factory=__build_testing_config_factory(mocker),
     )
     target_connection_data = (
-        nmcli_interface_target_connection.TargetConnectionData.Builder(
+        nmcli_interface_types.TargetConnectionData.Builder(
             connection_data_raw_ether, conn_config_target
         )
     ).build()
@@ -1183,7 +1157,7 @@ def test_target_connection_data_factory_build_delete_conn_list_4_ok(mocker):
         connection_config_factory=__build_testing_config_factory(mocker),
     )
     target_connection_data = (
-        nmcli_interface_target_connection.TargetConnectionData.Builder(
+        nmcli_interface_types.TargetConnectionData.Builder(
             connection_data_raw_ether, conn_config_target
         )
     ).build()
@@ -1289,11 +1263,11 @@ def test_target_connection_data_factory_build_delete_conn_list_5_ok(mocker):
         connection_config_factory=__build_testing_config_factory(mocker),
     )
     target_connection_data = (
-        nmcli_interface_target_connection.TargetConnectionData.Builder(
+        nmcli_interface_types.TargetConnectionData.Builder(
             connection_data_raw_bridge_1, conn_config_target
         )
         .append_slave(
-            nmcli_interface_target_connection.ConfigurableConnectionData(
+            nmcli_interface_types.ConfigurableConnectionData(
                 connection_data_raw_ether_1, conn_config_target.slaves[0]
             )
         )
@@ -1372,11 +1346,11 @@ def test_target_connection_data_factory_build_delete_conn_list_6_ok(mocker):
         connection_config_factory=__build_testing_config_factory(mocker),
     )
     target_connection_data = (
-        nmcli_interface_target_connection.TargetConnectionData.Builder(
+        nmcli_interface_types.TargetConnectionData.Builder(
             connection_data_raw_bridge_1, conn_config_target
         )
         .append_slave(
-            nmcli_interface_target_connection.ConfigurableConnectionData(
+            nmcli_interface_types.ConfigurableConnectionData(
                 connection_data_raw_ether_1, conn_config_target.slaves[0]
             )
         )
@@ -1449,11 +1423,11 @@ def test_target_connection_data_factory_build_delete_conn_list_7_ok(mocker):
         connection_config_factory=__build_testing_config_factory(mocker),
     )
     target_connection_data = (
-        nmcli_interface_target_connection.TargetConnectionData.Builder(
+        nmcli_interface_types.TargetConnectionData.Builder(
             connection_data_raw_bridge_1, conn_config_target
         )
         .append_slave(
-            nmcli_interface_target_connection.ConfigurableConnectionData(
+            nmcli_interface_types.ConfigurableConnectionData(
                 connection_data_raw_ether_1, conn_config_target.slaves[0]
             )
         )
@@ -1475,42 +1449,3 @@ def test_target_connection_data_factory_build_delete_conn_list_7_ok(mocker):
             target_connection_data,
             [bridge_uuid_2],
         )
-
-
-def test_target_connection_data_configurable_connection_data_fields_ok(mocker):
-    conn_data = {"connection.uuid": "18f9d3e4-0e2f-4222-82f2-57b13b4d0bbe"}
-    conn_config_target = net_config.EthernetConnectionConfig(
-        conn_name="ether-conn-1",
-        raw_config={
-            "type": "ethernet",
-            "iface": "eth1",
-        },
-        ip_links=[],
-        connection_config_factory=mocker.Mock(),
-    )
-    configurable_conn_data = (
-        nmcli_interface_target_connection.ConfigurableConnectionData(
-            conn_data, conn_config_target
-        )
-    )
-    assert not configurable_conn_data.empty
-    assert isinstance(configurable_conn_data, collections.abc.Mapping)
-    # Check that the ConfigurableConnectionData len can be called
-    assert len(configurable_conn_data) == len(conn_data)
-    # Check that the ConfigurableConnectionData can be accessed as an iterator
-    assert next(iter(configurable_conn_data)) == next(iter(conn_data.keys()))
-    assert configurable_conn_data.uuid == conn_data["connection.uuid"]
-    # Check that the ConfigurableConnectionData can be accessed as a mapping
-    assert configurable_conn_data["connection.uuid"] == conn_data["connection.uuid"]
-    assert configurable_conn_data.conn_config == conn_config_target
-
-    configurable_conn_data_empty = (
-        nmcli_interface_target_connection.ConfigurableConnectionData(
-            None, conn_config_target
-        )
-    )
-    assert configurable_conn_data_empty.empty
-
-    with pytest.raises(exceptions.ValueInfraException) as err:
-        nmcli_interface_target_connection.ConfigurableConnectionData(conn_data, None)
-    assert "must be provided" in str(err.value)
