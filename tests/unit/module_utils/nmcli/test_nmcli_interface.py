@@ -285,20 +285,43 @@ def __build_generate_mocked_nmcli_querier_list(
     return mocked_calls
 
 
+@pytest.mark.parametrize(
+    "test_config_type,test_config_raw",
+    [
+        pytest.param(
+            net_config.EthernetConnectionConfig,
+            {"type": "ethernet", "iface": "eth0", "state": "up"},
+            id="ethernet",
+        ),
+        pytest.param(
+            net_config.VlanBaseConnectionConfig,
+            {
+                "type": "vlan",
+                "iface": "eth0.20",
+                "state": "up",
+                "vlan": {"id": 20, "parent": "eth0"},
+            },
+            id="vlan",
+        ),
+    ],
+)
 def test_nmcli_interface_network_manager_configurator_single_conn_1_ok(
-    command_mocker_builder, mocker
+    command_mocker_builder,
+    mocker,
+    test_config_type: type,
+    test_config_raw: typing.Dict[str, typing.Any],
 ):
     """
     Tests that the NetworkManagerConfigurator is able to configure
-    a simple new Ethernet connection with a given explicit state.
+    a simple new main connection with a given explicit state.
     This test enforces the deletion of already existing connections that
     should be deleted before creating the new connection.
     :param command_mocker_builder: The pytest mocked command runner fixture
     :param mocker: The pytest mocker fixture
     """
-    conn_config = net_config.EthernetConnectionConfig(
+    conn_config = test_config_type(
         conn_name="new-conn-name",
-        raw_config={"type": "ethernet", "iface": "eth0", "state": "up"},
+        raw_config=test_config_raw,
         ip_links=[],
         connection_config_factory=mocker.Mock(),
     )
@@ -1441,6 +1464,12 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_4_ok(
 def test_nmcli_interface_network_manager_configurator_multiple_conns_5_ok(
     command_mocker_builder, mocker
 ):
+    """
+    Multi-connection type test
+    :param command_mocker_builder:
+    :param mocker:
+    :return:
+    """
     conn_config = net_config.BridgeConnectionConfig(
         conn_name="new-conn-name",
         raw_config={
