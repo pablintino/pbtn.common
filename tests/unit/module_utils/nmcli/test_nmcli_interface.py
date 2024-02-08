@@ -782,8 +782,8 @@ def test_nmcli_interface_network_manager_configurator_apply_args_fail(
     command_mocker = command_mocker_builder.build()
     command_mocker.add_call_definition(
         MockCall(nmcli_expected_cmd, True),
-        stdout=f"Stdout text",
-        stderr=f"Stderr text",
+        stdout="Stdout text",
+        stderr="Stderr text",
         rc=1,
     )
 

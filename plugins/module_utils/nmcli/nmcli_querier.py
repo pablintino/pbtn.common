@@ -10,9 +10,7 @@ import typing
 from ansible_collections.pablintino.base_infra.plugins.module_utils import (
     module_command_utils,
 )
-
 from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
-    nmcli_constants,
     nmcli_interface_exceptions,
 )
 

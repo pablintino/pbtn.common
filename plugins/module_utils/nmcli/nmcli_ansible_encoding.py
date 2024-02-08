@@ -1,3 +1,7 @@
+from __future__ import absolute_import, division, print_function
+
+__metaclass__ = type
+
 import typing
 
 from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
@@ -28,7 +32,9 @@ def encode_main_configuration_result(
 ) -> typing.Dict[str, typing.Any]:
     encoded_values = encode_connection_configuration_result(result.result)
     encoded_values[FIELD_MAIN_CONN_RESULT_SLAVES] = {
-        encode_connection_configuration_result(config_result)
+        config_result.applied_config.name: encode_connection_configuration_result(
+            config_result
+        )
         for config_result in result.slaves
     }
 

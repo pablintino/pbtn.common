@@ -1,3 +1,7 @@
+from __future__ import absolute_import, division, print_function
+
+__metaclass__ = type
+
 import typing
 
 from ansible_collections.pablintino.base_infra.plugins.module_utils import (
