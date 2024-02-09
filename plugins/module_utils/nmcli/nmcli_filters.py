@@ -4,41 +4,54 @@ __metaclass__ = type
 
 import typing
 import uuid
-
+from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
+    net_config,
+)
 from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
     nmcli_constants,
 )
 
 
-def is_connection_active(conn_data):
-    string_state = conn_data.get(
-        nmcli_constants.NMCLI_CONN_FIELD_GENERAL_STATE, ""
+def is_connection_active(conn_data: typing.Dict[str, typing.Any]) -> bool:
+    string_state = (
+        conn_data.get(nmcli_constants.NMCLI_CONN_FIELD_GENERAL_STATE, None) or ""
     ).lower()
     return string_state == nmcli_constants.NMCLI_CONN_FIELD_GENERAL_STATE_VAL_ACTIVATED
 
 
-def is_connection_slave(conn_data):
-    main_connection_filled = conn_data.get(
-        nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_MASTER, None
+def is_connection_slave(conn_data: typing.Dict[str, typing.Any]) -> bool:
+    return (
+        conn_data
+        and conn_data.get(nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_MASTER, None)
+        is not None
     )
-    return main_connection_filled is not None
 
 
-def is_for_interface_name(conn_data, iface_name):
-    return iface_name == conn_data.get(
+def is_for_interface_name(
+    conn_data: typing.Dict[str, typing.Any], iface_name: str
+) -> bool:
+    return (iface_name and conn_data) and iface_name == conn_data.get(
         nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_INTERFACE_NAME,
         None,
     )
 
 
-def is_for_configuration_type(conn_data, conn_config):
-    return conn_data.get(
+def is_for_configuration_type(
+    conn_data: typing.Dict[str, typing.Any],
+    config_type: typing.Type[net_config.BaseConnectionConfig],
+):
+    return conn_data and conn_data.get(
         nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_TYPE, None
-    ) == nmcli_constants.map_config_to_nmcli_type_field(conn_config)
+    ) == nmcli_constants.map_config_to_nmcli_type_field(config_type)
 
 
-def is_main_connection_of(candidate_main_conn_data, candidate_slave_conn_data) -> bool:
-    if not is_connection_slave(candidate_slave_conn_data):
+def is_main_connection_of(
+    candidate_main_conn_data: typing.Dict[str, typing.Any],
+    candidate_slave_conn_data: typing.Dict[str, typing.Any],
+) -> bool:
+    if (not is_connection_slave(candidate_slave_conn_data)) or (
+        not candidate_slave_conn_data
+    ):
         return False
 
     main_conn_id = candidate_slave_conn_data[
@@ -53,19 +66,10 @@ def is_main_connection_of(candidate_main_conn_data, candidate_slave_conn_data) -
     return main_conn_id == candidate_main_conn_data.get(select_field, None)
 
 
-def is_connection_related_to_interface(conn_data, interface_name):
-    return (
-        conn_data.get(nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_INTERFACE_NAME, None)
-        == interface_name
-        or conn_data.get(nmcli_constants.NMCLI_CONN_FIELD_VLAN_VLAN_PARENT, None)
-        == interface_name
-    )
-
-
 def all_connections_without_uuids(
     connections: typing.List[typing.Dict[str, typing.Any]], not_uuids: typing.Container
 ):
-    not_uuids = [not_uuids] if isinstance(not_uuids, str) else not_uuids
+    not_uuids = ([not_uuids] if isinstance(not_uuids, str) else not_uuids) or []
     return [
         conn_data
         for conn_data in connections

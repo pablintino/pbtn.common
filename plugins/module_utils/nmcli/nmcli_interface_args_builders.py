@@ -122,7 +122,7 @@ class CommonConnectionArgsBuilder(BaseBuilder):
         if not current_connection:
             return (
                 nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_TYPE,
-                nmcli_constants.map_config_to_nmcli_type_field(self._config),
+                nmcli_constants.map_config_to_nmcli_type_field(type(self._config)),
             )
 
         return None, None
@@ -534,7 +534,7 @@ class SlaveConnectionArgsBuilder(BaseBuilder):
         current_connection: typing.Optional[typing.Dict[str, typing.Any]],
     ) -> typing.Tuple[typing.Optional[str], typing.Optional[str]]:
         target_type = nmcli_constants.map_config_to_nmcli_type_field(
-            self.__slave_config.main_connection_config
+            type(self.__slave_config.main_connection_config)
         )
         if (not current_connection) or (
             current_connection.get(

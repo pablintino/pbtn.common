@@ -2,6 +2,8 @@ from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
+import typing
+
 from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
     net_config,
 )
@@ -102,9 +104,9 @@ __NMCLI_IP_METHOD_CONVERSION_TABLE = {
 
 
 def map_config_to_nmcli_type_field(
-    config: net_config.BaseConnectionConfig,
+    config_type: typing.Type[net_config.BaseConnectionConfig],
 ) -> str:
-    nmcli_conn_type = __NMCLI_TYPE_CONVERSION_TABLE.get(type(config), None)
+    nmcli_conn_type = __NMCLI_TYPE_CONVERSION_TABLE.get(config_type, None)
     if nmcli_conn_type:
         return nmcli_conn_type
     raise ValueError(f"Unsupported config type {type(config)}")

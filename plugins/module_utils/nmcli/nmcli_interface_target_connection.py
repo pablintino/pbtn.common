@@ -42,7 +42,7 @@ class TargetConnectionDataFactory:
         target_connection = nmcli_filters.first_connection_with_name_and_type(
             self.__connections,
             conn_config.name,
-            nmcli_constants.map_config_to_nmcli_type_field(conn_config),
+            nmcli_constants.map_config_to_nmcli_type_field(type(conn_config)),
             is_main_conn=True,
             prio_active=True,
         )
@@ -77,7 +77,7 @@ class TargetConnectionDataFactory:
             target_slave_connection = nmcli_filters.first_connection_with_name_and_type(
                 self.__connections,
                 conn_slave_config.name,
-                nmcli_constants.map_config_to_nmcli_type_field(conn_slave_config),
+                nmcli_constants.map_config_to_nmcli_type_field(type(conn_slave_config)),
                 prio_active=True,
             )
             if not target_slave_connection and conn_slave_config.interface:
@@ -216,9 +216,7 @@ class TargetConnectionDataFactory:
             self.__connections, to_preserve_uuids
         ):
             for managed_iface in target_connection_data.conn_config.related_interfaces:
-                if nmcli_filters.is_connection_related_to_interface(
-                    conn_data, managed_iface
-                ):
+                if self.__is_connection_related_to_interface(conn_data, managed_iface):
                     owned_interfaces_unknown_connections.append(conn_data)
 
         # Try to remove their main connections if no more interfaces are attached
@@ -414,5 +412,18 @@ class TargetConnectionDataFactory:
         return config.interface and (
             nmcli_filters.is_for_interface_name(conn_data, config.interface.iface_name)
             and nmcli_filters.is_connection_active(conn_data)
-            and nmcli_filters.is_for_configuration_type(conn_data, config)
+            and nmcli_filters.is_for_configuration_type(conn_data, type(config))
+        )
+
+    @staticmethod
+    def __is_connection_related_to_interface(
+        conn_data: typing.Dict[str, typing.Any], interface_name: str
+    ):
+        return (
+            conn_data.get(
+                nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_INTERFACE_NAME, None
+            )
+            == interface_name
+            or conn_data.get(nmcli_constants.NMCLI_CONN_FIELD_VLAN_VLAN_PARENT, None)
+            == interface_name
         )
