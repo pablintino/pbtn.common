@@ -1035,6 +1035,12 @@ def test_nmcli_interface_network_manager_configurator_link_validation_fail(
 def test_nmcli_interface_network_manager_configurator_multiple_conns_1_ok(
     command_mocker_builder, mocker
 ):
+    """
+    Ensures that a connection that with a single slave can be configured.
+
+    :param command_mocker_builder: The pytest mocked command runner fixture
+    :param mocker: The pytest mocker fixture
+    """
     conn_config = net_config.BridgeConnectionConfig(
         conn_name="new-conn-name",
         raw_config={
@@ -1145,11 +1151,11 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_2_ok(
 ):
     """
     Ensures that a connection that goes from main to slave and that has no
-    explicit target state set properly goes up to pickup changes as documented
-    in NM documentation.
-    :param command_mocker_builder:
-    :param mocker:
-    :return:
+    explicit target state goes up to pickup changes as documented in NM
+    documentation.
+
+    :param command_mocker_builder: The pytest mocked command runner fixture
+    :param mocker: The pytest mocker fixture
     """
     conn_config = net_config.BridgeConnectionConfig(
         conn_name="new-conn-name",
@@ -1262,10 +1268,11 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_3_ok(
     command_mocker_builder, mocker
 ):
     """
-    No changes test
-    :param command_mocker_builder:
-    :param mocker:
-    :return:
+    Ensures that a connection with no changed slaves nor the main connection
+    results in no changes done.
+
+    :param command_mocker_builder: The pytest mocked command runner fixture
+    :param mocker: The pytest mocker fixture
     """
     conn_config = net_config.BridgeConnectionConfig(
         conn_name="new-conn-name",
@@ -1359,10 +1366,11 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_4_ok(
     command_mocker_builder, mocker
 ):
     """
-    No changes test but with some connections that require deletion
-    :param command_mocker_builder:
-    :param mocker:
-    :return:
+    Ensures that a connection with no changed slaves nor the main connection,
+    but that required deletion of related connections results as changed.
+
+    :param command_mocker_builder: The pytest mocked command runner fixture
+    :param mocker: The pytest mocker fixture
     """
     conn_config = net_config.BridgeConnectionConfig(
         conn_name="new-conn-name",
@@ -1465,10 +1473,10 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_5_ok(
     command_mocker_builder, mocker
 ):
     """
-    Multi-connection type test
-    :param command_mocker_builder:
-    :param mocker:
-    :return:
+    Ensures that a connection that with a mix of slave types can be configured.
+
+    :param command_mocker_builder: The pytest mocked command runner fixture
+    :param mocker: The pytest mocker fixture
     """
     conn_config = net_config.BridgeConnectionConfig(
         conn_name="new-conn-name",

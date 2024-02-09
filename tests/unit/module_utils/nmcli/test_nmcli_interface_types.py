@@ -89,6 +89,11 @@ def __test_nmcli_types_target_connection_assertions(
 
 
 def test_nmcli_types_configurable_connection_data_fields_ok(mocker):
+    """
+    Tests all the field getters and methods of a ConfigurableConnectionData.
+
+    :param mocker: The pytest mocker fixture
+    """
     conn_config_target = __build_mocked_config(mocker)
     conn_data = __build_mocked_conn_data()
     configurable_conn_data = nmcli_interface_types.ConfigurableConnectionData(
@@ -112,6 +117,13 @@ def test_nmcli_types_configurable_connection_data_fields_ok(mocker):
 
 
 def test_nmcli_types_configurable_connection_data_fields_empty_ok(mocker):
+    """
+    Tests all the field getters and methods of a ConfigurableConnectionData.
+    This test ensures ConfigurableConnectionData properly handles working
+    without connection data.
+
+    :param mocker: The pytest mocker fixture
+    """
     conn_config_target = __build_mocked_config(mocker)
     configurable_conn_data_empty = nmcli_interface_types.ConfigurableConnectionData(
         None, conn_config_target
@@ -126,13 +138,24 @@ def test_nmcli_types_configurable_connection_data_fields_empty_ok(mocker):
 
 
 def test_nmcli_types_configurable_connection_data_fields_fail():
+    """
+    Tests that the mandatory args of a TargetConnectionData
+    are validated.
+
+    :param mocker: The pytest mocker fixture
+    """
     conn_data = __build_mocked_conn_data()
     with pytest.raises(exceptions.ValueInfraException) as err:
         nmcli_interface_types.ConfigurableConnectionData(conn_data, None)
-    assert "must be provided" in str(err.value)
+    assert str(err.value) == "conn_config must be provided"
 
 
 def test_nmcli_types_target_connection_data_ok(mocker):
+    """
+    Tests all the field getters and methods of a ConnectionConfigurationResult.
+
+    :param mocker: The pytest mocker fixture
+    """
     connection_config = net_config.BridgeConnectionConfig(
         conn_name="bridge-conn-1",
         raw_config={
@@ -216,6 +239,11 @@ def test_nmcli_types_target_connection_data_ok(mocker):
 
 
 def test_nmcli_types_connection_configuration_result_ok(mocker):
+    """
+    Tests all the field getters and methods of a ConnectionConfigurationResult.
+
+    :param mocker: The pytest mocker fixture
+    """
     conn_config_target = __build_mocked_config(mocker)
     conn_data = __build_mocked_conn_data()
     target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
@@ -266,6 +294,12 @@ def test_nmcli_types_connection_configuration_result_ok(mocker):
 
 
 def test_nmcli_types_connection_configuration_result_fail(mocker):
+    """
+    Tests that the mandatory args of a ConnectionConfigurationResult
+    are validated.
+
+    :param mocker: The pytest mocker fixture
+    """
     conn_config_target = __build_mocked_config(mocker)
     conn_data = __build_mocked_conn_data()
     with pytest.raises(exceptions.ValueInfraException) as err:
@@ -281,6 +315,11 @@ def test_nmcli_types_connection_configuration_result_fail(mocker):
 
 
 def test_nmcli_types_main_configuration_result_ok(mocker):
+    """
+    Tests all the field getters and methods of a MainConfigurationResult.
+
+    :param mocker: The pytest mocker fixture
+    """
     conn_config_target = __build_mocked_config(mocker)
     conn_data = __build_mocked_conn_data()
     target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
@@ -381,6 +420,11 @@ def test_nmcli_types_main_configuration_result_ok(mocker):
 
 
 def test_nmcli_types_configuration_session_ok(mocker):
+    """
+    Tests all the field getters and methods of a ConfigurationSession.
+
+    :param mocker: The pytest mocker fixture
+    """
     config_session = nmcli_interface_types.ConfigurationSession()
     assert isinstance(config_session.uuids, collections.abc.Sequence)
     assert isinstance(config_session.conn_config_results, collections.abc.Mapping)
