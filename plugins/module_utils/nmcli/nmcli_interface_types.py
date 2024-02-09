@@ -149,11 +149,13 @@ class ConnectionConfigurationResult:
         configurable_conn_data: ConfigurableConnectionData,
         main_conn_config_result: "ConnectionConfigurationResult" = None,
     ):
+        if not uuid:
+            raise exceptions.ValueInfraException("uuid must be provided")
         self.__uuid: str = uuid
         self.__changed: bool = changed
         self.__configurable_conn_data = configurable_conn_data
         self.__main_conn_config_result = main_conn_config_result
-        self.status: typing.Dict[str, typing.Any] = None
+        self.status: typing.Optional[typing.Dict[str, typing.Any]] = None
 
     @property
     def changed(self) -> bool:
@@ -276,7 +278,7 @@ class MainConfigurationResult:
         )
 
     def __hash__(self) -> int:
-        return hash((self.__result, self.__slaves, self.__changed))
+        return hash((self.__result, tuple(self.__slaves), self.__changed))
 
 
 class ConfigurationSession:
