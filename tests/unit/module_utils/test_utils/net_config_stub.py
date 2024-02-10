@@ -10,18 +10,27 @@ from tests.unit.module_utils.test_utils import config_stub_data
 
 class FactoryCallable(typing.Protocol):
     def __call__(
-        self, mocker: typing.Any, config_patch: typing.Dict[str, typing.Any] = None
+        self,
+        mocker: typing.Any,
+        conn_name: str = None,
+        slaves_count: int = 2,
+        start_index: int = 0,
+        config_patch: typing.Dict[str, typing.Any] = None,
     ) -> net_config.BaseConnectionConfig:
         ...
 
 
-def __update_patch_dict(d, u):
-    for k, v in u.items():
-        if isinstance(v, collections.abc.Mapping):
-            d[k] = __update_patch_dict(d.get(k, {}), v)
-        else:
-            d[k] = v
-    return d
+def __update_patch_dict(
+    data: collections.abc.MutableMapping, patch: collections.abc.Mapping
+):
+    for k, v in patch.items():
+        data[k] = (
+            __update_patch_dict(data.get(k, {}), v)
+            if isinstance(v, collections.abc.Mapping)
+            else v
+        )
+
+    return data
 
 
 def build_testing_config_factory(
