@@ -7,6 +7,13 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
 from tests.unit.module_utils.test_utils import config_stub_data
 
 
+class FactoryCallable(typing.Protocol):
+    def __call__(
+        self, mocker: typing.Any, extra_values: typing.Dict[str, typing.Any] = None
+    ) -> net_config.BaseConnectionConfig:
+        ...
+
+
 def build_testing_config_factory(
     mocker,
 ) -> net_config.ConnectionConfigFactory:
@@ -22,6 +29,7 @@ def build_testing_ether_bridge_config(
     start_index: int = 0,
     main_state: str = None,
     slaves_state: str = None,
+    extra_values: typing.Dict[str, typing.Any] = None,
 ) -> net_config.BridgeConnectionConfig:
     slaves_states_update = {"state": slaves_state} if slaves_state else {}
     raw_config = {
@@ -38,7 +46,7 @@ def build_testing_ether_bridge_config(
     }
     if main_state:
         raw_config["state"] = main_state
-
+    raw_config.update(extra_values or {})
     return net_config.BridgeConnectionConfig(
         conn_name=conn_name or "bridge-conn",
         raw_config=raw_config,
@@ -55,6 +63,7 @@ def build_testing_vlan_bridge_config(
     main_state: str = None,
     slaves_state: str = None,
     vlan_id=10,
+    extra_values: typing.Dict[str, typing.Any] = None,
 ) -> net_config.BridgeConnectionConfig:
     slaves_states_update = {"state": slaves_state} if slaves_state else {}
     raw_config = {
@@ -75,7 +84,7 @@ def build_testing_vlan_bridge_config(
     }
     if main_state:
         raw_config["state"] = main_state
-
+    raw_config.update(extra_values or {})
     return net_config.BridgeConnectionConfig(
         conn_name=conn_name or "bridge-conn",
         raw_config=raw_config,
@@ -112,6 +121,7 @@ def build_testing_vlan_config(
     index=0,
     vlan_id=10,
     state=None,
+    extra_values: typing.Dict[str, typing.Any] = None,
 ) -> net_config.VlanConnectionConfig:
     raw_config = {
         "type": "vlan",
@@ -123,7 +133,7 @@ def build_testing_vlan_config(
     }
     if state:
         raw_config["state"] = state
-
+    raw_config.update(extra_values or {})
     return net_config.VlanConnectionConfig(
         conn_name=conn_name or "vlan-conn",
         raw_config=raw_config,

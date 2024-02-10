@@ -133,14 +133,11 @@ class MockedBuilder:
     def build(
         self,
         current_connection: typing.Union[typing.Dict[str, typing.Any], None],
-        ifname: typing.Union[str, None],
         main_conn_uuid: typing.Optional[str],
     ) -> typing.List[str]:
         assert current_connection == self.configurable_connection_data.conn_data
         conn_config = self.configurable_connection_data.conn_config
         assert conn_config
-        if conn_config.interface:
-            assert ifname == conn_config.interface.iface_name
 
         # Main connections should never have the main uuid populated and
         # slave ones always need the uuid

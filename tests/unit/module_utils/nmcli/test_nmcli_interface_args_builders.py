@@ -1,3 +1,4 @@
+import pytest
 from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
     nmcli_constants,
     nmcli_interface_args_builders,
@@ -8,15 +9,35 @@ from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_util
 )
 
 
-def test_nmcli_interface_args_builders_common_args_builder_ok(mocker):
-    conn_config = net_config_stub.build_testing_ether_config(mocker)
+@pytest.mark.parametrize(
+    "test_config_factory",
+    [
+        pytest.param(
+            net_config_stub.build_testing_ether_config,
+            id="ethernet",
+        ),
+        pytest.param(
+            net_config_stub.build_testing_ether_bridge_config,
+            id="bridge",
+        ),
+        pytest.param(
+            net_config_stub.build_testing_vlan_config,
+            id="vlan",
+        ),
+    ],
+)
+def test_nmcli_interface_args_builders_common_args_builder_ok(
+    mocker,
+    test_config_factory: net_config_stub.FactoryCallable,
+):
+    conn_config = test_config_factory(mocker)
 
     # Basic, fresh, new Ethernet connection
     assert nmcli_interface_args_builders.CommonConnectionArgsBuilder(conn_config).build(
         None, None
     ) == [
         nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_TYPE,
-        nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_TYPE_VAL_ETHERNET,
+        nmcli_constants.map_config_to_nmcli_type_field(type(conn_config)),
         nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_ID,
         conn_config.name,
         nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_INTERFACE_NAME,
@@ -27,7 +48,7 @@ def test_nmcli_interface_args_builders_common_args_builder_ok(mocker):
     assert nmcli_interface_args_builders.CommonConnectionArgsBuilder(conn_config).build(
         {
             nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_TYPE: (
-                nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_TYPE_VAL_ETHERNET
+                nmcli_constants.map_config_to_nmcli_type_field(type(conn_config)),
             )
         },
         None,
@@ -88,11 +109,44 @@ def test_nmcli_interface_args_builders_common_args_builder_ok(mocker):
         conn_config.name,
     ]
 
+    # All fields are up-to-date, No changes -> Empty args list
+    assert not nmcli_interface_args_builders.CommonConnectionArgsBuilder(
+        conn_config
+    ).build(
+        {
+            nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_INTERFACE_NAME: conn_config.interface.iface_name,
+            nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_ID: conn_config.name,
+        },
+        None,
+    )
+
+
+@pytest.mark.parametrize(
+    "test_config_factory",
+    [
+        pytest.param(
+            net_config_stub.build_testing_ether_config,
+            id="ethernet",
+        ),
+        pytest.param(
+            net_config_stub.build_testing_ether_bridge_config,
+            id="bridge",
+        ),
+        pytest.param(
+            net_config_stub.build_testing_vlan_config,
+            id="vlan",
+        ),
+    ],
+)
+def test_nmcli_interface_args_builders_common_args_builder_autoconnect_ok(
+    mocker,
+    test_config_factory: net_config_stub.FactoryCallable,
+):
+    conn_config = test_config_factory(mocker)
+
     # The connection.autoconnect field needs update -> From nothing to yes
     assert nmcli_interface_args_builders.CommonConnectionArgsBuilder(
-        net_config_stub.build_testing_ether_config(
-            mocker, extra_values={"startup": True}
-        )
+        test_config_factory(mocker, extra_values={"startup": True})
     ).build(
         {
             nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_ID: conn_config.name,
@@ -106,9 +160,7 @@ def test_nmcli_interface_args_builders_common_args_builder_ok(mocker):
 
     # The connection.autoconnect field needs update -> From yes to no
     assert nmcli_interface_args_builders.CommonConnectionArgsBuilder(
-        net_config_stub.build_testing_ether_config(
-            mocker, extra_values={"startup": False}
-        )
+        test_config_factory(mocker, extra_values={"startup": False})
     ).build(
         {
             nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_AUTOCONNECT: "yes",
@@ -120,14 +172,3 @@ def test_nmcli_interface_args_builders_common_args_builder_ok(mocker):
         nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_AUTOCONNECT,
         "no",
     ]
-
-    # All fields are up-to-date, No changes -> Empty args list
-    assert not nmcli_interface_args_builders.CommonConnectionArgsBuilder(
-        conn_config
-    ).build(
-        {
-            nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_INTERFACE_NAME: conn_config.interface.iface_name,
-            nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_ID: conn_config.name,
-        },
-        None,
-    )
