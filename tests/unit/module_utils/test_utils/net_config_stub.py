@@ -1,3 +1,5 @@
+import typing
+
 from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
     net_config,
 )
@@ -87,6 +89,7 @@ def build_testing_ether_config(
     conn_name: str = None,
     index=0,
     state=None,
+    extra_values: typing.Dict[str, typing.Any] = None,
 ) -> net_config.EthernetConnectionConfig:
     raw_config = {
         "type": "ethernet",
@@ -94,7 +97,7 @@ def build_testing_ether_config(
     }
     if state:
         raw_config["state"] = state
-
+    raw_config.update(extra_values or {})
     return net_config.EthernetConnectionConfig(
         conn_name=conn_name or "ether-conn",
         raw_config=raw_config,
