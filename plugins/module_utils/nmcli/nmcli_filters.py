@@ -38,8 +38,16 @@ def is_for_interface_name(
 
 def is_for_configuration_type(
     conn_data: typing.Dict[str, typing.Any],
-    config_type: typing.Type[net_config.BaseConnectionConfig],
-):
+    config_type: typing.Type[
+        typing.Union[
+            net_config.EthernetConnectionConfig,
+            net_config.VlanConnectionConfig,
+            net_config.BridgeConnectionConfig,
+            net_config.EthernetSlaveConnectionConfig,
+            net_config.VlanSlaveConnectionConfig,
+        ]
+    ],
+) -> bool:
     return conn_data and conn_data.get(
         nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_TYPE, None
     ) == nmcli_constants.map_config_to_nmcli_type_field(config_type)
@@ -68,7 +76,7 @@ def is_main_connection_of(
 
 def all_connections_without_uuids(
     connections: typing.List[typing.Dict[str, typing.Any]], not_uuids: typing.Container
-):
+) -> typing.List[typing.Dict[str, typing.Any]]:
     not_uuids = ([not_uuids] if isinstance(not_uuids, str) else not_uuids) or []
     return [
         conn_data
