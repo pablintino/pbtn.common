@@ -104,12 +104,20 @@ __NMCLI_IP_METHOD_CONVERSION_TABLE = {
 
 
 def map_config_to_nmcli_type_field(
-    config_type: typing.Type[net_config.BaseConnectionConfig],
+    config_type: typing.Type[
+        typing.Union[
+            net_config.EthernetConnectionConfig,
+            net_config.VlanConnectionConfig,
+            net_config.BridgeConnectionConfig,
+            net_config.EthernetSlaveConnectionConfig,
+            net_config.VlanSlaveConnectionConfig,
+        ]
+    ],
 ) -> str:
     nmcli_conn_type = __NMCLI_TYPE_CONVERSION_TABLE.get(config_type, None)
     if nmcli_conn_type:
         return nmcli_conn_type
-    raise ValueError(f"Unsupported config type {type(config)}")
+    raise ValueError(f"Unsupported config type {type(config_type)}")
 
 
 def map_config_ip_method_to_nmcli_ip_method_field(

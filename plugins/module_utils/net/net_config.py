@@ -492,10 +492,6 @@ class SlaveConnectionConfig(BaseConnectionConfig):
         return self._main_connection_config
 
 
-class EthernetConnectionConfig(MainConnectionConfig):
-    pass
-
-
 class VlanBaseConnectionConfig(BaseConnectionConfig):
     __FIELD_VLAN = "vlan"
     __FIELD_VLAN_ID = "id"
@@ -579,6 +575,26 @@ class VlanBaseConnectionConfig(BaseConnectionConfig):
         self._vlan_id = vlan_id
 
 
+class EthernetBaseConnectionConfig(BaseConnectionConfig):
+    __FIELD_IFACE = "iface"
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__validate_config()
+
+    def __validate_config(self):
+        iface_raw = self._raw_config.get(self._FIELD_IFACE, None)
+        if not iface_raw:
+            raise exceptions.ValueInfraException(
+                f"{self.__FIELD_IFACE} is a mandatory field for an Ethernet based connection",
+                field=self.__FIELD_IFACE,
+            )
+
+
+class EthernetConnectionConfig(MainConnectionConfig, EthernetBaseConnectionConfig):
+    pass
+
+
 class VlanConnectionConfig(MainConnectionConfig, VlanBaseConnectionConfig):
     pass
 
@@ -587,7 +603,9 @@ class BridgeSlaveConnectionConfig(SlaveConnectionConfig):
     pass
 
 
-class EthernetSlaveConnectionConfig(SlaveConnectionConfig):
+class EthernetSlaveConnectionConfig(
+    SlaveConnectionConfig, EthernetBaseConnectionConfig
+):
     pass
 
 

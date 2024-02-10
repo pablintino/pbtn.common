@@ -3,6 +3,9 @@ import dataclasses
 import typing
 
 import pytest
+from ansible_collections.pablintino.base_infra.plugins.module_utils import (
+    exceptions,
+)
 from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
     net_config,
 )
@@ -16,7 +19,9 @@ from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_util
     MockCall,
 )
 
-from tests.unit.module_utils.test_utils import config_stub_data
+from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_utils import (
+    net_config_stub,
+)
 
 
 def __mocked_connection_check_should_go_up(configurable_connection_data):
@@ -32,14 +37,6 @@ def __mocked_connection_check_should_go_up(configurable_connection_data):
         and (configurable_connection_data.get("connection.master", "") == "")
     )
     return should_go_up
-
-
-def __build_testing_config_factory(
-    mocker,
-) -> net_config.ConnectionConfigFactory:
-    mocked_ip_interface = mocker.Mock()
-    mocked_ip_interface.get_ip_links.return_value = config_stub_data.TEST_IP_LINKS
-    return net_config.ConnectionConfigFactory(mocked_ip_interface)
 
 
 def __test_assert_target_connection_data_factory_calls(
@@ -399,11 +396,8 @@ def test_nmcli_interface_network_manager_configurator_single_conn_2_ok(
     :param command_mocker_builder: The pytest mocked command runner fixture
     :param mocker: The pytest mocker fixture
     """
-    conn_config = net_config.EthernetConnectionConfig(
-        conn_name="new-conn-name",
-        raw_config={"type": "ethernet", "iface": "eth0", "state": "up"},
-        ip_links=[],
-        connection_config_factory=mocker.Mock(),
+    conn_config = net_config_stub.build_testing_ether_config(
+        mocker, index=0, state="up"
     )
     conn_uuid = "fb157a65-ad32-47ed-858c-102a48e064a2"
     conn_data = {
@@ -477,11 +471,8 @@ def test_nmcli_interface_network_manager_configurator_single_conn_3_ok(
     :param command_mocker_builder: The pytest mocked command runner fixture
     :param mocker: The pytest mocker fixture
     """
-    conn_config = net_config.EthernetConnectionConfig(
-        conn_name="new-conn-name",
-        raw_config={"type": "ethernet", "iface": "eth0", "state": "up"},
-        ip_links=[],
-        connection_config_factory=mocker.Mock(),
+    conn_config = net_config_stub.build_testing_ether_config(
+        mocker, index=0, state="up"
     )
     conn_uuid = "fb157a65-ad32-47ed-858c-102a48e064a2"
     conn_data = {
@@ -546,13 +537,9 @@ def test_nmcli_interface_network_manager_configurator_single_conn_4_ok(
     :param command_mocker_builder: The pytest mocked command runner fixture
     :param mocker: The pytest mocker fixture
     """
-    conn_config = net_config.EthernetConnectionConfig(
-        conn_name="new-conn-name",
-        raw_config={"type": "ethernet", "iface": "eth0", "state": "up"},
-        ip_links=[],
-        connection_config_factory=mocker.Mock(),
+    conn_config = net_config_stub.build_testing_ether_config(
+        mocker, index=0, state="up"
     )
-
     target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
         {},
         conn_config,
@@ -624,14 +611,11 @@ def test_nmcli_interface_network_manager_configurator_single_conn_5_ok(
     :param command_mocker_builder: The pytest mocked command runner fixture
     :param mocker: The pytest mocker fixture
     """
-    conn_config = net_config.EthernetConnectionConfig(
-        conn_name="new-conn-name",
-        # IMPORTANT: This test is all about running a configuration without "state"
-        raw_config={"type": "ethernet", "iface": "eth0"},
-        ip_links=[],
-        connection_config_factory=mocker.Mock(),
+    conn_config = net_config_stub.build_testing_ether_config(
+        mocker,
+        index=0,
+        state=None,  # IMPORTANT: This test is all about running a configuration without "state"
     )
-
     target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
         {},
         conn_config,
@@ -698,13 +682,10 @@ def test_nmcli_interface_network_manager_configurator_single_conn_6_ok(
     :param command_mocker_builder: The pytest mocked command runner fixture
     :param mocker: The pytest mocker fixture
     """
-    conn_config = net_config.EthernetConnectionConfig(
-        conn_name="new-conn-name",
-        raw_config={"type": "ethernet", "iface": "eth0", "state": "down"},
-        ip_links=[],
-        connection_config_factory=mocker.Mock(),
-    )
 
+    conn_config = net_config_stub.build_testing_ether_config(
+        mocker, index=0, state="down"
+    )
     target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
         {},
         conn_config,
@@ -773,11 +754,8 @@ def test_nmcli_interface_network_manager_configurator_apply_args_fail(
     :param command_mocker_builder: The pytest mocked command runner fixture
     :param mocker: The pytest mocker fixture
     """
-    conn_config = net_config.EthernetConnectionConfig(
-        conn_name="new-conn-name",
-        raw_config={"type": "ethernet", "iface": "eth0", "state": "up"},
-        ip_links=[],
-        connection_config_factory=mocker.Mock(),
+    conn_config = net_config_stub.build_testing_ether_config(
+        mocker, index=0, state="up"
     )
     conn_uuid = "fb157a65-ad32-47ed-858c-102a48e064a2"
     conn_data = {
@@ -844,13 +822,9 @@ def test_nmcli_interface_network_manager_configurator_state_timeout_fail(
     :param command_mocker_builder: The pytest mocked command runner fixture
     :param mocker: The pytest mocker fixture
     """
-    conn_config = net_config.EthernetConnectionConfig(
-        conn_name="new-conn-name",
-        raw_config={"type": "ethernet", "iface": "eth0", "state": "up"},
-        ip_links=[],
-        connection_config_factory=mocker.Mock(),
+    conn_config = net_config_stub.build_testing_ether_config(
+        mocker, index=0, state="up"
     )
-
     target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
         {},
         conn_config,
@@ -918,13 +892,9 @@ def test_nmcli_interface_network_manager_configurator_activation_failure_fail(
     :param command_mocker_builder: The pytest mocked command runner fixture
     :param mocker: The pytest mocker fixture
     """
-    conn_config = net_config.EthernetConnectionConfig(
-        conn_name="new-conn-name",
-        raw_config={"type": "ethernet", "iface": "eth0", "state": "up"},
-        ip_links=[],
-        connection_config_factory=mocker.Mock(),
+    conn_config = net_config_stub.build_testing_ether_config(
+        mocker, index=0, state="up"
     )
-
     target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
         {},
         conn_config,
@@ -994,13 +964,9 @@ def test_nmcli_interface_network_manager_configurator_link_validation_fail(
     :param command_mocker_builder: The pytest mocked command runner fixture
     :param mocker: The pytest mocker fixture
     """
-    conn_config = net_config.EthernetConnectionConfig(
-        conn_name="new-conn-name",
-        raw_config={"type": "ethernet", "iface": "eth3", "state": "up"},
-        ip_links=[],
-        connection_config_factory=mocker.Mock(),
+    conn_config = net_config_stub.build_testing_ether_config(
+        mocker, index=0, state="up"
     )
-
     target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
         {},
         conn_config,
@@ -1041,20 +1007,6 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_1_ok(
     :param command_mocker_builder: The pytest mocked command runner fixture
     :param mocker: The pytest mocker fixture
     """
-    conn_config = net_config.BridgeConnectionConfig(
-        conn_name="new-conn-name",
-        raw_config={
-            "type": "bridge",
-            "iface": "br1",
-            "state": "up",
-            "slaves": {
-                "ether-conn-1": {"type": "ethernet", "iface": "eth0", "state": "up"},
-            },
-        },
-        ip_links=[],
-        connection_config_factory=__build_testing_config_factory(mocker),
-    )
-
     conn_bridge_uuid = "fb157a65-ad32-47ed-858c-102a48e064a2"
     conn_ether_uuid = "abe712b4-10f0-4fc4-9ca8-12cb5b90b7d2"
     connection_data_raw_bridge = {
@@ -1067,6 +1019,9 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_1_ok(
         "general.state": "activated",
         "connection.master": conn_bridge_uuid,
     }
+    conn_config = net_config_stub.build_testing_ether_bridge_config(
+        mocker, slaves_count=1, start_index=0, main_state="up", slaves_state="up"
+    )
     target_connection_data = (
         nmcli_interface_types.TargetConnectionData.Builder(
             connection_data_raw_bridge, conn_config
@@ -1157,23 +1112,6 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_2_ok(
     :param command_mocker_builder: The pytest mocked command runner fixture
     :param mocker: The pytest mocker fixture
     """
-    conn_config = net_config.BridgeConnectionConfig(
-        conn_name="new-conn-name",
-        raw_config={
-            "type": "bridge",
-            "iface": "br1",
-            "state": "up",
-            "slaves": {
-                "ether-conn-1": {
-                    "type": "ethernet",
-                    "iface": "eth0",  # State removed on purpose
-                },
-            },
-        },
-        ip_links=[],
-        connection_config_factory=__build_testing_config_factory(mocker),
-    )
-
     conn_bridge_uuid = "fb157a65-ad32-47ed-858c-102a48e064a2"
     conn_ether_uuid = "abe712b4-10f0-4fc4-9ca8-12cb5b90b7d2"
     connection_data_raw_bridge = {
@@ -1185,6 +1123,13 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_2_ok(
         "connection.interface-name": "eth0",
         # This connection is declared as a main -> It's changing from main to slave
     }
+    conn_config = net_config_stub.build_testing_ether_bridge_config(
+        mocker,
+        slaves_count=1,
+        start_index=0,
+        main_state="up",
+        slaves_state=None,  # State removed on purpose
+    )
     target_connection_data = (
         nmcli_interface_types.TargetConnectionData.Builder(
             connection_data_raw_bridge, conn_config
@@ -1274,20 +1219,6 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_3_ok(
     :param command_mocker_builder: The pytest mocked command runner fixture
     :param mocker: The pytest mocker fixture
     """
-    conn_config = net_config.BridgeConnectionConfig(
-        conn_name="new-conn-name",
-        raw_config={
-            "type": "bridge",
-            "iface": "br1",
-            "state": "up",
-            "slaves": {
-                "ether-conn-1": {"type": "ethernet", "iface": "eth0", "state": "up"},
-            },
-        },
-        ip_links=[],
-        connection_config_factory=__build_testing_config_factory(mocker),
-    )
-
     conn_bridge_uuid = "fb157a65-ad32-47ed-858c-102a48e064a2"
     conn_ether_uuid = "abe712b4-10f0-4fc4-9ca8-12cb5b90b7d2"
     connection_data_raw_bridge = {
@@ -1301,6 +1232,9 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_3_ok(
         "general.state": "activated",
         "connection.master": conn_bridge_uuid,
     }
+    conn_config = net_config_stub.build_testing_ether_bridge_config(
+        mocker, slaves_count=1, start_index=0, main_state="up", slaves_state="up"
+    )
     target_connection_data = (
         nmcli_interface_types.TargetConnectionData.Builder(
             connection_data_raw_bridge, conn_config
@@ -1372,20 +1306,6 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_4_ok(
     :param command_mocker_builder: The pytest mocked command runner fixture
     :param mocker: The pytest mocker fixture
     """
-    conn_config = net_config.BridgeConnectionConfig(
-        conn_name="new-conn-name",
-        raw_config={
-            "type": "bridge",
-            "iface": "br1",
-            "state": "up",
-            "slaves": {
-                "ether-conn-1": {"type": "ethernet", "iface": "eth0", "state": "up"},
-            },
-        },
-        ip_links=[],
-        connection_config_factory=__build_testing_config_factory(mocker),
-    )
-
     conn_bridge_uuid = "fb157a65-ad32-47ed-858c-102a48e064a2"
     conn_ether_uuid = "abe712b4-10f0-4fc4-9ca8-12cb5b90b7d2"
     connection_data_raw_bridge = {
@@ -1399,6 +1319,9 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_4_ok(
         "general.state": "activated",
         "connection.master": conn_bridge_uuid,
     }
+    conn_config = net_config_stub.build_testing_ether_bridge_config(
+        mocker, slaves_count=1, start_index=0, main_state="up", slaves_state="up"
+    )
     target_connection_data = (
         nmcli_interface_types.TargetConnectionData.Builder(
             connection_data_raw_bridge, conn_config
@@ -1497,7 +1420,7 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_5_ok(
             },
         },
         ip_links=[],
-        connection_config_factory=__build_testing_config_factory(mocker),
+        connection_config_factory=net_config_stub.build_testing_config_factory(mocker),
     )
 
     conn_bridge_uuid = "fb157a65-ad32-47ed-858c-102a48e064a2"
@@ -1613,3 +1536,109 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_5_ok(
     __test_assert_target_connection_data_factory_calls(
         target_connection_data_factory, conn_config
     )
+
+
+@pytest.mark.parametrize(
+    "test_config_type,test_config_raw",
+    [
+        pytest.param(
+            net_config.EthernetConnectionConfig,
+            {"type": "ethernet", "iface": "eth0", "state": "up"},
+            id="ethernet",
+        ),
+        pytest.param(
+            net_config.VlanConnectionConfig,
+            {
+                "type": "vlan",
+                "iface": "eth0.20",
+                "state": "up",
+                "vlan": {"id": 20, "parent": "eth0"},
+            },
+            id="vlan",
+        ),
+        pytest.param(
+            net_config.BridgeConnectionConfig,
+            {
+                "type": "bridge",
+                "iface": "br1",
+                "state": "up",
+                "slaves": {
+                    "ether-conn-1": {
+                        "type": "ethernet",
+                        "iface": "eth0",
+                        "state": "up",
+                    },
+                    "vlan-conn-1": {
+                        "type": "vlan",
+                        "iface": "eth1.20",
+                        "vlan": {
+                            "id": 20,
+                            "parent": "eth1",
+                        },
+                    },
+                },
+            },
+            id="bridge",
+        ),
+    ],
+)
+def test_nmcli_interface_network_manager_configurator_factory_ok(
+    mocker,
+    test_config_type: type,
+    test_config_raw: typing.Dict[str, typing.Any],
+):
+    """
+    Test that the NetworkManagerConfiguratorFactory is able to build
+    a configurator for every expected configuration type.
+
+    :param mocker: The pytest mocker fixture
+    :param test_config_type: The class type to test.
+    :param test_config_raw: The raw configuration.
+    """
+    factory = nmcli_interface.NetworkManagerConfiguratorFactory(
+        mocker.Mock(),
+        mocker.Mock(),
+        mocker.Mock(),
+        mocker.Mock(),
+        mocker.Mock(),
+    )
+    conn_config = test_config_type(
+        conn_name="new-conn-name",
+        raw_config=test_config_raw,
+        ip_links=[],
+        connection_config_factory=net_config_stub.build_testing_config_factory(mocker),
+    )
+    configurator = factory.build_configurator(
+        conn_config, options=nmcli_interface_types.NetworkManagerConfiguratorOptions()
+    )
+    assert isinstance(configurator, nmcli_interface.NetworkManagerConfigurator)
+
+
+def test_nmcli_interface_network_manager_configurator_factory_fail(mocker):
+    """
+    Test that the NetworkManagerConfiguratorFactory validated the passed
+    configuration classes.
+
+    :param mocker: The pytest mocker fixture
+    """
+    factory = nmcli_interface.NetworkManagerConfiguratorFactory(
+        mocker.Mock(),
+        mocker.Mock(),
+        mocker.Mock(),
+        mocker.Mock(),
+        mocker.Mock(),
+    )
+
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        factory.build_configurator(
+            net_config.MainConnectionConfig(
+                conn_name="new-conn-name",
+                raw_config={},
+                ip_links=[],
+                connection_config_factory=net_config_stub.build_testing_config_factory(
+                    mocker
+                ),
+                conn_config=nmcli_interface_types.NetworkManagerConfiguratorOptions(),
+            )
+        )
+    assert "unsupported connection type" in str(err.value).lower()

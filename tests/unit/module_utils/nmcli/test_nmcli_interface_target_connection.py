@@ -12,15 +12,9 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import
     nmcli_interface_types,
 )
 
-from tests.unit.module_utils.test_utils import config_stub_data
-
-
-def __build_testing_config_factory(
-    mocker,
-) -> net_config.ConnectionConfigFactory:
-    mocked_ip_interface = mocker.Mock()
-    mocked_ip_interface.get_ip_links.return_value = config_stub_data.TEST_IP_LINKS
-    return net_config.ConnectionConfigFactory(mocked_ip_interface)
+from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_utils import (
+    net_config_stub,
+)
 
 
 def __check_slave_conn_id_not_present(
@@ -91,16 +85,17 @@ def test_target_connection_data_factory_build_conn_data_ether_basic_1_ok(mocker)
     """
 
     target_uuid = "69de43fc-6504-4a6e-a6aa-d04ffb5adb0e"
-    target_conn_name = "testing-conn-name"
-
     # Create a list of queries with all the possible combinations
     # of connections order to ensure the result is not order
     # dependant
+    conn_config = net_config_stub.build_testing_ether_config(
+        mocker, index=0, state=None
+    )
     queriers = __prepare_permute_queriers(
         mocker,
         [
             {
-                "connection.id": target_conn_name,
+                "connection.id": conn_config.name,
                 "connection.type": "802-3-ethernet",
                 "general.state": "activated",
                 "connection.uuid": target_uuid,
@@ -108,14 +103,14 @@ def test_target_connection_data_factory_build_conn_data_ether_basic_1_ok(mocker)
             # Ensure we prioritize active connections. This one is not picked
             # just because it is not active, like the target one
             {
-                "connection.id": target_conn_name,
+                "connection.id": conn_config.name,
                 "connection.type": "802-3-ethernet",
                 "connection.uuid": "694bacc5-f167-47bd-8688-bb4a83067cba",
             },
             # Ensure the type cares if matching by name. This connection should
             # not be picked as it's not an ethernet one (the requested one)
             {
-                "connection.id": target_conn_name,
+                "connection.id": conn_config.name,
                 "connection.type": "vlan",
                 "connection.uuid": "b15bd50c-c613-4fca-9303-8db4cc14a876",
                 "connection.interface-name": "eth0",
@@ -133,16 +128,6 @@ def test_target_connection_data_factory_build_conn_data_ether_basic_1_ok(mocker)
             querier,
             mocker.Mock(),
             mocker.Mock(),
-        )
-        conn_config_raw = {
-            "type": "ethernet",
-            "iface": "eth0",
-        }
-        conn_config = net_config.EthernetConnectionConfig(
-            conn_name=target_conn_name,
-            raw_config=conn_config_raw,
-            ip_links=[],
-            connection_config_factory=mocker.Mock(),
         )
         result = factory.build_target_connection_data(conn_config)
         assert isinstance(result, nmcli_interface_types.TargetConnectionData)
@@ -165,6 +150,9 @@ def test_target_connection_data_factory_build_conn_data_ether_basic_2_ok(mocker)
     # Create a list of queries with all the possible combinations
     # of connections order to ensure the result is not order
     # dependant
+    conn_config = net_config_stub.build_testing_ether_config(
+        mocker, index=0, state=None
+    )
     queriers = __prepare_permute_queriers(
         mocker,
         [
@@ -196,16 +184,6 @@ def test_target_connection_data_factory_build_conn_data_ether_basic_2_ok(mocker)
             querier,
             mocker.Mock(),
             mocker.Mock(),
-        )
-
-        conn_config = net_config.EthernetConnectionConfig(
-            conn_name="new-conn-name",
-            raw_config={
-                "type": "ethernet",
-                "iface": "eth0",
-            },
-            ip_links=[],
-            connection_config_factory=mocker.Mock(),
         )
         result = factory.build_target_connection_data(conn_config)
         assert isinstance(result, nmcli_interface_types.TargetConnectionData)
@@ -265,21 +243,14 @@ def test_target_connection_data_factory_build_conn_data_ether_basic_3_ok(mocker)
             },
         ],
     )
+    conn_config = net_config_stub.build_testing_ether_config(
+        mocker, index=1, state=None, conn_name="non-existing-conn-name"
+    )
     for querier in queriers:
         factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
             querier,
             mocker.Mock(),
             mocker.Mock(),
-        )
-
-        conn_config = net_config.EthernetConnectionConfig(
-            conn_name="non-existing-conn-name",
-            raw_config={
-                "type": "ethernet",
-                "iface": "eth1",
-            },
-            ip_links=[],
-            connection_config_factory=mocker.Mock(),
         )
         result = factory.build_target_connection_data(conn_config)
         assert isinstance(result, nmcli_interface_types.TargetConnectionData)
@@ -298,9 +269,9 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_1_ok(mocker
     # Create a list of queries with all the possible combinations
     # of connections order to ensure the result is not order
     # dependant
-    bridge_conn_id = "bridge-conn"
-    ether_conn_id_1 = "ether-conn-1"
-    ether_conn_id_2 = "ether-conn-2"
+    conn_config = net_config_stub.build_testing_ether_bridge_config(
+        mocker, slaves_count=2, start_index=0
+    )
     ether_conn_uuid_1 = "079fbb68-bfee-40fd-8216-ef4d9b96e563"
     ether_conn_uuid_2 = "c692d26b-e3ff-40da-997a-7a3ae87ef428"
     bridge_conn_uuid = "055812f8-2f2a-4239-886d-0e4a16633186"
@@ -308,19 +279,19 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_1_ok(mocker
         mocker,
         [
             {
-                "connection.id": bridge_conn_id,
+                "connection.id": conn_config.name,
                 "connection.type": "bridge",
                 "general.state": "activated",
                 "connection.uuid": bridge_conn_uuid,
             },
             {
-                "connection.id": ether_conn_id_1,
+                "connection.id": conn_config.slaves[0].name,
                 "connection.type": "802-3-ethernet",
                 "general.state": "activated",
                 "connection.uuid": ether_conn_uuid_1,
             },
             {
-                "connection.id": ether_conn_id_2,
+                "connection.id": conn_config.slaves[1].name,
                 "connection.type": "802-3-ethernet",
                 "general.state": "activated",
                 "connection.uuid": ether_conn_uuid_2,
@@ -352,18 +323,6 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_1_ok(mocker
             mocker.Mock(),
         )
 
-        conn_config = net_config.BridgeConnectionConfig(
-            conn_name=bridge_conn_id,
-            raw_config={
-                "type": "bridge",
-                "slaves": {
-                    ether_conn_id_1: {"type": "ethernet", "iface": "eth0"},
-                    ether_conn_id_2: {"type": "ethernet", "iface": "eth1"},
-                },
-            },
-            ip_links=[],
-            connection_config_factory=__build_testing_config_factory(mocker),
-        )
         result = factory.build_target_connection_data(conn_config)
         assert isinstance(result, nmcli_interface_types.TargetConnectionData)
         assert not result.empty
@@ -385,10 +344,11 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_2_ok(mocker
     # Create a list of queries with all the possible combinations
     # of connections order to ensure the result is not order
     # dependant
-    ether_conn_id_1 = "ether-conn-1"
-    ether_conn_id_2 = "ether-conn-2"
     ether_conn_uuid_1 = "079fbb68-bfee-40fd-8216-ef4d9b96e563"
     ether_conn_uuid_2 = "c692d26b-e3ff-40da-997a-7a3ae87ef428"
+    conn_config = net_config_stub.build_testing_ether_bridge_config(
+        mocker, slaves_count=2, start_index=1
+    )
     queriers = __prepare_permute_queriers(
         mocker,
         [
@@ -416,13 +376,13 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_2_ok(mocker
                 "connection.uuid": "0796dc7f-0b85-4242-8a52-98d66ffedcfc",
             },
             {
-                "connection.id": ether_conn_id_1,
+                "connection.id": conn_config.slaves[0].name,
                 "connection.type": "802-3-ethernet",
                 "general.state": "activated",
                 "connection.uuid": ether_conn_uuid_1,
             },
             {
-                "connection.id": ether_conn_id_2,
+                "connection.id": conn_config.slaves[1].name,
                 "connection.type": "802-3-ethernet",
                 # Test that it picks up it even if inactive
                 "connection.uuid": ether_conn_uuid_2,
@@ -436,19 +396,6 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_2_ok(mocker
             mocker.Mock(),
         )
 
-        conn_config = net_config.BridgeConnectionConfig(
-            conn_name="bridge-conn",
-            raw_config={
-                "type": "bridge",
-                "iface": "br1",
-                "slaves": {
-                    ether_conn_id_1: {"type": "ethernet", "iface": "eth0"},
-                    ether_conn_id_2: {"type": "ethernet", "iface": "eth1"},
-                },
-            },
-            ip_links=[],
-            connection_config_factory=__build_testing_config_factory(mocker),
-        )
         result = factory.build_target_connection_data(conn_config)
         assert isinstance(result, nmcli_interface_types.TargetConnectionData)
         assert result.empty
@@ -469,16 +416,16 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_3_ok(mocker
     # Create a list of queries with all the possible combinations
     # of connections order to ensure the result is not order
     # dependant
-    bridge_conn_id = "bridge-conn"
-    ether_conn_id_1 = "ether-conn-1"
-    ether_conn_id_2 = "ether-conn-2"
     ether_conn_uuid_1 = "079fbb68-bfee-40fd-8216-ef4d9b96e563"
     bridge_conn_uuid = "055812f8-2f2a-4239-886d-0e4a16633186"
+    conn_config = net_config_stub.build_testing_ether_bridge_config(
+        mocker, slaves_count=2, start_index=0
+    )
     queriers = __prepare_permute_queriers(
         mocker,
         [
             {
-                "connection.id": bridge_conn_id,
+                "connection.id": conn_config.name,
                 "connection.type": "bridge",
                 "general.state": "activated",
                 "connection.uuid": bridge_conn_uuid,
@@ -492,7 +439,7 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_3_ok(mocker
                 "connection.uuid": bridge_conn_uuid,
             },
             {
-                "connection.id": ether_conn_id_1,
+                "connection.id": conn_config.slaves[0].name,
                 "connection.type": "802-3-ethernet",
                 "general.state": "activated",
                 "connection.uuid": ether_conn_uuid_1,
@@ -529,19 +476,6 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_3_ok(mocker
             mocker.Mock(),
             mocker.Mock(),
         )
-
-        conn_config = net_config.BridgeConnectionConfig(
-            conn_name=bridge_conn_id,
-            raw_config={
-                "type": "bridge",
-                "slaves": {
-                    ether_conn_id_1: {"type": "ethernet", "iface": "eth0"},
-                    ether_conn_id_2: {"type": "ethernet", "iface": "eth1"},
-                },
-            },
-            ip_links=[],
-            connection_config_factory=__build_testing_config_factory(mocker),
-        )
         result = factory.build_target_connection_data(conn_config)
         assert isinstance(result, nmcli_interface_types.TargetConnectionData)
         assert not result.empty
@@ -550,7 +484,7 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_3_ok(mocker
         assert len(result.uuids) == 2
         assert bridge_conn_uuid in result.uuids
         assert ether_conn_uuid_1 in result.uuids
-        __check_slave_conn_id_not_present(ether_conn_id_2, result)
+        __check_slave_conn_id_not_present(conn_config.slaves[1].name, result)
 
 
 def test_target_connection_data_factory_build_conn_data_bridge_basic_4_ok(mocker):
@@ -642,7 +576,9 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_4_ok(mocker
                 },
             },
             ip_links=[],
-            connection_config_factory=__build_testing_config_factory(mocker),
+            connection_config_factory=net_config_stub.build_testing_config_factory(
+                mocker
+            ),
         )
         result = factory.build_target_connection_data(conn_config)
         assert isinstance(result, nmcli_interface_types.TargetConnectionData)
@@ -665,15 +601,15 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_5_ok(mocker
     # Create a list of queries with all the possible combinations
     # of connections order to ensure the result is not order
     # dependant
-    bridge_conn_id = "bridge-conn"
-    ether_conn_id_1 = "ether-conn-1"
-    ether_conn_id_2 = "ether-conn-2"
     bridge_conn_uuid = "055812f8-2f2a-4239-886d-0e4a16633186"
+    conn_config = net_config_stub.build_testing_ether_bridge_config(
+        mocker, slaves_count=2, start_index=0
+    )
     queriers = __prepare_permute_queriers(
         mocker,
         [
             {
-                "connection.id": bridge_conn_id,
+                "connection.id": conn_config.name,
                 "connection.type": "bridge",
                 "general.state": "activated",
                 "connection.uuid": bridge_conn_uuid,
@@ -709,19 +645,6 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_5_ok(mocker
             mocker.Mock(),
             mocker.Mock(),
         )
-
-        conn_config = net_config.BridgeConnectionConfig(
-            conn_name=bridge_conn_id,
-            raw_config={
-                "type": "bridge",
-                "slaves": {
-                    ether_conn_id_1: {"type": "ethernet", "iface": "eth0"},
-                    ether_conn_id_2: {"type": "ethernet", "iface": "eth1"},
-                },
-            },
-            ip_links=[],
-            connection_config_factory=__build_testing_config_factory(mocker),
-        )
         result = factory.build_target_connection_data(conn_config)
         assert isinstance(result, nmcli_interface_types.TargetConnectionData)
         assert not result.empty
@@ -729,8 +652,8 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_5_ok(mocker
         assert result.conn_config == conn_config
         assert len(result.uuids) == 1
         assert bridge_conn_uuid in result.uuids
-        __check_slave_conn_id_not_present(ether_conn_id_1, result)
-        __check_slave_conn_id_not_present(ether_conn_id_2, result)
+        __check_slave_conn_id_not_present(conn_config.slaves[0].name, result)
+        __check_slave_conn_id_not_present(conn_config.slaves[1].name, result)
 
 
 def test_target_connection_data_factory_build_conn_data_bridge_basic_6_ok(mocker):
@@ -742,6 +665,9 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_6_ok(mocker
     # Create a list of queries with all the possible combinations
     # of connections order to ensure the result is not order
     # dependant
+    conn_config = net_config_stub.build_testing_ether_bridge_config(
+        mocker, slaves_count=2, start_index=0
+    )
     queriers = __prepare_permute_queriers(
         mocker,
         [
@@ -798,20 +724,6 @@ def test_target_connection_data_factory_build_conn_data_bridge_basic_6_ok(mocker
             mocker.Mock(),
             mocker.Mock(),
         )
-
-        conn_config = net_config.BridgeConnectionConfig(
-            conn_name="non-existing-bridge-conn-1",
-            raw_config={
-                "type": "bridge",
-                "iface": "br1",
-                "slaves": {
-                    "ether-conn-1": {"type": "ethernet", "iface": "eth0"},
-                    "ether-conn-2": {"type": "ethernet", "iface": "eth1"},
-                },
-            },
-            ip_links=[],
-            connection_config_factory=__build_testing_config_factory(mocker),
-        )
         result = factory.build_target_connection_data(conn_config)
         assert isinstance(result, nmcli_interface_types.TargetConnectionData)
         assert result.empty
@@ -828,21 +740,15 @@ def test_target_connection_data_factory_build_delete_conn_list_1_ok(mocker):
     # Create a list of queries with all the possible combinations
     # of connections order to ensure the result is not order
     # dependant
+    ether_conn_id = "ether-conn-001"
     connection_data_raw = {
-        "connection.id": "ether-conn-001",
+        "connection.id": ether_conn_id,
         "connection.type": "802-3-ethernet",
         "general.state": "activated",
         "connection.uuid": "98ef06cf-a80e-4771-ad96-8375b123c8a7",
     }
-
-    conn_config = net_config.EthernetConnectionConfig(
-        conn_name="ether-conn-001",
-        raw_config={
-            "type": "ethernet",
-            "iface": "eth0",
-        },
-        ip_links=[],
-        connection_config_factory=mocker.Mock(),
+    conn_config = net_config_stub.build_testing_ether_config(
+        mocker, index=0, state=None, conn_name=ether_conn_id
     )
     target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
         connection_data_raw, conn_config
@@ -947,7 +853,7 @@ def test_target_connection_data_factory_build_delete_conn_list_2_ok(mocker):
             },
         },
         ip_links=[],
-        connection_config_factory=__build_testing_config_factory(mocker),
+        connection_config_factory=net_config_stub.build_testing_config_factory(mocker),
     )
     target_connection_data = (
         nmcli_interface_types.TargetConnectionData.Builder(
@@ -1055,7 +961,7 @@ def test_target_connection_data_factory_build_delete_conn_list_3_ok(mocker):
             },
         },
         ip_links=[],
-        connection_config_factory=__build_testing_config_factory(mocker),
+        connection_config_factory=net_config_stub.build_testing_config_factory(mocker),
     )
     target_connection_data = (
         nmcli_interface_types.TargetConnectionData.Builder(
@@ -1134,27 +1040,9 @@ def test_target_connection_data_factory_build_delete_conn_list_4_ok(mocker):
         "connection.uuid": ether_uuid_1,
     }
 
-    conn_config_target = net_config.EthernetConnectionConfig(
-        conn_name="ether-conn-1",
-        raw_config={
-            "type": "ethernet",
-            "iface": "eth1",
-        },
-        ip_links=[],
-        connection_config_factory=mocker.Mock(),
-    )
-    conn_config_dependant = net_config.VlanConnectionConfig(
-        conn_name="bridge-conn-1",
-        raw_config={
-            "type": "vlan",
-            "iface": f"{conn_config_target.interface.iface_name}.200",
-            "vlan": {
-                "id": 200,
-                "parent": conn_config_target.interface.iface_name,
-            },
-        },
-        ip_links=[],
-        connection_config_factory=__build_testing_config_factory(mocker),
+    conn_config_target = net_config_stub.build_testing_ether_config(mocker, index=1)
+    conn_config_dependant = net_config_stub.build_testing_vlan_config(
+        mocker, vlan_id=200, index=1
     )
     target_connection_data = (
         nmcli_interface_types.TargetConnectionData.Builder(
@@ -1247,20 +1135,8 @@ def test_target_connection_data_factory_build_delete_conn_list_5_ok(mocker):
         "connection.master": bridge_uuid_2,
         "connection.uuid": vlan_uuid_1,
     }
-    conn_config_target = net_config.BridgeConnectionConfig(
-        conn_name="bridge-conn-1",
-        raw_config={
-            "type": "bridge",
-            "iface": "br0",
-            "slaves": {
-                "ether-conn-1": {
-                    "type": "ethernet",
-                    "iface": "eth1",
-                }
-            },
-        },
-        ip_links=[],
-        connection_config_factory=__build_testing_config_factory(mocker),
+    conn_config_target = net_config_stub.build_testing_ether_bridge_config(
+        mocker, slaves_count=1, start_index=1
     )
     target_connection_data = (
         nmcli_interface_types.TargetConnectionData.Builder(
@@ -1330,20 +1206,8 @@ def test_target_connection_data_factory_build_delete_conn_list_6_ok(mocker):
         "connection.master": bridge_uuid_1,
         "connection.uuid": ether_uuid_2,
     }
-    conn_config_target = net_config.BridgeConnectionConfig(
-        conn_name="bridge-conn-1",
-        raw_config={
-            "type": "bridge",
-            "iface": "br0",
-            "slaves": {
-                "ether-conn-1": {
-                    "type": "ethernet",
-                    "iface": "eth1",
-                }
-            },
-        },
-        ip_links=[],
-        connection_config_factory=__build_testing_config_factory(mocker),
+    conn_config_target = net_config_stub.build_testing_ether_bridge_config(
+        mocker, slaves_count=1, start_index=1
     )
     target_connection_data = (
         nmcli_interface_types.TargetConnectionData.Builder(
@@ -1407,20 +1271,8 @@ def test_target_connection_data_factory_build_delete_conn_list_7_ok(mocker):
         "general.state": "activated",
         "connection.uuid": ether_uuid_1,
     }
-    conn_config_target = net_config.BridgeConnectionConfig(
-        conn_name="bridge-conn-1",
-        raw_config={
-            "type": "bridge",
-            "iface": "br0",
-            "slaves": {
-                "ether-conn-1": {
-                    "type": "ethernet",
-                    "iface": "eth1",
-                }
-            },
-        },
-        ip_links=[],
-        connection_config_factory=__build_testing_config_factory(mocker),
+    conn_config_target = net_config_stub.build_testing_ether_bridge_config(
+        mocker, slaves_count=1, start_index=1
     )
     target_connection_data = (
         nmcli_interface_types.TargetConnectionData.Builder(

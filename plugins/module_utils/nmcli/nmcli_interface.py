@@ -7,6 +7,9 @@ import time
 import typing
 
 from ansible_collections.pablintino.base_infra.plugins.module_utils import (
+    exceptions,
+)
+from ansible_collections.pablintino.base_infra.plugins.module_utils import (
     module_command_utils,
 )
 from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
@@ -368,7 +371,7 @@ class NetworkManagerConfiguratorFactory:  # pylint: disable=too-few-public-metho
         )
         if not configurator_type:
             # Shouldn't reach this one if config logic and this one is properly aligned
-            raise ValueError(
+            raise exceptions.ValueInfraException(
                 f"Unsupported connection type {type(conn_config)} for connection {conn_config.name}"
             )
 

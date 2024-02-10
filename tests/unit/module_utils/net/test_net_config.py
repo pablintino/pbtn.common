@@ -1454,3 +1454,28 @@ def test_net_config_interface_identifier_invalid_identifier_fail(test_identifier
     assert "invalid value for an interface identifier" in str(err.value)
     assert test_identifier in str(err.value)
     assert err.value.value == test_identifier
+
+
+def test_net_config_ethernet_missing_iface_field_fail(mocker):
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        net_config.EthernetConnectionConfig(
+            conn_name="ether-conn",
+            raw_config={"type": "ethernet"},
+            ip_links=[],
+            connection_config_factory=mocker.Mock(),
+        )
+    assert (
+        str(err.value) == "iface is a mandatory field for an Ethernet based connection"
+    )
+
+    with pytest.raises(exceptions.ValueInfraException) as err1:
+        net_config.EthernetSlaveConnectionConfig(
+            conn_name="ether-conn",
+            raw_config={"type": "ethernet"},
+            ip_links=[],
+            connection_config_factory=mocker.Mock(),
+            main_connection_config=mocker.Mock(),
+        )
+    assert (
+        str(err1.value) == "iface is a mandatory field for an Ethernet based connection"
+    )

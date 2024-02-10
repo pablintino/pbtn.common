@@ -45,21 +45,12 @@ class NmcliLinkValidator:
             net_config.EthernetSlaveConnectionConfig,
         ],
     ):
-        parent_iface_name = (
-            conn_config.interface.iface_name if conn_config.interface else None
-        )
-
-        if not parent_iface_name:
-            raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
-                f"Cannot determine the interface to use for {conn_config.name} "
-                "connection. Interface name is mandatory for this connection type."
-            )
-
+        parent_iface_name = conn_config.interface.iface_name
         target_link = self._get_link_by_iface_name(parent_iface_name)
         if not target_link:
             raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
                 f"Cannot determine the interface to use for {conn_config.name} "
-                f"connection. Interface {parent_iface_name} not found."
+                f"connection. Interface {parent_iface_name} not found"
             )
 
     def __validate_vlan_links(self, conn_config: net_config.VlanBaseConnectionConfig):
@@ -68,7 +59,7 @@ class NmcliLinkValidator:
         if not target_link:
             raise nmcli_interface_exceptions.NmcliInterfaceValidationException(
                 f"Cannot determine the parent interface to use for {conn_config.name} "
-                f"connection. Interface {parent_iface_name} not found."
+                f"connection. Interface {parent_iface_name} not found"
             )
 
     def _get_link_by_iface_name(
