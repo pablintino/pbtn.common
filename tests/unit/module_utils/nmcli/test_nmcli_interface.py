@@ -394,7 +394,7 @@ def test_nmcli_interface_network_manager_configurator_single_conn_2_ok(
     :param mocker: The pytest mocker fixture
     """
     conn_config = net_config_stub.build_testing_ether_config(
-        mocker, index=0, state="up"
+        mocker, index=0, config_patch={"state": "up"}
     )
     conn_uuid = "fb157a65-ad32-47ed-858c-102a48e064a2"
     conn_data = {
@@ -469,7 +469,7 @@ def test_nmcli_interface_network_manager_configurator_single_conn_3_ok(
     :param mocker: The pytest mocker fixture
     """
     conn_config = net_config_stub.build_testing_ether_config(
-        mocker, index=0, state="up"
+        mocker, index=0, config_patch={"state": "up"}
     )
     conn_uuid = "fb157a65-ad32-47ed-858c-102a48e064a2"
     conn_data = {
@@ -535,7 +535,7 @@ def test_nmcli_interface_network_manager_configurator_single_conn_4_ok(
     :param mocker: The pytest mocker fixture
     """
     conn_config = net_config_stub.build_testing_ether_config(
-        mocker, index=0, state="up"
+        mocker, index=0, config_patch={"state": "up"}
     )
     target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
         {},
@@ -611,7 +611,9 @@ def test_nmcli_interface_network_manager_configurator_single_conn_5_ok(
     conn_config = net_config_stub.build_testing_ether_config(
         mocker,
         index=0,
-        state=None,  # IMPORTANT: This test is all about running a configuration without "state"
+        config_patch={
+            "state": None
+        },  # IMPORTANT: This test is all about running a configuration without "state"
     )
     target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
         {},
@@ -681,7 +683,7 @@ def test_nmcli_interface_network_manager_configurator_single_conn_6_ok(
     """
 
     conn_config = net_config_stub.build_testing_ether_config(
-        mocker, index=0, state="down"
+        mocker, index=0, config_patch={"state": "down"}
     )
     target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
         {},
@@ -752,7 +754,7 @@ def test_nmcli_interface_network_manager_configurator_apply_args_fail(
     :param mocker: The pytest mocker fixture
     """
     conn_config = net_config_stub.build_testing_ether_config(
-        mocker, index=0, state="up"
+        mocker, index=0, config_patch={"state": "up"}
     )
     conn_uuid = "fb157a65-ad32-47ed-858c-102a48e064a2"
     conn_data = {
@@ -820,7 +822,7 @@ def test_nmcli_interface_network_manager_configurator_state_timeout_fail(
     :param mocker: The pytest mocker fixture
     """
     conn_config = net_config_stub.build_testing_ether_config(
-        mocker, index=0, state="up"
+        mocker, index=0, config_patch={"state": "up"}
     )
     target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
         {},
@@ -890,7 +892,7 @@ def test_nmcli_interface_network_manager_configurator_activation_failure_fail(
     :param mocker: The pytest mocker fixture
     """
     conn_config = net_config_stub.build_testing_ether_config(
-        mocker, index=0, state="up"
+        mocker, index=0, config_patch={"state": "up"}
     )
     target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
         {},
@@ -962,7 +964,7 @@ def test_nmcli_interface_network_manager_configurator_link_validation_fail(
     :param mocker: The pytest mocker fixture
     """
     conn_config = net_config_stub.build_testing_ether_config(
-        mocker, index=0, state="up"
+        mocker, index=0, config_patch={"state": "up"}
     )
     target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
         {},
@@ -1017,7 +1019,10 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_1_ok(
         "connection.master": conn_bridge_uuid,
     }
     conn_config = net_config_stub.build_testing_ether_bridge_config(
-        mocker, slaves_count=1, start_index=0, main_state="up", slaves_state="up"
+        mocker,
+        slaves_count=1,
+        start_index=0,
+        config_patch={"state": "up", "slaves": {"ether-conn-0": {"state": "up"}}},
     )
     target_connection_data = (
         nmcli_interface_types.TargetConnectionData.Builder(
@@ -1124,8 +1129,15 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_2_ok(
         mocker,
         slaves_count=1,
         start_index=0,
-        main_state="up",
-        slaves_state=None,  # State removed on purpose
+        config_patch={
+            "state": "up",
+            "slaves": {
+                "ether-conn-0": {
+                    # State removed on purpose
+                    "state": None
+                }
+            },
+        },
     )
     target_connection_data = (
         nmcli_interface_types.TargetConnectionData.Builder(
@@ -1230,7 +1242,10 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_3_ok(
         "connection.master": conn_bridge_uuid,
     }
     conn_config = net_config_stub.build_testing_ether_bridge_config(
-        mocker, slaves_count=1, start_index=0, main_state="up", slaves_state="up"
+        mocker,
+        slaves_count=1,
+        start_index=0,
+        config_patch={"state": "up", "slaves": {"ether-conn-0": {"state": "up"}}},
     )
     target_connection_data = (
         nmcli_interface_types.TargetConnectionData.Builder(
@@ -1317,7 +1332,10 @@ def test_nmcli_interface_network_manager_configurator_multiple_conns_4_ok(
         "connection.master": conn_bridge_uuid,
     }
     conn_config = net_config_stub.build_testing_ether_bridge_config(
-        mocker, slaves_count=1, start_index=0, main_state="up", slaves_state="up"
+        mocker,
+        slaves_count=1,
+        start_index=0,
+        config_patch={"state": "up", "slaves": {"ether-conn-0": {"state": "up"}}},
     )
     target_connection_data = (
         nmcli_interface_types.TargetConnectionData.Builder(

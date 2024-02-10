@@ -89,7 +89,7 @@ def test_target_connection_data_factory_build_conn_data_ether_basic_1_ok(mocker)
     # of connections order to ensure the result is not order
     # dependant
     conn_config = net_config_stub.build_testing_ether_config(
-        mocker, index=0, state=None
+        mocker, index=0, config_patch={"state": None}
     )
     queriers = __prepare_permute_queriers(
         mocker,
@@ -151,7 +151,7 @@ def test_target_connection_data_factory_build_conn_data_ether_basic_2_ok(mocker)
     # of connections order to ensure the result is not order
     # dependant
     conn_config = net_config_stub.build_testing_ether_config(
-        mocker, index=0, state=None
+        mocker, index=0, config_patch={"state": None}
     )
     queriers = __prepare_permute_queriers(
         mocker,
@@ -244,7 +244,10 @@ def test_target_connection_data_factory_build_conn_data_ether_basic_3_ok(mocker)
         ],
     )
     conn_config = net_config_stub.build_testing_ether_config(
-        mocker, index=1, state=None, conn_name="non-existing-conn-name"
+        mocker,
+        index=1,
+        config_patch={"state": None},
+        conn_name="non-existing-conn-name",
     )
     for querier in queriers:
         factory = nmcli_interface_target_connection.TargetConnectionDataFactory(
@@ -748,7 +751,7 @@ def test_target_connection_data_factory_build_delete_conn_list_1_ok(mocker):
         "connection.uuid": "98ef06cf-a80e-4771-ad96-8375b123c8a7",
     }
     conn_config = net_config_stub.build_testing_ether_config(
-        mocker, index=0, state=None, conn_name=ether_conn_id
+        mocker, index=0, config_patch={"state": None}, conn_name=ether_conn_id
     )
     target_connection_data = nmcli_interface_types.TargetConnectionData.Builder(
         connection_data_raw, conn_config

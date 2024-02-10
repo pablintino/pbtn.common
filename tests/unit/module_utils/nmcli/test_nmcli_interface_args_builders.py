@@ -146,7 +146,7 @@ def test_nmcli_interface_args_builders_common_args_builder_autoconnect_ok(
 
     # The connection.autoconnect field needs update -> From nothing to yes
     assert nmcli_interface_args_builders.CommonConnectionArgsBuilder(
-        test_config_factory(mocker, extra_values={"startup": True})
+        test_config_factory(mocker, config_patch={"startup": True})
     ).build(
         {
             nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_ID: conn_config.name,
@@ -160,7 +160,7 @@ def test_nmcli_interface_args_builders_common_args_builder_autoconnect_ok(
 
     # The connection.autoconnect field needs update -> From yes to no
     assert nmcli_interface_args_builders.CommonConnectionArgsBuilder(
-        test_config_factory(mocker, extra_values={"startup": False})
+        test_config_factory(mocker, config_patch={"startup": False})
     ).build(
         {
             nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_AUTOCONNECT: "yes",

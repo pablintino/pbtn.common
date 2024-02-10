@@ -119,7 +119,16 @@ def test_nmcli_types_target_connection_data_ok(mocker):
     :param mocker: The pytest mocker fixture
     """
     connection_config = net_config_stub.build_testing_ether_bridge_config(
-        mocker, slaves_count=2, start_index=0, main_state="up", slaves_state="up"
+        mocker,
+        slaves_count=2,
+        start_index=0,
+        config_patch={
+            "state": "up",
+            "slaves": {
+                "ether-conn-0": {"state": "up"},
+                "ether-conn-1": {"state": "up"},
+            },
+        },
     )
     bridge_uuid_1 = "f7e59009-1367-47e9-9414-ac35b89ec8a4"
     ether_uuid_2 = "6b2eeafe-3611-484e-b5a3-3696712c49e9"

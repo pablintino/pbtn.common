@@ -1,3 +1,4 @@
+import collections.abc
 import typing
 
 from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
@@ -9,9 +10,18 @@ from tests.unit.module_utils.test_utils import config_stub_data
 
 class FactoryCallable(typing.Protocol):
     def __call__(
-        self, mocker: typing.Any, extra_values: typing.Dict[str, typing.Any] = None
+        self, mocker: typing.Any, config_patch: typing.Dict[str, typing.Any] = None
     ) -> net_config.BaseConnectionConfig:
         ...
+
+
+def __update_patch_dict(d, u):
+    for k, v in u.items():
+        if isinstance(v, collections.abc.Mapping):
+            d[k] = __update_patch_dict(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d
 
 
 def build_testing_config_factory(
@@ -27,11 +37,8 @@ def build_testing_ether_bridge_config(
     conn_name: str = None,
     slaves_count: int = 2,
     start_index: int = 0,
-    main_state: str = None,
-    slaves_state: str = None,
-    extra_values: typing.Dict[str, typing.Any] = None,
+    config_patch: typing.Dict[str, typing.Any] = None,
 ) -> net_config.BridgeConnectionConfig:
-    slaves_states_update = {"state": slaves_state} if slaves_state else {}
     raw_config = {
         "type": "bridge",
         "iface": f"br{start_index}",
@@ -39,14 +46,11 @@ def build_testing_ether_bridge_config(
             f"ether-conn-{index}": {
                 "type": "ethernet",
                 "iface": f"eth{index}",
-                **slaves_states_update,
             }
             for index in range(start_index, start_index + slaves_count)
         },
     }
-    if main_state:
-        raw_config["state"] = main_state
-    raw_config.update(extra_values or {})
+    __update_patch_dict(raw_config, config_patch or {})
     return net_config.BridgeConnectionConfig(
         conn_name=conn_name or "bridge-conn",
         raw_config=raw_config,
@@ -60,12 +64,9 @@ def build_testing_vlan_bridge_config(
     conn_name: str = None,
     slaves_count: int = 2,
     start_index: int = 0,
-    main_state: str = None,
-    slaves_state: str = None,
     vlan_id=10,
-    extra_values: typing.Dict[str, typing.Any] = None,
+    config_patch: typing.Dict[str, typing.Any] = None,
 ) -> net_config.BridgeConnectionConfig:
-    slaves_states_update = {"state": slaves_state} if slaves_state else {}
     raw_config = {
         "type": "bridge",
         "iface": f"br{start_index}",
@@ -77,14 +78,11 @@ def build_testing_vlan_bridge_config(
                     "id": vlan_id,
                     "parent": f"eth{index}",
                 },
-                **slaves_states_update,
             }
             for index in range(start_index, start_index + slaves_count)
         },
     }
-    if main_state:
-        raw_config["state"] = main_state
-    raw_config.update(extra_values or {})
+    __update_patch_dict(raw_config, config_patch or {})
     return net_config.BridgeConnectionConfig(
         conn_name=conn_name or "bridge-conn",
         raw_config=raw_config,
@@ -97,16 +95,13 @@ def build_testing_ether_config(
     mocker,
     conn_name: str = None,
     index=0,
-    state=None,
-    extra_values: typing.Dict[str, typing.Any] = None,
+    config_patch: typing.Dict[str, typing.Any] = None,
 ) -> net_config.EthernetConnectionConfig:
     raw_config = {
         "type": "ethernet",
         "iface": f"eth{index}",
     }
-    if state:
-        raw_config["state"] = state
-    raw_config.update(extra_values or {})
+    __update_patch_dict(raw_config, config_patch or {})
     return net_config.EthernetConnectionConfig(
         conn_name=conn_name or "ether-conn",
         raw_config=raw_config,
@@ -120,8 +115,7 @@ def build_testing_vlan_config(
     conn_name: str = None,
     index=0,
     vlan_id=10,
-    state=None,
-    extra_values: typing.Dict[str, typing.Any] = None,
+    config_patch: typing.Dict[str, typing.Any] = None,
 ) -> net_config.VlanConnectionConfig:
     raw_config = {
         "type": "vlan",
@@ -131,9 +125,7 @@ def build_testing_vlan_config(
             "parent": f"eth{index}",
         },
     }
-    if state:
-        raw_config["state"] = state
-    raw_config.update(extra_values or {})
+    __update_patch_dict(raw_config, config_patch or {})
     return net_config.VlanConnectionConfig(
         conn_name=conn_name or "vlan-conn",
         raw_config=raw_config,
