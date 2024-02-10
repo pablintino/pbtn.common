@@ -252,9 +252,7 @@ class NetworkManagerConfigurator:  # pylint: disable=too-few-public-methods
         )
 
         builder_args = self._builder_factory(conn_config).build(
-            slave_connection_data.conn_data,
-            conn_config.interface.iface_name if conn_config.interface else None,
-            configuration_result.result.uuid,
+            slave_connection_data.conn_data, configuration_result.result.uuid
         )
 
         uuid, changed = self._apply_builder_args(
@@ -272,11 +270,7 @@ class NetworkManagerConfigurator:  # pylint: disable=too-few-public-methods
         target_connection_data: nmcli_interface_types.TargetConnectionData,
     ) -> nmcli_interface_types.MainConfigurationResult:
         builder_args = self._builder_factory(target_connection_data.conn_config).build(
-            target_connection_data.conn_data,
-            target_connection_data.conn_config.interface.iface_name
-            if target_connection_data.conn_config.interface
-            else None,
-            None,
+            target_connection_data.conn_data, None
         )
 
         uuid, changed = self._apply_builder_args(

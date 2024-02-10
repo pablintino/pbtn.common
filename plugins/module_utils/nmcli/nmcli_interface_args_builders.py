@@ -40,7 +40,6 @@ class BaseBuilder(metaclass=abc.ABCMeta):
     def _collect(
         self,
         current_connection: typing.Optional[typing.Dict[str, typing.Any]],
-        ifname: typing.Optional[str],
         main_conn_uuid: typing.Optional[str],
     ) -> typing.List[typing.Tuple[str, str]]:
         pass
@@ -48,16 +47,15 @@ class BaseBuilder(metaclass=abc.ABCMeta):
     def build(
         self,
         current_connection: typing.Optional[typing.Dict[str, typing.Any]],
-        ifname: typing.Optional[str],
         main_conn_uuid: typing.Optional[str],
     ) -> typing.List[str]:
         initial_list = (
-            self.__next_handler.build(current_connection, ifname, main_conn_uuid)
+            self.__next_handler.build(current_connection, main_conn_uuid)
             if self.__next_handler
             else []
         )
         return self._fold_builder_tuple_list(
-            self._collect(current_connection, ifname, main_conn_uuid),
+            self._collect(current_connection, main_conn_uuid),
             initial_list=initial_list,
         )
 
@@ -75,24 +73,26 @@ class CommonConnectionArgsBuilder(BaseBuilder):
 
         return None, None
 
-    @staticmethod
     def __build_connection_iface(
+        self,
         current_connection: typing.Optional[typing.Dict[str, typing.Any]],
-        ifname: typing.Optional[str],
     ) -> typing.Tuple[typing.Optional[str], typing.Optional[str]]:
         # Some connection types don't require the interface to be set
-        if ifname and (
+        iface_name = (
+            self._config.interface.iface_name if self._config.interface else None
+        )
+        if iface_name and (
             (not current_connection)
             or (
                 current_connection.get(
                     nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_INTERFACE_NAME, None
                 )
-                != ifname
+                != iface_name
             )
         ):
             return (
                 nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_INTERFACE_NAME,
-                ifname,
+                iface_name,
             )
 
         return None, None
@@ -130,14 +130,13 @@ class CommonConnectionArgsBuilder(BaseBuilder):
     def _collect(
         self,
         current_connection: typing.Optional[typing.Dict[str, typing.Any]],
-        ifname: typing.Optional[str],
         main_conn_uuid: typing.Optional[str],
     ) -> typing.List[typing.Tuple[str, str]]:
         return [
             self.__build_connection_type(current_connection),
             self.__build_connection_id(current_connection),
             self.__build_autoconnect(current_connection),
-            self.__build_connection_iface(current_connection, ifname),
+            self.__build_connection_iface(current_connection),
         ]
 
 
@@ -429,7 +428,6 @@ class IPConnectionArgsBuilder(BaseBuilder, typing.Generic[TIp]):
     def _collect(
         self,
         current_connection: typing.Optional[typing.Dict[str, typing.Any]],
-        _: typing.Optional[str],
         __: typing.Optional[str],
     ) -> typing.List[typing.Tuple[str, str]]:
         return [
@@ -507,7 +505,6 @@ class VlanConnectionArgsBuilder(BaseBuilder):
     def _collect(
         self,
         current_connection: typing.Optional[typing.Dict[str, typing.Any]],
-        __: typing.Optional[str],
         main_conn_uuid: typing.Optional[str],
     ) -> typing.List[typing.Tuple[str, str]]:
         return [
@@ -564,7 +561,6 @@ class SlaveConnectionArgsBuilder(BaseBuilder):
     def _collect(
         self,
         current_connection: typing.Optional[typing.Dict[str, typing.Any]],
-        __: typing.Optional[str],
         main_conn_uuid: typing.Optional[str],
     ) -> typing.List[typing.Tuple[str, str]]:
         return [
