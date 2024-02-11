@@ -35,8 +35,8 @@ platforms:
         auto_config: false
         ip: 172.17.199.2
 
-  - name: debian-11
-    box: debian/bullseye64
+  - name: debian-12
+    box: debian/bookworm64
     memory: 1024
     cpus: 2
     config_options:
