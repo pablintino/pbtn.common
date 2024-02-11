@@ -225,17 +225,6 @@ class IPConnectionArgsBuilder(BaseBuilder, typing.Generic[TIp]):
             if isinstance(current_addresses, str)
             else current_addresses
         )
-        # If IP addressing is going to be disabled just set IP addresses to none
-        # Same applies when transitioning to AUTO from other methods
-        # If the method is not manual and the setting is set try to clear it too
-        if method_change and (
-            target_method
-            in [
-                nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED,
-                nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_AUTO,
-            ]
-        ):
-            return nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[self.__version], ""
 
         # Convert IP+Prefix to string
         # If the method is not "manual", enforce empty addresses if not empty
@@ -244,12 +233,39 @@ class IPConnectionArgsBuilder(BaseBuilder, typing.Generic[TIp]):
             if target_method == nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL
             else ""
         )
+        current_ip_str = (current_addresses or [""])[0]
+        # If IP addressing is going to be disabled just set IP addresses to none
+        # Same applies when transitioning to AUTO from other methods
+        # If the method is not manual and the setting is set try to clear it too
+        if (
+            method_change
+            and (
+                target_method
+                in [
+                    nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED,
+                    nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_AUTO,
+                ]
+            )
+            and (
+                # If the value is already set there is no point in defaulting it
+                current_ip_str
+                != target_ip_str
+            )
+        ):
+            return nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[self.__version], ""
+
         if (
             # Not current_connection: Do not compare to current_addresses
-            # not current_connection -> New connections
-            not current_connection
+            # Not current_connection -> New connections
+            # This logic only applies to static conns. Auto/DHCP will go
+            # through the None return case.
+            (
+                (not current_connection)
+                and target_method
+                == nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL
+            )
             or len(current_addresses) > 1
-            or ((current_addresses or [""])[0] != target_ip_str)
+            or (current_ip_str != target_ip_str)
         ):
             return (
                 nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[self.__version],
@@ -263,21 +279,6 @@ class IPConnectionArgsBuilder(BaseBuilder, typing.Generic[TIp]):
         current_connection: typing.Optional[typing.Dict[str, typing.Any]],
     ) -> typing.Tuple[typing.Optional[str], typing.Optional[str]]:
         target_method, method_change = self.__get_ip_target_method(current_connection)
-
-        # If IP addressing is going to be disabled, set IP default route
-        # generation to the empty default
-        # This property only makes sense for DHCP or static.
-        # Disable it for the remaining modes
-        if method_change and (
-            target_method
-            not in [
-                nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL,
-                nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_AUTO,
-            ]
-        ):
-            # Set never-default to it's default value (empty forces nmcli to default)
-            return nmcli_constants.NMCLI_CONN_FIELD_IP_NEVER_DEFAULT[self.__version], ""
-
         # Setting defaults to false, as NM defaults to no/false (not to none).
         # There is no way to check if NM is returning the default "false" or a true set false.
         # The defaults must be consistent in both the target value and the current setting,
@@ -295,6 +296,27 @@ class IPConnectionArgsBuilder(BaseBuilder, typing.Generic[TIp]):
             if self.__ip_candidate_config
             else False
         )
+        # If IP addressing is going to be disabled, set IP default route
+        # generation to the empty default
+        # This property only makes sense for DHCP or static.
+        # Disable it for the remaining modes
+        if (
+            method_change
+            and (
+                target_method
+                not in [
+                    nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL,
+                    nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_AUTO,
+                ]
+            )
+            and (
+                # If the value is already set there is no point in defaulting it
+                current_setting
+                != target_value
+            )
+        ):
+            # Set never-default to it's default value (empty forces nmcli to default)
+            return nmcli_constants.NMCLI_CONN_FIELD_IP_NEVER_DEFAULT[self.__version], ""
         if current_setting != target_value:
             return (
                 nmcli_constants.NMCLI_CONN_FIELD_IP_NEVER_DEFAULT[self.__version],
@@ -308,24 +330,13 @@ class IPConnectionArgsBuilder(BaseBuilder, typing.Generic[TIp]):
         current_connection: typing.Optional[typing.Dict[str, typing.Any]],
     ) -> typing.Tuple[typing.Optional[str], typing.Optional[str]]:
         target_method, method_change = self.__get_ip_target_method(current_connection)
-        # If IP addressing is going to be disabled, just set the GW to none
-        # Same applies when transitioning to AUTO from other methods
-        if method_change and (
-            target_method
-            in [
-                nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED,
-                nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_AUTO,
-            ]
-        ):
-            return nmcli_constants.NMCLI_CONN_FIELD_IP_GATEWAY[self.__version], ""
-
         current_gateway = (
             current_connection.get(
                 nmcli_constants.NMCLI_CONN_FIELD_IP_GATEWAY[self.__version], None
             )
             if current_connection
             else None
-        )
+        ) or ""
         target_gw = (
             str(self.__ip_candidate_config.gw)
             if (
@@ -336,7 +347,26 @@ class IPConnectionArgsBuilder(BaseBuilder, typing.Generic[TIp]):
             )
             else ""
         )
-        if (current_gateway or "") != target_gw:
+        # If IP addressing is going to be disabled, just set the GW to none
+        # The same applies when transitioning to AUTO from other methods
+        if (
+            method_change
+            and (
+                target_method
+                in [
+                    nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED,
+                    nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_AUTO,
+                ]
+            )
+            and (
+                # If the value is already set there is no point in defaulting it
+                current_gateway
+                != target_gw
+            )
+        ):
+            return nmcli_constants.NMCLI_CONN_FIELD_IP_GATEWAY[self.__version], ""
+
+        if current_gateway != target_gw:
             return (
                 nmcli_constants.NMCLI_CONN_FIELD_IP_GATEWAY[self.__version],
                 target_gw,
