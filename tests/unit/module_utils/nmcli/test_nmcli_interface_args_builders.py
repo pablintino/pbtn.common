@@ -1,3 +1,5 @@
+import typing
+
 import pytest
 from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
     nmcli_constants,
@@ -5,6 +7,7 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import
 )
 
 from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_utils import (
+    config_stub_data,
     net_config_stub,
 )
 
@@ -172,3 +175,325 @@ def test_nmcli_interface_args_builders_common_args_builder_autoconnect_ok(
         nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_AUTOCONNECT,
         "no",
     ]
+
+
+@pytest.mark.parametrize(
+    "builder_type, version",
+    [
+        pytest.param(
+            nmcli_interface_args_builders.IPv4ConnectionArgsBuilder,
+            4,
+            id="ipv4",
+        ),
+        pytest.param(
+            nmcli_interface_args_builders.IPv6ConnectionArgsBuilder,
+            6,
+            id="ipv6",
+        ),
+    ],
+)
+def test_nmcli_interface_args_builder_ipv4_connection_args_builder_field_ip_ok(
+    mocker,
+    builder_type: typing.Type[
+        typing.Union[
+            nmcli_interface_args_builders.IPv4ConnectionArgsBuilder,
+            nmcli_interface_args_builders.IPv6ConnectionArgsBuilder,
+        ]
+    ],
+    version: int,
+):
+    ip_str = str(
+        config_stub_data.TEST_INTERFACE_1_IP4_ADDR
+        if version == 4
+        else config_stub_data.TEST_INTERFACE_1_IP6_ADDR
+    )
+    conn_config = net_config_stub.build_testing_ether_config(
+        mocker,
+        config_patch={
+            f"ipv{version}": {
+                "ip": ip_str,
+                "mode": "manual",
+            }
+        },
+    )
+
+    # Basic, fresh, new Ethernet connection with only the static IP set
+    assert builder_type(conn_config).build(None, None) == [
+        nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[version],
+        nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL,
+        nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[version],
+        ip_str,
+    ]
+
+    # Already existing connection with a missmatch in the IP
+    assert builder_type(conn_config).build(
+        {
+            nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[version]: (
+                str(
+                    config_stub_data.TEST_INTERFACE_2_IP4_ADDR
+                    if version == 4
+                    else config_stub_data.TEST_INTERFACE_2_IP6_ADDR
+                )
+            ),
+            nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[
+                version
+            ]: nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL,
+        },
+        None,
+    ) == [
+        nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[version],
+        ip_str,
+    ]
+
+    # Already existing connection with a missmatch in the method, but matching IP
+    assert builder_type(conn_config).build(
+        {
+            nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[version]: ip_str,
+            nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[
+                version
+            ]: nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED,
+        },
+        None,
+    ) == [
+        nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[version],
+        nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL,
+    ]
+
+    # Already existing connection with a missmatch in the field for the method (auto cannot
+    # have the IP set)
+    assert builder_type(
+        net_config_stub.build_testing_ether_config(
+            mocker,
+            config_patch={
+                f"ipv{version}": {
+                    "mode": "auto",
+                }
+            },
+        )
+    ).build(
+        {
+            nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[version]: ip_str,
+            nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[
+                version
+            ]: nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_AUTO,
+        },
+        None,
+    ) == [
+        nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[version],
+        "",
+    ]
+
+    # Already existing connection with all fields as expected
+    assert not builder_type(conn_config).build(
+        {
+            nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[version]: ip_str,
+            nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[
+                version
+            ]: nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL,
+        },
+        None,
+    )
+
+
+@pytest.mark.parametrize(
+    "builder_type, version",
+    [
+        pytest.param(
+            nmcli_interface_args_builders.IPv4ConnectionArgsBuilder,
+            4,
+            id="ipv4",
+        ),
+        pytest.param(
+            nmcli_interface_args_builders.IPv6ConnectionArgsBuilder,
+            6,
+            id="ipv6",
+        ),
+    ],
+)
+def test_nmcli_interface_args_builder_ipv4_connection_args_builder_field_gw_ok(
+    mocker,
+    builder_type: typing.Type[
+        typing.Union[
+            nmcli_interface_args_builders.IPv4ConnectionArgsBuilder,
+            nmcli_interface_args_builders.IPv6ConnectionArgsBuilder,
+        ]
+    ],
+    version: int,
+):
+    ip_str = str(
+        config_stub_data.TEST_INTERFACE_1_IP4_ADDR
+        if version == 4
+        else config_stub_data.TEST_INTERFACE_1_IP6_ADDR
+    )
+    gw_str = str(
+        config_stub_data.TEST_INTERFACE_1_IP4_GW
+        if version == 4
+        else config_stub_data.TEST_INTERFACE_1_IP6_GW
+    )
+    conn_config = net_config_stub.build_testing_ether_config(
+        mocker,
+        config_patch={
+            f"ipv{version}": {
+                "ip": ip_str,
+                "gw": gw_str,
+                "mode": "manual",
+            }
+        },
+    )
+
+    # Basic, fresh, new Ethernet connection with only the static IP set
+    assert builder_type(conn_config).build(None, None) == [
+        nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[version],
+        nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL,
+        nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[version],
+        ip_str,
+        nmcli_constants.NMCLI_CONN_FIELD_IP_GATEWAY[version],
+        gw_str,
+    ]
+
+    # Already existing connection with a missmatch in the GW
+    assert builder_type(conn_config).build(
+        {
+            nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[version]: ip_str,
+            nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[
+                version
+            ]: nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL,
+            nmcli_constants.NMCLI_CONN_FIELD_IP_GATEWAY[version]: (
+                str(
+                    config_stub_data.TEST_INTERFACE_2_IP4_GW
+                    if version == 4
+                    else config_stub_data.TEST_INTERFACE_2_IP6_GW
+                )
+            ),
+        },
+        None,
+    ) == [
+        nmcli_constants.NMCLI_CONN_FIELD_IP_GATEWAY[version],
+        gw_str,
+    ]
+
+    # Already existing connection with a missmatch in the method, but matching GW
+    assert builder_type(conn_config).build(
+        {
+            nmcli_constants.NMCLI_CONN_FIELD_IP_GATEWAY[version]: gw_str,
+            nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[version]: ip_str,
+            nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[
+                version
+            ]: nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED,
+        },
+        None,
+    ) == [
+        nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[version],
+        nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL,
+    ]
+
+    # Already existing connection with a missmatch in the field for the method (auto cannot
+    # have the GW set)
+    assert builder_type(
+        net_config_stub.build_testing_ether_config(
+            mocker,
+            config_patch={
+                f"ipv{version}": {
+                    "mode": "auto",
+                }
+            },
+        )
+    ).build(
+        {
+            nmcli_constants.NMCLI_CONN_FIELD_IP_GATEWAY[version]: gw_str,
+            nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[
+                version
+            ]: nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_AUTO,
+        },
+        None,
+    ) == [
+        nmcli_constants.NMCLI_CONN_FIELD_IP_GATEWAY[version],
+        "",
+    ]
+
+    # Already existing connection with all fields as expected
+    assert not builder_type(conn_config).build(
+        {
+            nmcli_constants.NMCLI_CONN_FIELD_IP_GATEWAY[version]: gw_str,
+            nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[version]: ip_str,
+            nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[
+                version
+            ]: nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL,
+        },
+        None,
+    )
+
+
+@pytest.mark.parametrize(
+    "builder_type, version",
+    [
+        pytest.param(
+            nmcli_interface_args_builders.IPv4ConnectionArgsBuilder,
+            4,
+            id="ipv4",
+        ),
+        pytest.param(
+            nmcli_interface_args_builders.IPv6ConnectionArgsBuilder,
+            6,
+            id="ipv6",
+        ),
+    ],
+)
+def test_nmcli_interface_args_builder_ip_connection_args_builder_goes_disable_ok(
+    mocker,
+    builder_type: typing.Type[
+        typing.Union[
+            nmcli_interface_args_builders.IPv4ConnectionArgsBuilder,
+            nmcli_interface_args_builders.IPv6ConnectionArgsBuilder,
+        ]
+    ],
+    version: int,
+):
+    expected_args = [
+        nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[version],
+        nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED,
+        nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[version],
+        "",
+        nmcli_constants.NMCLI_CONN_FIELD_IP_GATEWAY[version],
+        "",
+        nmcli_constants.NMCLI_CONN_FIELD_IP_DNS[version],
+        "",
+        nmcli_constants.NMCLI_CONN_FIELD_IP_ROUTES[version],
+        "",
+        nmcli_constants.NMCLI_CONN_FIELD_IP_NEVER_DEFAULT[version],
+        "",
+    ]
+
+    # Already existing manual connection that goes to disable
+    assert (
+        builder_type(
+            net_config_stub.build_testing_ether_config(
+                mocker,
+            )
+        ).build(
+            {
+                nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[
+                    version
+                ]: nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL,
+            },
+            None,
+        )
+        == expected_args
+    )
+
+    # Already existing auto connection that goes to disable
+    assert (
+        builder_type(
+            net_config_stub.build_testing_ether_config(
+                mocker,
+            )
+        ).build(
+            {
+                nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[
+                    version
+                ]: nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_AUTO,
+            },
+            None,
+        )
+        == expected_args
+    )

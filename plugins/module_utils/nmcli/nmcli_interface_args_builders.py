@@ -278,15 +278,18 @@ class IPConnectionArgsBuilder(BaseBuilder, typing.Generic[TIp]):
             # Set never-default to it's default value (empty forces nmcli to default)
             return nmcli_constants.NMCLI_CONN_FIELD_IP_NEVER_DEFAULT[self.__version], ""
 
+        # Setting defaults to false, as NM defaults to no/false (not to none).
+        # There is no way to check if NM is returning the default "false" or a true set false.
+        # The defaults must be consistent in both the target value and the current setting,
+        # although this last one is only "theoretical/UT", as NM will return value for this
+        # field always.
         current_setting = (
             current_connection.get(
-                nmcli_constants.NMCLI_CONN_FIELD_IP_NEVER_DEFAULT[self.__version], None
+                nmcli_constants.NMCLI_CONN_FIELD_IP_NEVER_DEFAULT[self.__version], False
             )
             if current_connection
-            else None
+            else False
         )
-
-        # Setting defaults to false
         target_value = (
             (self.__ip_candidate_config.disable_default_route or False)
             if self.__ip_candidate_config
