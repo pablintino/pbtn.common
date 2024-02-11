@@ -469,8 +469,6 @@ def test_nmcli_interface_args_builder_ip_connection_args_builder_goes_disable_ip
     ) == [
         nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[version],
         nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED,
-        nmcli_constants.NMCLI_CONN_FIELD_IP_DNS[version],
-        "",
         nmcli_constants.NMCLI_CONN_FIELD_IP_ROUTES[version],
         "",
     ]
@@ -493,13 +491,12 @@ def test_nmcli_interface_args_builder_ip_connection_args_builder_goes_disable_ip
         nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED,
         nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[version],
         "",
-        nmcli_constants.NMCLI_CONN_FIELD_IP_DNS[version],
-        "",
         nmcli_constants.NMCLI_CONN_FIELD_IP_ROUTES[version],
         "",
     ]
 
     # Already existing auto connection that goes to disable (without IP, possible in NM)
+    # For a DHCP connection
     assert builder_type(
         net_config_stub.build_testing_ether_config(
             mocker,
@@ -514,8 +511,6 @@ def test_nmcli_interface_args_builder_ip_connection_args_builder_goes_disable_ip
     ) == [
         nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[version],
         nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED,
-        nmcli_constants.NMCLI_CONN_FIELD_IP_DNS[version],
-        "",
         nmcli_constants.NMCLI_CONN_FIELD_IP_ROUTES[version],
         "",
     ]
@@ -570,8 +565,6 @@ def test_nmcli_interface_args_builder_ip_connection_args_builder_goes_disable_gw
         nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED,
         nmcli_constants.NMCLI_CONN_FIELD_IP_GATEWAY[version],
         "",
-        nmcli_constants.NMCLI_CONN_FIELD_IP_DNS[version],
-        "",
         nmcli_constants.NMCLI_CONN_FIELD_IP_ROUTES[version],
         "",
     ]
@@ -619,8 +612,6 @@ def test_nmcli_interface_args_builder_ip_connection_args_builder_goes_disable_de
     ) == [
         nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[version],
         nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED,
-        nmcli_constants.NMCLI_CONN_FIELD_IP_DNS[version],
-        "",
         nmcli_constants.NMCLI_CONN_FIELD_IP_ROUTES[version],
         "",
         nmcli_constants.NMCLI_CONN_FIELD_IP_NEVER_DEFAULT[version],
@@ -645,8 +636,6 @@ def test_nmcli_interface_args_builder_ip_connection_args_builder_goes_disable_de
     ) == [
         nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[version],
         nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED,
-        nmcli_constants.NMCLI_CONN_FIELD_IP_DNS[version],
-        "",
         nmcli_constants.NMCLI_CONN_FIELD_IP_ROUTES[version],
         "",
     ]
@@ -720,4 +709,140 @@ def test_nmcli_interface_args_builder_ipv4_connection_args_builder_field_disable
         nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_AUTO,
         nmcli_constants.NMCLI_CONN_FIELD_IP_NEVER_DEFAULT[version],
         "yes",
+    ]
+
+
+@pytest.mark.parametrize(
+    "builder_type, version",
+    [
+        pytest.param(
+            nmcli_interface_args_builders.IPv4ConnectionArgsBuilder,
+            4,
+            id="ipv4",
+        ),
+        pytest.param(
+            nmcli_interface_args_builders.IPv6ConnectionArgsBuilder,
+            6,
+            id="ipv6",
+        ),
+    ],
+)
+def test_nmcli_interface_args_builder_ipv4_connection_args_builder_field_dns_ok(
+    mocker,
+    builder_type: typing.Type[
+        typing.Union[
+            nmcli_interface_args_builders.IPv4ConnectionArgsBuilder,
+            nmcli_interface_args_builders.IPv6ConnectionArgsBuilder,
+        ]
+    ],
+    version: int,
+):
+    ip_str = str(
+        config_stub_data.TEST_INTERFACE_1_IP4_ADDR
+        if version == 4
+        else config_stub_data.TEST_INTERFACE_1_IP6_ADDR
+    )
+    dns_servers = [
+        str(ns_ip)
+        for ns_ip in (
+            config_stub_data.TEST_NS_SERVERS_IP4
+            if version == 4
+            else config_stub_data.TEST_NS_SERVERS_IP6
+        )
+    ]
+    # Basic, fresh, new Ethernet with DNSs IPs set from scratch
+    assert builder_type(
+        net_config_stub.build_testing_ether_config(
+            mocker,
+            config_patch={
+                f"ipv{version}": {
+                    "ip": ip_str,
+                    "dns": dns_servers,
+                    "mode": "manual",
+                }
+            },
+        )
+    ).build(None, None) == [
+        nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[version],
+        nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL,
+        nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[version],
+        ip_str,
+        nmcli_constants.NMCLI_CONN_FIELD_IP_DNS[version],
+        ",".join(dns_servers),
+    ]
+
+    # Basic, fresh, new Ethernet with DNSs IPs set from scratch
+    # DHCP enabled
+    assert builder_type(
+        net_config_stub.build_testing_ether_config(
+            mocker,
+            config_patch={
+                f"ipv{version}": {
+                    "dns": dns_servers,
+                    "mode": "auto",
+                }
+            },
+        )
+    ).build(None, None) == [
+        nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[version],
+        nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_AUTO,
+        nmcli_constants.NMCLI_CONN_FIELD_IP_DNS[version],
+        ",".join(dns_servers),
+    ]
+
+
+@pytest.mark.parametrize(
+    "builder_type, version",
+    [
+        pytest.param(
+            nmcli_interface_args_builders.IPv4ConnectionArgsBuilder,
+            4,
+            id="ipv4",
+        ),
+        pytest.param(
+            nmcli_interface_args_builders.IPv6ConnectionArgsBuilder,
+            6,
+            id="ipv6",
+        ),
+    ],
+)
+def test_nmcli_interface_args_builder_ip_connection_args_builder_goes_disable_dns_ok(
+    mocker,
+    builder_type: typing.Type[
+        typing.Union[
+            nmcli_interface_args_builders.IPv4ConnectionArgsBuilder,
+            nmcli_interface_args_builders.IPv6ConnectionArgsBuilder,
+        ]
+    ],
+    version: int,
+):
+    dns_servers = [
+        str(ns_ip)
+        for ns_ip in (
+            config_stub_data.TEST_NS_SERVERS_IP4
+            if version == 4
+            else config_stub_data.TEST_NS_SERVERS_IP6
+        )
+    ]
+    # Already existing manual connection that goes to disable (with DNSs IPs)
+    # IP field is not needed in NM, so we directly ignore it for this test
+    assert builder_type(
+        net_config_stub.build_testing_ether_config(
+            mocker,
+        )
+    ).build(
+        {
+            nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[
+                version
+            ]: nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL,
+            nmcli_constants.NMCLI_CONN_FIELD_IP_DNS[version]: dns_servers,
+        },
+        None,
+    ) == [
+        nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[version],
+        nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED,
+        nmcli_constants.NMCLI_CONN_FIELD_IP_DNS[version],
+        "",
+        nmcli_constants.NMCLI_CONN_FIELD_IP_ROUTES[version],
+        "",
     ]
