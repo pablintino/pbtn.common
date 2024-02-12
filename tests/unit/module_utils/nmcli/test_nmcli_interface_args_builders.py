@@ -845,6 +845,29 @@ def test_nmcli_interface_args_builder_ipv4_connection_args_builder_field_dns_ok(
         ",".join(reduced_dns_list),
     ]
 
+    # Test that we are able to handle a connection that is already ok
+    assert not builder_type(
+        net_config_stub.build_testing_ether_config(
+            mocker,
+            config_patch={
+                f"ipv{version}": {
+                    "ip": ip_str,
+                    "dns": dns_servers,
+                    "mode": "manual",
+                }
+            },
+        )
+    ).build(
+        {
+            nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[version]: (
+                nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL
+            ),
+            nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[version]: ip_str,
+            nmcli_constants.NMCLI_CONN_FIELD_IP_DNS[version]: dns_servers,
+        },
+        None,
+    )
+
 
 @pytest.mark.parametrize(
     "builder_type, version",
@@ -1039,6 +1062,31 @@ def test_nmcli_interface_args_builder_ipv4_connection_args_builder_field_routes_
         ",".join([__route_to_nmcli_string(route) for route in reduced_routes_list]),
     ]
 
+    # Test that we are able to handle a connection that is already ok
+    assert not builder_type(
+        net_config_stub.build_testing_ether_config(
+            mocker,
+            config_patch={
+                f"ipv{version}": {
+                    "ip": ip_str,
+                    "routes": routes_str,
+                    "mode": "manual",
+                }
+            },
+        )
+    ).build(
+        {
+            nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[version]: (
+                nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL
+            ),
+            nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[version]: ip_str,
+            nmcli_constants.NMCLI_CONN_FIELD_IP_ROUTES[version]: [
+                __route_to_nmcli_string(route) for route in routes_str
+            ],
+        },
+        None,
+    )
+
 
 @pytest.mark.parametrize(
     "builder_type, version",
@@ -1092,3 +1140,54 @@ def test_nmcli_interface_args_builder_ip_connection_args_builder_goes_disable_ro
         nmcli_constants.NMCLI_CONN_FIELD_IP_ROUTES[version],
         "",
     ]
+
+
+def test_nmcli_interface_args_builders_vlan_connection_args_builder_ok(
+    mocker,
+):
+    conn_config = net_config_stub.build_testing_vlan_config(mocker)
+
+    # Basic, fresh, new VLAN connection
+    assert nmcli_interface_args_builders.VlanConnectionArgsBuilder(conn_config).build(
+        None, None
+    ) == [
+        nmcli_constants.NMCLI_CONN_FIELD_VLAN_VLAN_PARENT,
+        conn_config.parent_interface.iface_name,
+        nmcli_constants.NMCLI_CONN_FIELD_VLAN_VLAN_ID,
+        str(conn_config.vlan_id),
+    ]
+
+    # Existing VLAN connection that updates its ID
+    assert nmcli_interface_args_builders.VlanConnectionArgsBuilder(conn_config).build(
+        {
+            nmcli_constants.NMCLI_CONN_FIELD_VLAN_VLAN_ID: 123,
+            nmcli_constants.NMCLI_CONN_FIELD_VLAN_VLAN_PARENT: conn_config.parent_interface.iface_name,
+        },
+        None,
+    ) == [
+        nmcli_constants.NMCLI_CONN_FIELD_VLAN_VLAN_ID,
+        str(conn_config.vlan_id),
+    ]
+
+    # Existing VLAN connection that updates its parent interface
+    assert nmcli_interface_args_builders.VlanConnectionArgsBuilder(conn_config).build(
+        {
+            nmcli_constants.NMCLI_CONN_FIELD_VLAN_VLAN_ID: conn_config.vlan_id,
+            nmcli_constants.NMCLI_CONN_FIELD_VLAN_VLAN_PARENT: "non-existing",
+        },
+        None,
+    ) == [
+        nmcli_constants.NMCLI_CONN_FIELD_VLAN_VLAN_PARENT,
+        conn_config.parent_interface.iface_name,
+    ]
+
+    # Existing VLAN connection that doesn't need an update
+    assert not nmcli_interface_args_builders.VlanConnectionArgsBuilder(
+        conn_config
+    ).build(
+        {
+            nmcli_constants.NMCLI_CONN_FIELD_VLAN_VLAN_ID: conn_config.vlan_id,
+            nmcli_constants.NMCLI_CONN_FIELD_VLAN_VLAN_PARENT: conn_config.parent_interface.iface_name,
+        },
+        None,
+    )
