@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
+import collections.abc
 import ipaddress
 import re
 import typing
@@ -211,13 +212,6 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
                     field=self.__FIELD_IP_GW,
                 )
 
-        # Remove duplicated NSs without altering the order
-        nameservers = list(dict.fromkeys(self.__raw_config.get(self.__FIELD_IP_NS, [])))
-        for nameserver in nameservers:
-            self.__dns.append(
-                net_utils.parse_validate_ip_addr(nameserver, self.__version)
-            )
-
         disable_default_route = self.__raw_config.get(
             self.__FIELD_IP_DISABLE_DEFAULT_ROUTE, None
         )
@@ -229,6 +223,7 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
             )
         self.__disable_default_route = disable_default_route
 
+        self.__parse_dns_config()
         self.__parse_routes_config()
 
     def __parse_routes_config(self):
@@ -240,6 +235,24 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
             )
         for route_data in routes_list:
             self.__routes.append(IPRouteConfig[TAdd, TNet](route_data, self.__version))
+
+    def __parse_dns_config(self):
+        # Check that the DNS field is a list of strings
+        nameservers_raw = self.__raw_config.get(self.__FIELD_IP_NS, [])
+        if (not isinstance(nameservers_raw, collections.abc.Sequence)) or (
+            not all(isinstance(ns, str) for ns in nameservers_raw)
+        ):
+            raise exceptions.ValueInfraException(
+                f"{self.__FIELD_IP_NS} must be a list of DNS IPs as string",
+                field=self.__FIELD_IP_NS,
+            )
+
+        # Remove duplicated NSs without altering the order
+        nameservers = list(dict.fromkeys(nameservers_raw))
+        for nameserver in nameservers:
+            self.__dns.append(
+                net_utils.parse_validate_ip_addr(nameserver, self.__version)
+            )
 
 
 class IPv4Config(

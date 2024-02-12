@@ -535,6 +535,30 @@ def test_net_config_ipx_static_gw_fail(ip_version: int):
         pytest.param(6, id="ipv6"),
     ],
 )
+def test_net_config_ipx_dns_list_format_fail(ip_version: int):
+    ip_config_type = net_config.IPv4Config if ip_version == 4 else net_config.IPv6Config
+    dns_servers = (
+        config_stub_data.TEST_NS_SERVERS_IP4
+        if ip_version == 4
+        else config_stub_data.TEST_NS_SERVERS_IP6
+    )
+    cfg_1 = {
+        "mode": "auto",
+        "dns": {ns: {} for ns in dns_servers},
+    }
+    with pytest.raises(exceptions.ValueInfraException) as err:
+        ip_config_type(cfg_1)
+    assert str(err.value) == "dns must be a list of DNS IPs as string"
+    assert err.value.field == "dns"
+
+
+@pytest.mark.parametrize(
+    "ip_version",
+    [
+        pytest.param(4, id="ipv4"),
+        pytest.param(6, id="ipv6"),
+    ],
+)
 def test_net_config_ipx_mode_fail(ip_version: int):
     ip_config_type = net_config.IPv4Config if ip_version == 4 else net_config.IPv6Config
     cfg_1 = {

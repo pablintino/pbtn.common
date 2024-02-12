@@ -422,13 +422,6 @@ class IPConnectionArgsBuilder(BaseBuilder, typing.Generic[TIp]):
         current_connection: typing.Optional[typing.Dict[str, typing.Any]],
     ) -> typing.Tuple[typing.Optional[str], typing.Optional[str]]:
         target_method, method_change = self.__get_ip_target_method(current_connection)
-
-        if (
-            method_change
-            and target_method == nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED
-        ):
-            return nmcli_constants.NMCLI_CONN_FIELD_IP_ROUTES[self.__version], ""
-
         target_routes = (
             self.__convert_config_to_nmcli_routes(self.__ip_candidate_config)
             if self.__ip_candidate_config
@@ -452,6 +445,12 @@ class IPConnectionArgsBuilder(BaseBuilder, typing.Generic[TIp]):
             if current_connection
             else []
         )
+        if (
+            method_change
+            and target_method == nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED
+            and target_routes != current_routes
+        ):
+            return nmcli_constants.NMCLI_CONN_FIELD_IP_ROUTES[self.__version], ""
         if target_routes != current_routes:
             return nmcli_constants.NMCLI_CONN_FIELD_IP_ROUTES[self.__version], ",".join(
                 target_routes
