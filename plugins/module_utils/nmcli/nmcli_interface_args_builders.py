@@ -44,6 +44,10 @@ class BaseBuilder(metaclass=abc.ABCMeta):
     ) -> typing.List[typing.Tuple[str, str]]:
         pass
 
+    @property
+    def next_handler(self) -> "BaseBuilder":
+        return self.__next_handler
+
     def build(
         self,
         current_connection: typing.Optional[typing.Dict[str, typing.Any]],

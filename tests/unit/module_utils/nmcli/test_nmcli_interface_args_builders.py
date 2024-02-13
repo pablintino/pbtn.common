@@ -1,6 +1,10 @@
 import typing
 
 import pytest
+from unittest import mock
+from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
+    net_config,
+)
 from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
     nmcli_constants,
     nmcli_interface_args_builders,
@@ -18,6 +22,16 @@ def __route_to_nmcli_string(route_data: typing.Dict[str, typing.Any]):
 
     metric = str(route_data["metric"]) if "metric" in route_data else ""
     return f"{route_dst} {route_gw} {metric}".rstrip()
+
+
+def __get_builder_types_list(
+    builder: nmcli_interface_args_builders.BaseBuilder,
+) -> typing.List[typing.Type[nmcli_interface_args_builders.BaseBuilder]]:
+    builder_list = []
+    while builder is not None:
+        builder_list.append(type(builder))
+        builder = builder.next_handler
+    return builder_list
 
 
 @pytest.mark.parametrize(
@@ -1191,3 +1205,156 @@ def test_nmcli_interface_args_builders_vlan_connection_args_builder_ok(
         },
         None,
     )
+
+
+@pytest.mark.parametrize(
+    "test_config_factory",
+    [
+        pytest.param(
+            net_config_stub.build_testing_ether_bridge_config,
+            id="bridge-ether",
+        ),
+        pytest.param(
+            net_config_stub.build_testing_vlan_bridge_config,
+            id="bridge-vlan",
+        ),
+    ],
+)
+def test_nmcli_interface_args_builders_slave_connection_args_builder_ok(
+    mocker,
+    test_config_factory: net_config_stub.FactoryCallable,
+):
+    config = test_config_factory(mocker)
+    main_conn_uuid = "280fbf28-f4fd-4efd-b166-f0528311f01e"
+    slave_conn_config = typing.cast(net_config.SlaveConnectionConfig, config.slaves[0])
+    # New connection
+    with mock.patch(
+        "ansible_collections.pablintino.base_infra.plugins.module_utils."
+        "nmcli.nmcli_constants.map_config_to_nmcli_type_field"
+    ) as mocked_fn:
+        mocked_fn.return_value = "main_type"
+        assert nmcli_interface_args_builders.SlaveConnectionArgsBuilder(
+            slave_conn_config
+        ).build(
+            {},
+            main_conn_uuid,
+        ) == [
+            nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_SLAVE_TYPE,
+            "main_type",
+            nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_MASTER,
+            main_conn_uuid,
+        ]
+        mocked_fn.assert_called_with(type(slave_conn_config.main_connection_config))
+
+    # Existing connection changing the main connection
+    with mock.patch(
+        "ansible_collections.pablintino.base_infra.plugins.module_utils."
+        "nmcli.nmcli_constants.map_config_to_nmcli_type_field"
+    ) as mocked_fn:
+        mocked_fn.return_value = "main_type"
+        assert nmcli_interface_args_builders.SlaveConnectionArgsBuilder(
+            slave_conn_config
+        ).build(
+            {
+                nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_MASTER: "e2c83a46-ca41-11ee-87ad-c3dd21e55f88",
+                nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_SLAVE_TYPE: "main_type",
+            },
+            main_conn_uuid,
+        ) == [
+            nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_MASTER,
+            main_conn_uuid,
+        ]
+        mocked_fn.assert_called_with(type(slave_conn_config.main_connection_config))
+
+    # Existing connection changing the main type
+    with mock.patch(
+        "ansible_collections.pablintino.base_infra.plugins.module_utils."
+        "nmcli.nmcli_constants.map_config_to_nmcli_type_field"
+    ) as mocked_fn:
+        mocked_fn.return_value = "main_type_2"
+        assert nmcli_interface_args_builders.SlaveConnectionArgsBuilder(
+            slave_conn_config
+        ).build(
+            {
+                nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_MASTER: main_conn_uuid,
+                nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_SLAVE_TYPE: "main_type",
+            },
+            main_conn_uuid,
+        ) == [
+            nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_SLAVE_TYPE,
+            "main_type_2",
+        ]
+        mocked_fn.assert_called_with(type(slave_conn_config.main_connection_config))
+
+
+def test_nmcli_interface_args_builders_nmcli_args_builder_factory_ok(mocker):
+    # Test basic Ether conn
+    ether_builder_list = __get_builder_types_list(
+        nmcli_interface_args_builders.nmcli_args_builder_factory(
+            net_config_stub.build_testing_ether_config(mocker)
+        )
+    )
+    assert len(ether_builder_list) == 3
+    assert (
+        nmcli_interface_args_builders.CommonConnectionArgsBuilder in ether_builder_list
+    )
+    assert nmcli_interface_args_builders.IPv4ConnectionArgsBuilder in ether_builder_list
+    assert nmcli_interface_args_builders.IPv6ConnectionArgsBuilder in ether_builder_list
+
+    # Test basic Vlan conn
+    ether_builder_list = __get_builder_types_list(
+        nmcli_interface_args_builders.nmcli_args_builder_factory(
+            net_config_stub.build_testing_vlan_config(mocker)
+        )
+    )
+    assert len(ether_builder_list) == 4
+    assert (
+        nmcli_interface_args_builders.CommonConnectionArgsBuilder in ether_builder_list
+    )
+    assert nmcli_interface_args_builders.VlanConnectionArgsBuilder in ether_builder_list
+    assert nmcli_interface_args_builders.IPv4ConnectionArgsBuilder in ether_builder_list
+    assert nmcli_interface_args_builders.IPv6ConnectionArgsBuilder in ether_builder_list
+
+    # Test basic Bridge conn
+    ether_bridge_conn_config = net_config_stub.build_testing_ether_bridge_config(mocker)
+    ether_builder_list = __get_builder_types_list(
+        nmcli_interface_args_builders.nmcli_args_builder_factory(
+            ether_bridge_conn_config
+        )
+    )
+    assert len(ether_builder_list) == 3
+    assert (
+        nmcli_interface_args_builders.CommonConnectionArgsBuilder in ether_builder_list
+    )
+    assert nmcli_interface_args_builders.IPv4ConnectionArgsBuilder in ether_builder_list
+    assert nmcli_interface_args_builders.IPv6ConnectionArgsBuilder in ether_builder_list
+
+    # Test basic Ethernet slave conn
+    ether_builder_list = __get_builder_types_list(
+        nmcli_interface_args_builders.nmcli_args_builder_factory(
+            ether_bridge_conn_config.slaves[0]
+        )
+    )
+    assert len(ether_builder_list) == 2
+    assert (
+        nmcli_interface_args_builders.CommonConnectionArgsBuilder in ether_builder_list
+    )
+    assert (
+        nmcli_interface_args_builders.SlaveConnectionArgsBuilder in ether_builder_list
+    )
+
+    # Test basic VLAN slave conn
+    vlan_bridge_conn_config = net_config_stub.build_testing_vlan_bridge_config(mocker)
+    ether_builder_list = __get_builder_types_list(
+        nmcli_interface_args_builders.nmcli_args_builder_factory(
+            vlan_bridge_conn_config.slaves[0]
+        )
+    )
+    assert len(ether_builder_list) == 3
+    assert (
+        nmcli_interface_args_builders.CommonConnectionArgsBuilder in ether_builder_list
+    )
+    assert (
+        nmcli_interface_args_builders.SlaveConnectionArgsBuilder in ether_builder_list
+    )
+    assert nmcli_interface_args_builders.VlanConnectionArgsBuilder in ether_builder_list
