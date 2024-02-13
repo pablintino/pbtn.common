@@ -11,8 +11,7 @@ from ansible.module_utils.common.text.converters import to_text
 class CommandRunnerFn(typing.Protocol):
     def __call__(
         self, cmd: typing.List[str], check: typing.Optional[bool] = True
-    ) -> subprocess.CompletedProcess:
-        ...
+    ) -> subprocess.CompletedProcess: ...
 
 
 class CommandRunException(Exception):

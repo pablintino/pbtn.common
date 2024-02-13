@@ -4,9 +4,13 @@ __metaclass__ = type
 
 import typing
 
+from ansible_collections.pablintino.base_infra.plugins.module_utils import (
+    exceptions,
+)
 from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
     net_config,
 )
+
 
 # NMCLI Connection General section fields
 NMCLI_CONN_FIELD_GENERAL_NAME = "general.name"
@@ -117,7 +121,7 @@ def map_config_to_nmcli_type_field(
     nmcli_conn_type = __NMCLI_TYPE_CONVERSION_TABLE.get(config_type, None)
     if nmcli_conn_type:
         return nmcli_conn_type
-    raise ValueError(f"Unsupported config type {type(config_type)}")
+    raise exceptions.ValueInfraException(f"Unsupported config type {config_type}")
 
 
 def map_config_ip_method_to_nmcli_ip_method_field(
@@ -126,4 +130,4 @@ def map_config_ip_method_to_nmcli_ip_method_field(
     nmcli_conn_method = __NMCLI_IP_METHOD_CONVERSION_TABLE.get(config_ip_method, None)
     if nmcli_conn_method:
         return nmcli_conn_method
-    raise ValueError(f"Unsupported IP method {config_ip_method}")
+    raise exceptions.ValueInfraException(f"Unsupported IP method {config_ip_method}")

@@ -16,8 +16,7 @@ class FactoryCallable(typing.Protocol):
         slaves_count: int = 2,
         start_index: int = 0,
         config_patch: typing.Dict[str, typing.Any] = None,
-    ) -> net_config.MainConnectionConfig:
-        ...
+    ) -> net_config.MainConnectionConfig: ...
 
 
 def __update_patch_dict(

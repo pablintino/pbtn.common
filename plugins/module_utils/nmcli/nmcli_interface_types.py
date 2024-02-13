@@ -102,9 +102,9 @@ class TargetConnectionData(ConfigurableConnectionData):
             self, slave_connection_data: ConfigurableConnectionData
         ) -> "TargetConnectionData.Builder":
             if slave_connection_data.conn_config.name not in self.__slave_connections:
-                self.__slave_connections[
-                    slave_connection_data.conn_config.name
-                ] = slave_connection_data
+                self.__slave_connections[slave_connection_data.conn_config.name] = (
+                    slave_connection_data
+                )
             return self
 
     def __init__(
@@ -289,9 +289,9 @@ class ConfigurationSession:
         self.__uuids = set()
 
     def add_result(self, conn_config_result: MainConfigurationResult):
-        self.__conn_config_results[
-            conn_config_result.result.applied_config.name
-        ] = conn_config_result
+        self.__conn_config_results[conn_config_result.result.applied_config.name] = (
+            conn_config_result
+        )
         self.__uuids.update(conn_config_result.get_uuids())
 
     @property
