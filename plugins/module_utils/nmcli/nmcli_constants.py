@@ -11,6 +11,12 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
     net_config,
 )
 
+# NMCLI Global constants
+NMCLI_VALUE_TRUE = "yes"
+NMCLI_VALUE_FALSE = "no"
+# Alternative true/false values
+NMCLI_VALUE_TRUE_ALT = "true"
+NMCLI_VALUE_FALSE_ALT = "false"
 
 # NMCLI Connection General section fields
 NMCLI_CONN_FIELD_GENERAL_NAME = "general.name"
@@ -105,6 +111,22 @@ __NMCLI_IP_METHOD_CONVERSION_TABLE = {
     net_config.IPConfig.FIELD_IP_MODE_VAL_MANUAL: NMCLI_CONN_FIELD_IP_METHOD_VAL_MANUAL,
     net_config.IPConfig.FIELD_IP_MODE_VAL_DISABLED: NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED,
 }
+
+
+def map_to_mcli_boolean_value(value: bool) -> typing.Optional[str]:
+    if value is True:
+        return NMCLI_VALUE_TRUE
+    if value is False:
+        return NMCLI_VALUE_FALSE
+    return None
+
+
+def map_from_mcli_boolean_value(value: str) -> typing.Optional[bool]:
+    if value in [NMCLI_VALUE_TRUE, NMCLI_VALUE_TRUE_ALT]:
+        return True
+    if value in [NMCLI_VALUE_FALSE, NMCLI_VALUE_FALSE_ALT]:
+        return False
+    return None
 
 
 def map_config_to_nmcli_type_field(

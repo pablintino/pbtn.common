@@ -11,6 +11,7 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils import (
     module_command_utils,
 )
 from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
+    nmcli_constants,
     nmcli_interface_exceptions,
 )
 
@@ -119,10 +120,16 @@ class NetworkManagerQuerier:
         # Empty field
         if lower_value == "":
             parsed_value = None
-        elif lower_value in ["no", "false"]:
+        elif lower_value in [
+            nmcli_constants.NMCLI_VALUE_FALSE,
+            nmcli_constants.NMCLI_VALUE_FALSE_ALT,
+        ]:
             # Negative boolean
             parsed_value = False
-        elif lower_value in ["yes", "true"]:
+        elif lower_value in [
+            nmcli_constants.NMCLI_VALUE_TRUE,
+            nmcli_constants.NMCLI_VALUE_TRUE_ALT,
+        ]:
             # Positive boolean
             parsed_value = True
         elif "," in lower_value:

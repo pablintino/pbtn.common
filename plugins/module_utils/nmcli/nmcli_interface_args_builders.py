@@ -105,16 +105,21 @@ class CommonConnectionArgsBuilder(BaseBuilder):
         self,
         current_connection: typing.Optional[typing.Dict[str, typing.Any]],
     ) -> typing.Tuple[typing.Optional[str], typing.Optional[str]]:
-        if self._config.startup is not None and (
-            (not current_connection)
-            or current_connection.get(
-                nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_AUTOCONNECT, None
+        current_value = (
+            nmcli_constants.map_from_mcli_boolean_value(
+                current_connection.get(
+                    nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_AUTOCONNECT, None
+                )
             )
-            != self._config.startup
+            if current_connection
+            else None
+        )
+        if self._config.startup is not None and (
+            (not current_connection) or current_value != self._config.startup
         ):
             return (
                 nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_AUTOCONNECT,
-                "yes" if self._config.startup else "no",
+                nmcli_constants.map_to_mcli_boolean_value(self._config.startup),
             )
 
         return None, None
@@ -324,7 +329,9 @@ class IPConnectionArgsBuilder(BaseBuilder, typing.Generic[TIp]):
         if current_setting != target_value:
             return (
                 nmcli_constants.NMCLI_CONN_FIELD_IP_NEVER_DEFAULT[self.__version],
-                "yes" if self.__ip_candidate_config.disable_default_route else "no",
+                nmcli_constants.map_to_mcli_boolean_value(
+                    self.__ip_candidate_config.disable_default_route
+                ),
             )
 
         return None, None

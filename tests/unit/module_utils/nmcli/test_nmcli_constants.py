@@ -77,6 +77,12 @@ def test_nmcli_hardcoded_constants_expected_value():
     assert nmcli_constants.NMCLI_CONN_FIELD_IP_ROUTES[6] == "ipv6.routes"
     assert nmcli_constants.NMCLI_CONN_FIELD_IP_NEVER_DEFAULT[6] == "ipv6.never-default"
 
+    # Global vars
+    assert nmcli_constants.NMCLI_VALUE_TRUE == "yes"
+    assert nmcli_constants.NMCLI_VALUE_TRUE_ALT == "true"
+    assert nmcli_constants.NMCLI_VALUE_FALSE_ALT == "false"
+    assert nmcli_constants.NMCLI_VALUE_FALSE == "no"
+
 
 def test_nmcli_constants_map_config_to_nmcli_type_field_ok(mocker):
     """
@@ -160,3 +166,25 @@ def test_nmcli_constants_map_config_ip_method_to_nmcli_ip_method_field_fail():
     with pytest.raises(exceptions.ValueInfraException) as err:
         nmcli_constants.map_config_ip_method_to_nmcli_ip_method_field("invalid")
     assert str(err.value) == f"Unsupported IP method invalid"
+
+
+def test_nmcli_constants_map_from_mcli_boolean_value_ok():
+    """
+    Ensures that map_from_mcli_boolean_value maps nmcli booleans
+    into python booleans properly.
+    """
+    assert nmcli_constants.map_from_mcli_boolean_value("true") is True
+    assert nmcli_constants.map_from_mcli_boolean_value("yes") is True
+    assert nmcli_constants.map_from_mcli_boolean_value("false") is False
+    assert nmcli_constants.map_from_mcli_boolean_value("no") is False
+    assert nmcli_constants.map_from_mcli_boolean_value("other") is None
+
+
+def test_nmcli_constants_map_to_mcli_boolean_value_ok():
+    """
+    Ensures that map_to_mcli_boolean_value maps python booleans
+    into nmcli booleans properly.
+    """
+    assert nmcli_constants.map_to_mcli_boolean_value(True) == "yes"
+    assert nmcli_constants.map_to_mcli_boolean_value(False) == "no"
+    assert nmcli_constants.map_to_mcli_boolean_value(None) is None

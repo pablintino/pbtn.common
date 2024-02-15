@@ -55,6 +55,13 @@ def test_nmcli_interface_args_builders_common_args_builder_ok(
     mocker,
     test_config_factory: net_config_stub.FactoryCallable,
 ):
+    """
+    Test that the CommonConnectionArgsBuilder is able to generate
+    the expected args for new and existing connection of all
+    the known connection types.
+    This test covers use cases that are not specific of a single
+    argument.
+    """
     conn_config = test_config_factory(mocker)
 
     # Basic, fresh, new Ethernet connection
@@ -84,6 +91,47 @@ def test_nmcli_interface_args_builders_common_args_builder_ok(
         conn_config.interface.iface_name,
     ]
 
+    # All fields are up-to-date, No changes -> Empty args list
+    assert not nmcli_interface_args_builders.CommonConnectionArgsBuilder(
+        conn_config
+    ).build(
+        {
+            nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_INTERFACE_NAME: conn_config.interface.iface_name,
+            nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_ID: conn_config.name,
+        },
+        None,
+    )
+
+
+@pytest.mark.parametrize(
+    "test_config_factory",
+    [
+        pytest.param(
+            net_config_stub.build_testing_ether_config,
+            id="ethernet",
+        ),
+        pytest.param(
+            net_config_stub.build_testing_ether_bridge_config,
+            id="bridge",
+        ),
+        pytest.param(
+            net_config_stub.build_testing_vlan_config,
+            id="vlan",
+        ),
+    ],
+)
+def test_nmcli_interface_args_builders_common_args_builder_interface_name_ok(
+    mocker,
+    test_config_factory: net_config_stub.FactoryCallable,
+):
+    """
+    Test that the CommonConnectionArgsBuilder is able to generate
+    the expected `connection.interface-name` arg for an existing
+    connection of all the known connection types.
+    argument.
+    """
+    conn_config = test_config_factory(mocker)
+
     # The connection.interface-name is not present, add it
     assert nmcli_interface_args_builders.CommonConnectionArgsBuilder(conn_config).build(
         {
@@ -97,6 +145,35 @@ def test_nmcli_interface_args_builders_common_args_builder_ok(
         conn_config.interface.iface_name,
     ]
 
+
+@pytest.mark.parametrize(
+    "test_config_factory",
+    [
+        pytest.param(
+            net_config_stub.build_testing_ether_config,
+            id="ethernet",
+        ),
+        pytest.param(
+            net_config_stub.build_testing_ether_bridge_config,
+            id="bridge",
+        ),
+        pytest.param(
+            net_config_stub.build_testing_vlan_config,
+            id="vlan",
+        ),
+    ],
+)
+def test_nmcli_interface_args_builders_common_args_builder_connection_id_ok(
+    mocker,
+    test_config_factory: net_config_stub.FactoryCallable,
+):
+    """
+    Test that the CommonConnectionArgsBuilder is able to generate
+    the expected `connection.connection-id` arg for an existing
+    connection of all the known connection types.
+    argument.
+    """
+    conn_config = test_config_factory(mocker)
     # The connection.id is not present, add it
     assert nmcli_interface_args_builders.CommonConnectionArgsBuilder(conn_config).build(
         {
@@ -108,18 +185,6 @@ def test_nmcli_interface_args_builders_common_args_builder_ok(
         # so we don't generate the connection.type args
         nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_ID,
         conn_config.name,
-    ]
-
-    # The connection.interface-name field needs update
-    assert nmcli_interface_args_builders.CommonConnectionArgsBuilder(conn_config).build(
-        {
-            nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_INTERFACE_NAME: "ethX",
-            nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_ID: conn_config.name,
-        },
-        None,
-    ) == [
-        nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_INTERFACE_NAME,
-        conn_config.interface.iface_name,
     ]
 
     # The connection.id field needs update
@@ -134,7 +199,7 @@ def test_nmcli_interface_args_builders_common_args_builder_ok(
         conn_config.name,
     ]
 
-    # All fields are up-to-date, No changes -> Empty args list
+    # The connection.id field is already fine
     assert not nmcli_interface_args_builders.CommonConnectionArgsBuilder(
         conn_config
     ).build(
@@ -167,6 +232,12 @@ def test_nmcli_interface_args_builders_common_args_builder_autoconnect_ok(
     mocker,
     test_config_factory: net_config_stub.FactoryCallable,
 ):
+    """
+    Test that the CommonConnectionArgsBuilder is able to generate
+    the expected `connection.autoconnect` arg for an existing
+    connection of all the known connection types.
+    argument.
+    """
     conn_config = test_config_factory(mocker)
 
     # The connection.autoconnect field needs update -> From nothing to yes
@@ -198,6 +269,18 @@ def test_nmcli_interface_args_builders_common_args_builder_autoconnect_ok(
         "no",
     ]
 
+    # The connection.autoconnect field is already set to the expected value
+    assert not nmcli_interface_args_builders.CommonConnectionArgsBuilder(
+        test_config_factory(mocker, config_patch={"startup": False})
+    ).build(
+        {
+            nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_AUTOCONNECT: "no",
+            nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_ID: conn_config.name,
+            nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_INTERFACE_NAME: conn_config.interface.iface_name,
+        },
+        None,
+    )
+
 
 @pytest.mark.parametrize(
     "builder_type, version",
@@ -224,6 +307,11 @@ def test_nmcli_interface_args_builder_ipv4_connection_args_builder_field_ip_ok(
     ],
     version: int,
 ):
+    """
+    Test that the IPConnectionArgsBuilder is able to generate
+    the expected `ipvX.ip` and `ipvX.method` args for IPv4 and IPv6
+    connections.
+    """
     ip_str = str(
         config_stub_data.TEST_INTERFACE_1_IP4_ADDR
         if version == 4
@@ -342,6 +430,11 @@ def test_nmcli_interface_args_builder_ipv4_connection_args_builder_field_gw_ok(
     ],
     version: int,
 ):
+    """
+    Test that the IPConnectionArgsBuilder is able to generate
+    the expected `ipvX.gateway` and `ipvX.method` args for IPv4 and IPv6
+    connections.
+    """
     ip_str = str(
         config_stub_data.TEST_INTERFACE_1_IP4_ADDR
         if version == 4
@@ -471,6 +564,11 @@ def test_nmcli_interface_args_builder_ip_connection_args_builder_goes_disable_ip
     ],
     version: int,
 ):
+    """
+    Test that the IPConnectionArgsBuilder is able to generate
+    the expected `ipvX.ip` and `ipvX.method` args for IPv4 and IPv6
+    connections that transition from manual/auto to disable.
+    """
     ip_str = str(
         config_stub_data.TEST_INTERFACE_1_IP4_ADDR
         if version == 4
@@ -557,6 +655,11 @@ def test_nmcli_interface_args_builder_ip_connection_args_builder_goes_disable_gw
     ],
     version: int,
 ):
+    """
+    Test that the IPConnectionArgsBuilder is able to generate
+    the expected `ipvX.gateway` and `ipvX.method` args for IPv4 and IPv6
+    connections that transition from manual/auto to disable.
+    """
     gw_str = str(
         config_stub_data.TEST_INTERFACE_1_IP4_GW
         if version == 4
@@ -599,7 +702,7 @@ def test_nmcli_interface_args_builder_ip_connection_args_builder_goes_disable_gw
         ),
     ],
 )
-def test_nmcli_interface_args_builder_ip_connection_args_builder_goes_disable_default_route_ok(
+def test_nmcli_interface_args_builder_ip_connection_args_builder_goes_disabled_disable_default_route_ok(
     mocker,
     builder_type: typing.Type[
         typing.Union[
@@ -609,6 +712,11 @@ def test_nmcli_interface_args_builder_ip_connection_args_builder_goes_disable_de
     ],
     version: int,
 ):
+    """
+    Test that the IPConnectionArgsBuilder is able to generate
+    the expected `ipvX.never-default` and `ipvX.method` args for IPv4 and IPv6
+    connections that transition from manual/auto to disable.
+    """
     # Already existing manual connection that goes to disable
     # IP field is not needed in NM, so we directly ignore it for this test
     assert builder_type(
@@ -666,7 +774,7 @@ def test_nmcli_interface_args_builder_ip_connection_args_builder_goes_disable_de
         ),
     ],
 )
-def test_nmcli_interface_args_builder_ipv4_connection_args_builder_field_disable_default_route_enable_ok(
+def test_nmcli_interface_args_builder_ipv4_connection_args_builder_field_default_route_enable_ok(
     mocker,
     builder_type: typing.Type[
         typing.Union[
@@ -676,6 +784,11 @@ def test_nmcli_interface_args_builder_ipv4_connection_args_builder_field_disable
     ],
     version: int,
 ):
+    """
+    Test that the IPConnectionArgsBuilder is able to generate
+    the expected `ipvX.never-default` and `ipvX.method` args for IPv4 and IPv6
+    connections.
+    """
     ip_str = str(
         config_stub_data.TEST_INTERFACE_1_IP4_ADDR
         if version == 4
@@ -747,6 +860,11 @@ def test_nmcli_interface_args_builder_ipv4_connection_args_builder_field_dns_ok(
     ],
     version: int,
 ):
+    """
+    Test that the IPConnectionArgsBuilder is able to generate
+    the expected `ipvX.dns` and `ipvX.method` args for IPv4 and IPv6
+    connections.
+    """
     ip_str = str(
         config_stub_data.TEST_INTERFACE_1_IP4_ADDR
         if version == 4
@@ -908,6 +1026,11 @@ def test_nmcli_interface_args_builder_ip_connection_args_builder_goes_disable_dn
     ],
     version: int,
 ):
+    """
+    Test that the IPConnectionArgsBuilder is able to generate
+    the expected `ipvX.dns` and `ipvX.method` args for IPv4 and IPv6
+    connections that transition from manual/auto to disable.
+    """
     dns_servers = [
         str(ns_ip)
         for ns_ip in (
@@ -962,6 +1085,11 @@ def test_nmcli_interface_args_builder_ipv4_connection_args_builder_field_routes_
     ],
     version: int,
 ):
+    """
+    Test that the IPConnectionArgsBuilder is able to generate
+    the expected `ipvX.routes` and `ipvX.method` args for IPv4 and IPv6
+    connections.
+    """
     ip_str = str(
         config_stub_data.TEST_INTERFACE_1_IP4_ADDR
         if version == 4
@@ -1127,6 +1255,11 @@ def test_nmcli_interface_args_builder_ip_connection_args_builder_goes_disable_ro
     ],
     version: int,
 ):
+    """
+    Test that the IPConnectionArgsBuilder is able to generate
+    the expected `ipvX.routes` and `ipvX.method` args for IPv4 and IPv6
+    connections that transition from manual/auto to disable.
+    """
     routes_str = (
         config_stub_data.TEST_ROUTES_IP4
         if version == 4
@@ -1159,6 +1292,11 @@ def test_nmcli_interface_args_builder_ip_connection_args_builder_goes_disable_ro
 def test_nmcli_interface_args_builders_vlan_connection_args_builder_ok(
     mocker,
 ):
+    """
+    Test that the VlanConnectionArgsBuilder is able to generate
+    the expected `vlan.id` and `vlan.parent` args for VLAN based
+    connections.l
+    """
     conn_config = net_config_stub.build_testing_vlan_config(mocker)
 
     # Basic, fresh, new VLAN connection
@@ -1224,6 +1362,11 @@ def test_nmcli_interface_args_builders_slave_connection_args_builder_ok(
     mocker,
     test_config_factory: net_config_stub.FactoryCallable,
 ):
+    """
+    Test that the SlaveConnectionArgsBuilder is able to generate
+    the expected `connection.slave-type` and `connection.master`
+    args for slaves connections types.
+    """
     config = test_config_factory(mocker)
     main_conn_uuid = "280fbf28-f4fd-4efd-b166-f0528311f01e"
     slave_conn_config = typing.cast(net_config.SlaveConnectionConfig, config.slaves[0])
@@ -1288,6 +1431,10 @@ def test_nmcli_interface_args_builders_slave_connection_args_builder_ok(
 
 
 def test_nmcli_interface_args_builders_nmcli_args_builder_factory_ok(mocker):
+    """
+    Tests that the nmcli_args_builder_factory properly return the expected
+    chain of builders for the given connection.
+    """
     # Test basic Ether conn
     ether_builder_list = __get_builder_types_list(
         nmcli_interface_args_builders.nmcli_args_builder_factory(
