@@ -1,14 +1,14 @@
-connection.id:docker0
-connection.uuid:b1d746eb-9b22-43d7-9617-d267e581780f
+connection.id:internal
+connection.uuid:a2437bdd-79c3-40da-aa71-ed76810e615e
 connection.stable-id:
 connection.type:bridge
-connection.interface-name:docker0
-connection.autoconnect:no
+connection.interface-name:br33
+connection.autoconnect:yes
 connection.autoconnect-priority:0
 connection.autoconnect-retries:-1
 connection.multi-connect:0
 connection.auth-retries:-1
-connection.timestamp:1696451534
+connection.timestamp:1708356069
 connection.read-only:no
 connection.permissions:
 connection.zone:
@@ -24,13 +24,13 @@ connection.llmnr:-1
 connection.dns-over-tls:-1
 connection.wait-device-timeout:-1
 ipv4.method:manual
-ipv4.dns:
+ipv4.dns:1.1.1.1,8.8.8.8
 ipv4.dns-search:
 ipv4.dns-options:
 ipv4.dns-priority:0
-ipv4.addresses:172.17.0.1/16
+ipv4.addresses:10.197.197.40/24
 ipv4.gateway:
-ipv4.routes:
+ipv4.routes:10.123.123.0/24 10.197.197.100 100
 ipv4.route-metric:-1
 ipv4.route-table:0
 ipv4.routing-rules:
@@ -43,13 +43,13 @@ ipv4.dhcp-send-hostname:yes
 ipv4.dhcp-hostname:
 ipv4.dhcp-fqdn:
 ipv4.dhcp-hostname-flags:0x0
-ipv4.never-default:no
+ipv4.never-default:yes
 ipv4.may-fail:yes
 ipv4.required-timeout:-1
 ipv4.dad-timeout:-1
 ipv4.dhcp-vendor-class-identifier:
 ipv4.dhcp-reject-servers:
-ipv6.method:link-local
+ipv6.method:disabled
 ipv6.dns:
 ipv6.dns-search:
 ipv6.dns-options:
@@ -76,7 +76,7 @@ ipv6.dhcp-hostname:
 ipv6.dhcp-hostname-flags:0x0
 ipv6.token:
 bridge.mac-address:
-bridge.stp:no
+bridge.stp:yes
 bridge.priority:32768
 bridge.forward-delay:15
 bridge.hello-time:2
@@ -84,7 +84,6 @@ bridge.max-age:20
 bridge.ageing-time:300
 bridge.group-forward-mask:0
 bridge.multicast-snooping:yes
-bridge.multicast-startup-query-interval:3124
 bridge.vlan-filtering:no
 bridge.vlan-default-pvid:1
 bridge.vlans:
@@ -92,22 +91,23 @@ proxy.method:none
 proxy.browser-only:no
 proxy.pac-url:
 proxy.pac-script:
-GENERAL.NAME:docker0
-GENERAL.UUID:b1d746eb-9b22-43d7-9617-d267e581780f
-GENERAL.DEVICES:docker0
-GENERAL.IP-IFACE:docker0
+GENERAL.NAME:internal
+GENERAL.UUID:a2437bdd-79c3-40da-aa71-ed76810e615e
+GENERAL.DEVICES:br33
+GENERAL.IP-IFACE:br33
 GENERAL.STATE:activated
 GENERAL.DEFAULT:no
 GENERAL.DEFAULT6:no
 GENERAL.SPEC-OBJECT:
 GENERAL.VPN:no
 GENERAL.DBUS-PATH:/org/freedesktop/NetworkManager/ActiveConnection/7
-GENERAL.CON-PATH:/org/freedesktop/NetworkManager/Settings/11
+GENERAL.CON-PATH:/org/freedesktop/NetworkManager/Settings/4
 GENERAL.ZONE:
 GENERAL.MASTER-PATH:
-IP4.ADDRESS[1]:172.17.0.1/16
+IP4.ADDRESS[1]:10.197.197.40/24
 IP4.GATEWAY:
-IP4.ROUTE[1]:dst = 172.17.0.0/16, nh = 0.0.0.0, mt = 0
-IP6.ADDRESS[1]:fe80::42:63ff:fe2d:b411/64
+IP4.ROUTE[1]:dst = 10.123.123.0/24, nh = 10.197.197.100, mt = 100
+IP4.ROUTE[2]:dst = 10.197.197.0/24, nh = 0.0.0.0, mt = 425
+IP4.DNS[1]:1.1.1.1
+IP4.DNS[2]:8.8.8.8
 IP6.GATEWAY:
-IP6.ROUTE[1]:dst = fe80::/64, nh = ::, mt = 256

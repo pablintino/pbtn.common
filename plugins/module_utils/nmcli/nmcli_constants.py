@@ -19,16 +19,13 @@ NMCLI_VALUE_TRUE_ALT = "true"
 NMCLI_VALUE_FALSE_ALT = "false"
 
 # NMCLI Connection General section fields
-NMCLI_CONN_FIELD_GENERAL_NAME = "general.name"
 NMCLI_CONN_FIELD_GENERAL_STATE = "general.state"
 NMCLI_CONN_FIELD_GENERAL_STATE_VAL_ACTIVATED = "activated"
-NMCLI_CONN_FIELD_GENERAL_UUID = "general.uuid"
 NMCLI_CONN_FIELD_GENERAL_DEVICES = "general.devices"
 
 # NMCLI Connection section fields
 NMCLI_CONN_FIELD_CONNECTION_ID = "connection.id"
 NMCLI_CONN_FIELD_CONNECTION_UUID = "connection.uuid"
-NMCLI_CONN_FIELD_CONNECTION_STATE = "connection.state"
 NMCLI_CONN_FIELD_CONNECTION_MASTER = "connection.master"
 NMCLI_CONN_FIELD_CONNECTION_SLAVE_TYPE = "connection.slave-type"
 NMCLI_CONN_FIELD_CONNECTION_AUTOCONNECT = "connection.autoconnect"

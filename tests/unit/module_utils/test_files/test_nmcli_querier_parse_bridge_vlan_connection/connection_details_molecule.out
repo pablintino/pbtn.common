@@ -1,0 +1,147 @@
+connection.id:molecule
+connection.uuid:626dd384-8b3d-3690-9511-192b2c79b3fd
+connection.stable-id:
+connection.type:802-3-ethernet
+connection.interface-name:eth0
+connection.autoconnect:yes
+connection.autoconnect-priority:0
+connection.autoconnect-retries:-1
+connection.multi-connect:0
+connection.auth-retries:-1
+connection.timestamp:1708356069
+connection.read-only:no
+connection.permissions:
+connection.zone:
+connection.master:
+connection.slave-type:
+connection.autoconnect-slaves:-1
+connection.secondaries:
+connection.gateway-ping-timeout:0
+connection.metered:unknown
+connection.lldp:default
+connection.mdns:-1
+connection.llmnr:-1
+connection.dns-over-tls:-1
+connection.wait-device-timeout:-1
+802-3-ethernet.port:
+802-3-ethernet.speed:0
+802-3-ethernet.duplex:
+802-3-ethernet.auto-negotiate:no
+802-3-ethernet.mac-address:
+802-3-ethernet.cloned-mac-address:
+802-3-ethernet.generate-mac-address-mask:
+802-3-ethernet.mac-address-blacklist:
+802-3-ethernet.mtu:auto
+802-3-ethernet.s390-subchannels:
+802-3-ethernet.s390-nettype:
+802-3-ethernet.s390-options:
+802-3-ethernet.wake-on-lan:
+802-3-ethernet.wake-on-lan-password:
+802-3-ethernet.accept-all-mac-addresses:-1
+ipv4.method:auto
+ipv4.dns:
+ipv4.dns-search:
+ipv4.dns-options:
+ipv4.dns-priority:0
+ipv4.addresses:
+ipv4.gateway:
+ipv4.routes:
+ipv4.route-metric:-1
+ipv4.route-table:0
+ipv4.routing-rules:
+ipv4.ignore-auto-routes:no
+ipv4.ignore-auto-dns:no
+ipv4.dhcp-client-id:
+ipv4.dhcp-iaid:
+ipv4.dhcp-timeout:0
+ipv4.dhcp-send-hostname:yes
+ipv4.dhcp-hostname:
+ipv4.dhcp-fqdn:
+ipv4.dhcp-hostname-flags:0x0
+ipv4.never-default:no
+ipv4.may-fail:yes
+ipv4.required-timeout:-1
+ipv4.dad-timeout:-1
+ipv4.dhcp-vendor-class-identifier:
+ipv4.dhcp-reject-servers:
+ipv6.method:disabled
+ipv6.dns:
+ipv6.dns-search:
+ipv6.dns-options:
+ipv6.dns-priority:0
+ipv6.addresses:
+ipv6.gateway:
+ipv6.routes:
+ipv6.route-metric:-1
+ipv6.route-table:0
+ipv6.routing-rules:
+ipv6.ignore-auto-routes:no
+ipv6.ignore-auto-dns:no
+ipv6.never-default:no
+ipv6.may-fail:yes
+ipv6.required-timeout:-1
+ipv6.ip6-privacy:-1
+ipv6.addr-gen-mode:eui64
+ipv6.ra-timeout:0
+ipv6.dhcp-duid:
+ipv6.dhcp-iaid:
+ipv6.dhcp-timeout:0
+ipv6.dhcp-send-hostname:yes
+ipv6.dhcp-hostname:
+ipv6.dhcp-hostname-flags:0x0
+ipv6.token:
+proxy.method:none
+proxy.browser-only:no
+proxy.pac-url:
+proxy.pac-script:
+GENERAL.NAME:molecule
+GENERAL.UUID:626dd384-8b3d-3690-9511-192b2c79b3fd
+GENERAL.DEVICES:eth0
+GENERAL.IP-IFACE:eth0
+GENERAL.STATE:activated
+GENERAL.DEFAULT:yes
+GENERAL.DEFAULT6:no
+GENERAL.SPEC-OBJECT:
+GENERAL.VPN:no
+GENERAL.DBUS-PATH:/org/freedesktop/NetworkManager/ActiveConnection/9
+GENERAL.CON-PATH:/org/freedesktop/NetworkManager/Settings/3
+GENERAL.ZONE:
+GENERAL.MASTER-PATH:
+IP4.ADDRESS[1]:192.168.121.47/24
+IP4.GATEWAY:192.168.121.1
+IP4.ROUTE[1]:dst = 192.168.121.0/24, nh = 0.0.0.0, mt = 102
+IP4.ROUTE[2]:dst = 0.0.0.0/0, nh = 192.168.121.1, mt = 102
+IP4.DNS[1]:192.168.121.1
+DHCP4.OPTION[1]:broadcast_address = 192.168.121.255
+DHCP4.OPTION[2]:dad_wait_time = 0
+DHCP4.OPTION[3]:dhcp_lease_time = 3600
+DHCP4.OPTION[4]:dhcp_message_type = 5
+DHCP4.OPTION[5]:dhcp_rebinding_time = 3150
+DHCP4.OPTION[6]:dhcp_renewal_time = 1800
+DHCP4.OPTION[7]:dhcp_server_identifier = 192.168.121.1
+DHCP4.OPTION[8]:domain_name_servers = 192.168.121.1
+DHCP4.OPTION[9]:expiry = 1708358779
+DHCP4.OPTION[10]:host_name = ubuntu-22
+DHCP4.OPTION[11]:ip_address = 192.168.121.47
+DHCP4.OPTION[12]:network_number = 192.168.121.0
+DHCP4.OPTION[13]:next_server = 192.168.121.1
+DHCP4.OPTION[14]:requested_broadcast_address = 1
+DHCP4.OPTION[15]:requested_domain_name = 1
+DHCP4.OPTION[16]:requested_domain_name_servers = 1
+DHCP4.OPTION[17]:requested_domain_search = 1
+DHCP4.OPTION[18]:requested_host_name = 1
+DHCP4.OPTION[19]:requested_interface_mtu = 1
+DHCP4.OPTION[20]:requested_ms_classless_static_routes = 1
+DHCP4.OPTION[21]:requested_netbios_name_servers = 1
+DHCP4.OPTION[22]:requested_netbios_scope = 1
+DHCP4.OPTION[23]:requested_ntp_servers = 1
+DHCP4.OPTION[24]:requested_rfc3442_classless_static_routes = 1
+DHCP4.OPTION[25]:requested_root_path = 1
+DHCP4.OPTION[26]:requested_routers = 1
+DHCP4.OPTION[27]:requested_static_routes = 1
+DHCP4.OPTION[28]:requested_subnet_mask = 1
+DHCP4.OPTION[29]:requested_time_offset = 1
+DHCP4.OPTION[30]:requested_wpad = 1
+DHCP4.OPTION[31]:routers = 192.168.121.1
+DHCP4.OPTION[32]:subnet_mask = 255.255.255.0
+IP6.GATEWAY:

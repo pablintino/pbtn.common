@@ -23,14 +23,11 @@ def test_nmcli_hardcoded_constants_expected_value():
     constant is acknowledged somewhere, like in this UT.
     """
 
-    assert nmcli_constants.NMCLI_CONN_FIELD_GENERAL_NAME == "general.name"
     assert nmcli_constants.NMCLI_CONN_FIELD_GENERAL_STATE == "general.state"
     assert nmcli_constants.NMCLI_CONN_FIELD_GENERAL_STATE_VAL_ACTIVATED == "activated"
-    assert nmcli_constants.NMCLI_CONN_FIELD_GENERAL_UUID == "general.uuid"
     assert nmcli_constants.NMCLI_CONN_FIELD_GENERAL_DEVICES == "general.devices"
     assert nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_ID == "connection.id"
     assert nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID == "connection.uuid"
-    assert nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_STATE == "connection.state"
     assert nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_MASTER == "connection.master"
     assert (
         nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_SLAVE_TYPE
