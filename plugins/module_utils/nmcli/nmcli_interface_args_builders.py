@@ -218,7 +218,7 @@ class IPConnectionArgsBuilder(BaseBuilder, typing.Generic[TIp]):
         target_method, method_change = self.__get_ip_target_method(current_connection)
 
         current_addresses = (
-            (
+            nmcli_interface_utils.cast_as_list(
                 current_connection.get(
                     nmcli_constants.NMCLI_CONN_FIELD_IP_ADDRESSES[self.__version],
                     [],
@@ -227,12 +227,6 @@ class IPConnectionArgsBuilder(BaseBuilder, typing.Generic[TIp]):
             )
             if current_connection
             else []
-        )
-        # Maybe is a string, maybe is list, depends on the count
-        current_addresses = (
-            [current_addresses]
-            if isinstance(current_addresses, str)
-            else current_addresses
         )
 
         # Convert IP+Prefix to string
@@ -243,7 +237,7 @@ class IPConnectionArgsBuilder(BaseBuilder, typing.Generic[TIp]):
             else ""
         )
         current_ip_str = (current_addresses or [""])[0]
-        # If IP addressing is going to be disabled just set IP addresses to none
+        # If IP addressing is going to be disabled, just set IP addresses to none
         # Same applies when transitioning to AUTO from other methods
         # If the method is not manual and the setting is set try to clear it too
         if (

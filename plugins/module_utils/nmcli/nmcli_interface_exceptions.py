@@ -17,10 +17,6 @@ class NmcliInterfaceValidationException(exceptions.BaseInfraException):
     pass
 
 
-class NmcliInterfaceIllegalOperationException(exceptions.BaseInfraException):
-    pass
-
-
 class NmcliExecuteCommandException(exceptions.BaseInfraException):
     def __init__(
         self,
