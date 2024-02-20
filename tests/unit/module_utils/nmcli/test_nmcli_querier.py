@@ -5,8 +5,10 @@ __metaclass__ = type
 import ipaddress
 import typing
 
+import pytest
 from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
     nmcli_constants,
+    nmcli_interface_exceptions,
     nmcli_querier,
 )
 from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_utils.command_mocker import (
@@ -57,15 +59,7 @@ def __validate_connection_fields(
     ]
 
 
-def __test_load_prepare_command_mocker(
-    test_file_manager: FileManager, command_mocker: CommandMocker
-) -> typing.List[str]:
-    connections = test_file_manager.get_file_text_content("connections_out.out")
-    command_mocker.add_call_definition_with_file(
-        MockCall(["nmcli", "-g", "name", "connection"], True),
-        stdout_file_name="connections_out.out",
-    )
-    connection_names = connections.splitlines()
+def __generate_connection_details_calls(command_mocker, connection_names):
     for conn_name in connection_names:
         conn_name_sanitized = conn_name.replace("-", "_").replace(" ", "_")
         command_mocker.add_call_definition_with_file(
@@ -75,6 +69,22 @@ def __test_load_prepare_command_mocker(
             ),
             stdout_file_name=f"connection_details_{conn_name_sanitized}.out",
         )
+
+
+def __test_load_prepare_command_mocker(
+    test_file_manager: FileManager, command_mocker: CommandMocker
+) -> typing.List[str]:
+    connections = test_file_manager.get_file_text_content("connections_out.out")
+    command_mocker.add_call_definition_with_file(
+        MockCall(["nmcli", "-g", "name", "connection"], True),
+        stdout_file_name="connections_out.out",
+    )
+    connection_names = connections.splitlines()
+    # We need to generate the calls twice. One for the global get_connections
+    # call, that is the one from where we will test all fields and another set
+    # of individual calls cause the get_connection_details method is tested too.
+    __generate_connection_details_calls(command_mocker, connection_names)
+    __generate_connection_details_calls(command_mocker, connection_names)
     return connection_names
 
 
@@ -136,6 +146,15 @@ def __test_validate_basic_fields(connection_names, result):
     for conn_name in connection_names:
         conn_data = __get_connection_by_id(conn_name, result)
         __validate_connection_fields(conn_name, conn_data)
+
+
+def __test_validate_details_call(
+    connection_names, result, nmcli_queier: nmcli_querier.NetworkManagerQuerier
+):
+    for conn_name in connection_names:
+        conn_data = __get_connection_by_id(conn_name, result)
+        details = nmcli_queier.get_connection_details(conn_name)
+        assert conn_data == details
 
 
 def __test_validate_ip_data(
@@ -264,6 +283,7 @@ def test_nmcli_querier_parse_bridge_vlan_connection(
     nmq_1 = nmcli_querier.NetworkManagerQuerier(command_mocker.run)
     result = nmq_1.get_connections()
     __test_validate_basic_fields(connection_names, result)
+    __test_validate_details_call(connection_names, result, nmq_1)
 
     internal_conn_data = __get_connection_by_id("internal", result)
     __test_validate_ip_data(
@@ -331,6 +351,7 @@ def test_nmcli_querier_parse_bridged_ipv6_connection(
     nmq_1 = nmcli_querier.NetworkManagerQuerier(command_mocker.run)
     result = nmq_1.get_connections()
     __test_validate_basic_fields(connection_names, result)
+    __test_validate_details_call(connection_names, result, nmq_1)
 
     internal_conn_data = __get_connection_by_id("internal", result)
     __test_validate_ip_data(
@@ -383,6 +404,7 @@ def test_nmcli_querier_parse_ethernet_connection(
     nmq_1 = nmcli_querier.NetworkManagerQuerier(command_mocker.run)
     result = nmq_1.get_connections()
     __test_validate_basic_fields(connection_names, result)
+    __test_validate_details_call(connection_names, result, nmq_1)
 
     internal_conn_data = __get_connection_by_id("internal", result)
     __test_validate_ip_data(
@@ -455,6 +477,7 @@ def test_nmcli_querier_parse_basic_vlan_connection(
     nmq_1 = nmcli_querier.NetworkManagerQuerier(command_mocker.run)
     result = nmq_1.get_connections()
     __test_validate_basic_fields(connection_names, result)
+    __test_validate_details_call(connection_names, result, nmq_1)
 
     internal_conn_data = __get_connection_by_id("internal", result)
     __test_validate_ip_data(
@@ -496,4 +519,149 @@ def test_nmcli_querier_parse_basic_vlan_connection(
         molecule_conn_data,
         "disabled",
         version=6,
+    )
+
+
+def test_nmcli_querier_get_connections_error_handling_fail(
+    command_mocker_builder, test_file_manager
+):
+    """
+    Test that NetworkManagerQuerier is able to handle and properly
+    format errors in case retrieving the list of connection.
+    """
+    command_mocker = command_mocker_builder.build()
+    retrieve_list_cmd = ["nmcli", "-g", "name", "connection"]
+    command_mocker.add_call_definition(
+        MockCall(
+            retrieve_list_cmd,
+            True,
+        ),
+        rc=5,
+        stderr="error details",
+    )
+
+    nmq_1 = nmcli_querier.NetworkManagerQuerier(command_mocker.run)
+    with pytest.raises(nmcli_interface_exceptions.NmcliExecuteCommandException) as err:
+        nmq_1.get_connections()
+    assert err.value.cmd == retrieve_list_cmd
+    assert err.value.error == "error details"
+    assert str(err.value) == "Failed to fetch NM object"
+
+
+def test_nmcli_querier_get_connection_details_error_handling_fail(
+    command_mocker_builder, test_file_manager
+):
+    """
+    Test that NetworkManagerQuerier is able to handle and properly
+    format errors in case retrieving the details of a connection
+    fails because it doesn't exist or in case another unexpected
+    error happens.
+    """
+    command_mocker = command_mocker_builder.build()
+    connection_name = "test-conn"
+    # This is to check that a call for a non-existing connection when with check_exists=True
+    # raises a proper exception with a dedicated message
+    expected_non_existing_cmd = [
+        "nmcli",
+        "-t",
+        "-m",
+        "multiline",
+        "connection",
+        "show",
+        connection_name,
+    ]
+    command_mocker.add_call_definition(
+        MockCall(
+            expected_non_existing_cmd,
+            True,
+        ),
+        rc=10,
+    )
+    # This is to check that a call for a non-existing connection when with check_exists=False
+    # returns and doesn't raise an exception
+    command_mocker.add_call_definition(
+        MockCall(
+            expected_non_existing_cmd,
+            True,
+        ),
+        rc=10,
+    )
+    non_existing_connection_name = "test-conn"
+    expected_failing_cmd = [
+        "nmcli",
+        "-t",
+        "-m",
+        "multiline",
+        "connection",
+        "show",
+        non_existing_connection_name,
+    ]
+    # This is to test that a call that ends with rc != 10 always raises an exception
+    # Add it twice to cause we test the call with check_exists=True and False
+    command_mocker.add_call_definition(
+        MockCall(
+            expected_failing_cmd,
+            True,
+        ),
+        rc=11,
+        stderr="error text",
+    )
+    command_mocker.add_call_definition(
+        MockCall(
+            expected_failing_cmd,
+            True,
+        ),
+        rc=11,
+        stderr="error text",
+    )
+
+    # Return malformed output
+    malformed_connection_name = "malformed-conn"
+    bad_line_str = "property-out#propertly-value"
+    command_mocker.add_call_definition(
+        MockCall(
+            [
+                "nmcli",
+                "-t",
+                "-m",
+                "multiline",
+                "connection",
+                "show",
+                malformed_connection_name,
+            ],
+            True,
+        ),
+        rc=0,
+        stdout=bad_line_str,
+    )
+
+    nmq_1 = nmcli_querier.NetworkManagerQuerier(command_mocker.run)
+
+    # Check that a non-existing connection is properly handled (rc == 10)
+    with pytest.raises(nmcli_interface_exceptions.NmcliExecuteCommandException) as err:
+        nmq_1.get_connection_details(connection_name, check_exists=True)
+    assert str(err.value) == f"{connection_name} doesn't exist"
+    assert err.value.cmd == expected_non_existing_cmd
+
+    # Check if the check_exists args works when set to False
+    assert nmq_1.get_connection_details(connection_name, check_exists=False) is None
+
+    # Check that a rc!=10 always raises
+    with pytest.raises(nmcli_interface_exceptions.NmcliExecuteCommandException) as err:
+        nmq_1.get_connection_details(non_existing_connection_name, check_exists=True)
+    assert str(err.value) == "Failed to fetch object details"
+    assert err.value.error == "error text"
+    assert err.value.cmd == expected_failing_cmd
+    with pytest.raises(nmcli_interface_exceptions.NmcliExecuteCommandException) as err:
+        nmq_1.get_connection_details(non_existing_connection_name, check_exists=False)
+    assert str(err.value) == "Failed to fetch object details"
+    assert err.value.error == "error text"
+    assert err.value.cmd == expected_failing_cmd
+
+    # Check that malformed input is handled
+    with pytest.raises(nmcli_interface_exceptions.NmcliInterfaceParseException) as err:
+        nmq_1.get_connection_details(malformed_connection_name, check_exists=False)
+    assert (
+        str(err.value)
+        == f"nmcli output format not expected for line '{bad_line_str}'. Missing colon"
     )
