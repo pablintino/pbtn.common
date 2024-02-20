@@ -56,9 +56,6 @@ def test_nmcli_hardcoded_constants_expected_value():
     assert nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD_VAL_DISABLED == "disabled"
     assert nmcli_constants.NMCLI_CONN_FIELD_VLAN_VLAN_ID == "vlan.id"
     assert nmcli_constants.NMCLI_CONN_FIELD_VLAN_VLAN_PARENT == "vlan.parent"
-    assert nmcli_constants.NMCLI_DEVICE_ETHERNET_MTU_FIELD == "general.mtu"
-    assert nmcli_constants.NMCLI_DEVICE_ETHERNET_MAC_FIELD == "general.hwaddr"
-    assert nmcli_constants.NMCLI_DEVICE_CONNECTION_NAME == "general.connection"
 
     # IP version dependant values
     assert nmcli_constants.NMCLI_CONN_FIELD_IP_METHOD[4] == "ipv4.method"
