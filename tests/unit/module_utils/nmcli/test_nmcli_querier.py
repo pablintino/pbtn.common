@@ -23,11 +23,11 @@ __MANDATORY_FIELDS_AND_TYPES = {
     nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_ID: str,
     nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_UUID: str,
     nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_TYPE: str,
+    nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_AUTOCONNECT: bool,
 }
 
 __OPTIONAL_FIELDS_AND_TYPES = {
-    "ipv4.method": str,
-    "ipv6.method": str,
+    nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_INTERFACE_NAME: str,
 }
 
 
@@ -48,6 +48,13 @@ def __validate_connection_fields(
     assert isinstance(conn_data, dict)
     __check_field_types(conn_data)
     assert conn_data["general.name"] == conn_name
+    connection_type = conn_data[nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_TYPE]
+    assert connection_type in [
+        nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_TYPE_VAL_ETHERNET,
+        nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_TYPE_VAL_VLAN,
+        nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_TYPE_VAL_BRIDGE,
+        nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_TYPE_VAL_BOND,
+    ]
 
 
 def __test_load_prepare_command_mocker(
@@ -86,7 +93,7 @@ def __get_connection_by_id(conn_name, result):
 
 def __test_validate_ip_manual_data(
     result,
-    number_of_ips: int = None,
+    number_of_ips: int = 0,
     gateway: bool = False,
     version: int = 4,
 ):
@@ -134,9 +141,9 @@ def __test_validate_basic_fields(connection_names, result):
 def __test_validate_ip_data(
     result,
     method: str,
-    number_of_ips: int = None,
-    number_of_dns: int = None,
-    number_of_routes: int = None,
+    number_of_ips: int = 0,
+    number_of_dns: int = 0,
+    number_of_routes: int = 0,
     gateway: bool = False,
     version: int = 4,
 ):
@@ -154,11 +161,15 @@ def __test_validate_ip_data(
     __test_validate_ip_routes_data(
         result, version=version, number_of_routes=number_of_routes
     )
+    if nmcli_constants.NMCLI_CONN_FIELD_IP_NEVER_DEFAULT[version] in result:
+        assert isinstance(
+            result[nmcli_constants.NMCLI_CONN_FIELD_IP_NEVER_DEFAULT[version]], bool
+        )
 
 
 def __test_validate_ip_dns_data(
     result,
-    number_of_dns: int = None,
+    number_of_dns: int = 0,
     version: int = 4,
 ):
     dns_addresses = result.get(nmcli_constants.NMCLI_CONN_FIELD_IP_DNS[version], None)
@@ -183,7 +194,7 @@ def __test_validate_ip_dns_data(
 
 def __test_validate_ip_routes_data(
     result,
-    number_of_routes: int = None,
+    number_of_routes: int = 0,
     version: int = 4,
 ):
     routes_entries = result.get(
@@ -216,6 +227,26 @@ def __test_validate_ip_routes_data(
                 int(entry_split[2])
 
 
+def __test_validate_bridge_slave_data(
+    result,
+):
+    master = result.get(nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_MASTER, None)
+    assert isinstance(master, str)
+    slave_type = result.get(
+        nmcli_constants.NMCLI_CONN_FIELD_CONNECTION_SLAVE_TYPE, None
+    )
+    assert isinstance(slave_type, str)
+
+
+def __test_validate_vlan_data(
+    result,
+):
+    vlan_id = result.get(nmcli_constants.NMCLI_CONN_FIELD_VLAN_VLAN_ID, None)
+    assert isinstance(vlan_id, int)
+    parent = result.get(nmcli_constants.NMCLI_CONN_FIELD_VLAN_VLAN_PARENT, None)
+    assert isinstance(parent, str)
+
+
 def test_nmcli_querier_parse_bridge_vlan_connection(
     command_mocker_builder, test_file_manager
 ):
@@ -227,12 +258,94 @@ def test_nmcli_querier_parse_bridge_vlan_connection(
     result = nmq_1.get_connections()
     __test_validate_basic_fields(connection_names, result)
 
+    internal_conn_data = __get_connection_by_id("internal", result)
     __test_validate_ip_data(
-        __get_connection_by_id("internal", result),
+        internal_conn_data,
         "manual",
         number_of_ips=1,
         number_of_dns=2,
         number_of_routes=1,
         gateway=False,
         version=4,
+    )
+    __test_validate_ip_data(
+        internal_conn_data,
+        "disabled",
+        number_of_ips=0,
+        number_of_dns=0,
+        number_of_routes=0,
+        gateway=False,
+        version=6,
+    )
+    internal_1_conn_data = __get_connection_by_id("internal-1", result)
+    __test_validate_bridge_slave_data(internal_1_conn_data)
+    __test_validate_vlan_data(internal_1_conn_data)
+
+    external_conn_data = __get_connection_by_id("external", result)
+    __test_validate_ip_data(
+        external_conn_data,
+        "auto",
+        number_of_dns=1,
+        version=4,
+    )
+    __test_validate_ip_data(
+        internal_conn_data,
+        "disabled",
+        version=6,
+    )
+
+    molecule_conn_data = __get_connection_by_id("molecule", result)
+    __test_validate_ip_data(
+        molecule_conn_data,
+        "auto",
+        version=4,
+    )
+    __test_validate_ip_data(
+        molecule_conn_data,
+        "disabled",
+        version=6,
+    )
+
+
+def test_nmcli_querier_parse_bridged_ipv6_connection(
+    command_mocker_builder, test_file_manager
+):
+    command_mocker = command_mocker_builder.build()
+    connection_names = __test_load_prepare_command_mocker(
+        test_file_manager, command_mocker
+    )
+    nmq_1 = nmcli_querier.NetworkManagerQuerier(command_mocker.run)
+    result = nmq_1.get_connections()
+    __test_validate_basic_fields(connection_names, result)
+
+    internal_conn_data = __get_connection_by_id("internal", result)
+    __test_validate_ip_data(
+        internal_conn_data,
+        "disabled",
+        version=4,
+    )
+    __test_validate_ip_data(
+        internal_conn_data,
+        "manual",
+        number_of_ips=1,
+        number_of_dns=2,
+        number_of_routes=1,
+        gateway=False,
+        version=6,
+    )
+    internal_1_conn_data = __get_connection_by_id("internal-1", result)
+    internal_2_conn_data = __get_connection_by_id("internal-2", result)
+    __test_validate_bridge_slave_data(internal_1_conn_data)
+    __test_validate_bridge_slave_data(internal_2_conn_data)
+
+    molecule_conn_data = __get_connection_by_id("molecule", result)
+    __test_validate_ip_data(
+        molecule_conn_data,
+        "auto",
+        version=4,
+    )
+    __test_validate_ip_data(
+        molecule_conn_data,
+        "disabled",
+        version=6,
     )
