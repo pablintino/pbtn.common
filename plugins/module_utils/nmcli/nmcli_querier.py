@@ -17,15 +17,6 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import
 
 
 class NetworkManagerQuerier:
-    __NMCLI_PARSER_GET_DEVICES_LIST = ["nmcli", "-g", "device", "device"]
-    __NMCLI_PARSER_GET_DEVICE_DETAILS = [
-        "nmcli",
-        "-t",
-        "-m",
-        "multiline",
-        "device",
-        "show",
-    ]
     __NMCLI_PARSER_GET_CONNECTIONS_LIST = ["nmcli", "-g", "name", "connection"]
     __NMCLI_PARSER_GET_CONNECTION_DETAILS = [
         "nmcli",
@@ -48,22 +39,10 @@ class NetworkManagerQuerier:
             check_exists=check_exists,
         )
 
-    def get_device_details(self, device_name, check_exists=False):
-        return self.__get_nm_object_details(
-            self.__NMCLI_PARSER_GET_DEVICE_DETAILS,
-            device_name,
-            check_exists=check_exists,
-        )
-
     def get_connections(self) -> typing.List[typing.Dict[str, typing.Any]]:
         return self.__get_nm_object_list(
             self.__NMCLI_PARSER_GET_CONNECTIONS_LIST,
             self.__NMCLI_PARSER_GET_CONNECTION_DETAILS,
-        )
-
-    def get_devices(self) -> typing.List[typing.Dict[str, typing.Any]]:
-        return self.__get_nm_object_list(
-            self.__NMCLI_PARSER_GET_DEVICES_LIST, self.__NMCLI_PARSER_GET_DEVICE_DETAILS
         )
 
     def __get_nm_object_list(self, get_cmd, get_details_cmd):
