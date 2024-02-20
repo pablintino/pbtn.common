@@ -27,11 +27,6 @@ from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import
 )
 
 
-# TODO List
-# - Validate that multiple connections don't use the same interface :) (config)
-# - Validate that slave connections cannot use main conn-names
-
-
 class NetworkManagerConfigurator:  # pylint: disable=too-few-public-methods
     __NETWORK_MANAGER_CONFIGURATOR_REGEX_UUID = (
         r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
