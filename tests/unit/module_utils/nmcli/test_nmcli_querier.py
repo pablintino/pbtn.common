@@ -349,3 +349,69 @@ def test_nmcli_querier_parse_bridged_ipv6_connection(
         "disabled",
         version=6,
     )
+
+
+def test_nmcli_querier_parse_ethernet_connection(
+    command_mocker_builder, test_file_manager
+):
+    command_mocker = command_mocker_builder.build()
+    connection_names = __test_load_prepare_command_mocker(
+        test_file_manager, command_mocker
+    )
+    nmq_1 = nmcli_querier.NetworkManagerQuerier(command_mocker.run)
+    result = nmq_1.get_connections()
+    __test_validate_basic_fields(connection_names, result)
+
+    internal_conn_data = __get_connection_by_id("internal", result)
+    __test_validate_ip_data(
+        internal_conn_data,
+        "manual",
+        number_of_ips=2,
+        number_of_dns=1,
+        number_of_routes=2,
+        gateway=False,
+        version=4,
+    )
+    __test_validate_ip_data(
+        internal_conn_data,
+        "manual",
+        number_of_ips=2,
+        number_of_dns=0,
+        number_of_routes=2,
+        gateway=False,
+        version=6,
+    )
+
+    external_conn_data = __get_connection_by_id("external", result)
+    __test_validate_ip_data(
+        external_conn_data,
+        "auto",
+        number_of_routes=1,
+        number_of_dns=1,
+        version=4,
+    )
+    __test_validate_ip_data(
+        external_conn_data,
+        "manual",
+        number_of_ips=1,
+        number_of_dns=2,
+        number_of_routes=1,
+        gateway=False,
+        version=6,
+    )
+
+    molecule_conn_data = __get_connection_by_id("molecule", result)
+    __test_validate_ip_data(
+        molecule_conn_data,
+        "manual",
+        number_of_ips=2,
+        number_of_dns=1,
+        number_of_routes=0,
+        gateway=True,
+        version=4,
+    )
+    __test_validate_ip_data(
+        molecule_conn_data,
+        "disabled",
+        version=6,
+    )

@@ -1,0 +1,124 @@
+connection.id:internal
+connection.uuid:22c0fcc0-2fdb-355a-910c-822b5e364001
+connection.stable-id:
+connection.type:802-3-ethernet
+connection.interface-name:eth1
+connection.autoconnect:yes
+connection.autoconnect-priority:-999
+connection.autoconnect-retries:-1
+connection.multi-connect:0
+connection.auth-retries:-1
+connection.timestamp:1708428795
+connection.read-only:no
+connection.permissions:
+connection.zone:
+connection.master:
+connection.slave-type:
+connection.autoconnect-slaves:-1
+connection.secondaries:
+connection.gateway-ping-timeout:0
+connection.metered:unknown
+connection.lldp:default
+connection.mdns:-1
+connection.llmnr:-1
+connection.dns-over-tls:-1
+connection.wait-device-timeout:-1
+802-3-ethernet.port:
+802-3-ethernet.speed:0
+802-3-ethernet.duplex:
+802-3-ethernet.auto-negotiate:no
+802-3-ethernet.mac-address:
+802-3-ethernet.cloned-mac-address:
+802-3-ethernet.generate-mac-address-mask:
+802-3-ethernet.mac-address-blacklist:
+802-3-ethernet.mtu:auto
+802-3-ethernet.s390-subchannels:
+802-3-ethernet.s390-nettype:
+802-3-ethernet.s390-options:
+802-3-ethernet.wake-on-lan:default
+802-3-ethernet.wake-on-lan-password:
+802-3-ethernet.accept-all-mac-addresses:-1
+ipv4.method:manual
+ipv4.dns:8.8.8.8
+ipv4.dns-search:
+ipv4.dns-options:
+ipv4.dns-priority:0
+ipv4.addresses:10.177.21.40/24, 10.177.21.41/24
+ipv4.gateway:
+ipv4.routes:192.168.200.0/24 10.177.21.100, 192.168.201.0/24 10.177.21.101 110
+ipv4.route-metric:-1
+ipv4.route-table:0
+ipv4.routing-rules:
+ipv4.ignore-auto-routes:no
+ipv4.ignore-auto-dns:no
+ipv4.dhcp-client-id:
+ipv4.dhcp-iaid:
+ipv4.dhcp-timeout:0
+ipv4.dhcp-send-hostname:yes
+ipv4.dhcp-hostname:
+ipv4.dhcp-fqdn:
+ipv4.dhcp-hostname-flags:0x0
+ipv4.never-default:yes
+ipv4.may-fail:yes
+ipv4.required-timeout:-1
+ipv4.dad-timeout:-1
+ipv4.dhcp-vendor-class-identifier:
+ipv4.dhcp-reject-servers:
+ipv6.method:manual
+ipv6.dns:
+ipv6.dns-search:
+ipv6.dns-options:
+ipv6.dns-priority:0
+ipv6.addresses:fde8:46f0:ca1e:c37f::aa/64, fde8:46f0:ca1e:c37f::bb/64
+ipv6.gateway:fde8:46f0:ca1e:c37f::1
+ipv6.routes:fde8:46f0:ca1e:c39f::/64 fde8:46f0:ca1e:c37f::cc, fde8:46f0:ca1e:c47f::/64 fde8:46f0:ca1e:c37f::cc 110
+ipv6.route-metric:-1
+ipv6.route-table:0
+ipv6.routing-rules:
+ipv6.ignore-auto-routes:no
+ipv6.ignore-auto-dns:no
+ipv6.never-default:no
+ipv6.may-fail:yes
+ipv6.required-timeout:-1
+ipv6.ip6-privacy:-1
+ipv6.addr-gen-mode:stable-privacy
+ipv6.ra-timeout:0
+ipv6.dhcp-duid:
+ipv6.dhcp-iaid:
+ipv6.dhcp-timeout:0
+ipv6.dhcp-send-hostname:yes
+ipv6.dhcp-hostname:
+ipv6.dhcp-hostname-flags:0x0
+ipv6.token:
+proxy.method:none
+proxy.browser-only:no
+proxy.pac-url:
+proxy.pac-script:
+GENERAL.NAME:internal
+GENERAL.UUID:22c0fcc0-2fdb-355a-910c-822b5e364001
+GENERAL.DEVICES:eth1
+GENERAL.IP-IFACE:eth1
+GENERAL.STATE:activated
+GENERAL.DEFAULT:no
+GENERAL.DEFAULT6:yes
+GENERAL.SPEC-OBJECT:
+GENERAL.VPN:no
+GENERAL.DBUS-PATH:/org/freedesktop/NetworkManager/ActiveConnection/8
+GENERAL.CON-PATH:/org/freedesktop/NetworkManager/Settings/2
+GENERAL.ZONE:
+GENERAL.MASTER-PATH:
+IP4.ADDRESS[1]:10.177.21.41/24
+IP4.ADDRESS[2]:10.177.21.40/24
+IP4.GATEWAY:
+IP4.ROUTE[1]:dst = 10.177.21.0/24, nh = 0.0.0.0, mt = 106
+IP4.ROUTE[2]:dst = 10.177.21.0/24, nh = 0.0.0.0, mt = 106
+IP4.DNS[1]:8.8.8.8
+IP6.ADDRESS[1]:fe80::2250:7aea:e24:ce5d/64
+IP6.ADDRESS[2]:fde8:46f0:ca1e:c37f::bb/64
+IP6.ADDRESS[3]:fde8:46f0:ca1e:c37f::aa/64
+IP6.GATEWAY:fde8:46f0:ca1e:c37f::1
+IP6.ROUTE[1]:dst = fde8:46f0:ca1e:c37f::/64, nh = ::, mt = 106
+IP6.ROUTE[2]:dst = ::/0, nh = fde8:46f0:ca1e:c37f::1, mt = 106
+IP6.ROUTE[3]:dst = fde8:46f0:ca1e:c39f::/64, nh = fde8:46f0:ca1e:c37f::cc, mt = 106
+IP6.ROUTE[4]:dst = fde8:46f0:ca1e:c47f::/64, nh = fde8:46f0:ca1e:c37f::cc, mt = 110
+IP6.ROUTE[5]:dst = fe80::/64, nh = ::, mt = 1024
