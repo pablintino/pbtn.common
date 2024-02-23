@@ -41,13 +41,18 @@
         _pbi_nstp_role_file_base_content |
         combine(
           {
-            'pbi_nstp_mngt_connection': pbi_nstp_mngt_connection,
-          } if pbi_nstp_mngt_connection is defined else {}
+            'pbi_networking_mngt_connection_config': pbi_networking_mngt_connection_config,
+          } if pbi_networking_mngt_connection_config is defined else {}
+        ) |  
+      combine(
+          {
+            'pbi_networking_mngt_connection_name': pbi_networking_mngt_connection_name,
+          } if pbi_networking_mngt_connection_name is defined else {}
         ) |
         combine(
           {
-            'pbi_nstp_mngt_interface': pbi_nstp_mngt_interface,
-          } if pbi_nstp_mngt_interface is defined else {}
+            'pbi_networking_mngt_interface': pbi_networking_mngt_interface,
+          } if pbi_networking_mngt_interface is defined else {}
         ) | to_nice_yaml
       }}
 

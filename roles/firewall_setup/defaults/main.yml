@@ -123,9 +123,9 @@ pbi_fwstp_default_rule_invalid_ct_state_drop: >-
   comment "Drop traffic with invalid connection state"
 
 pbi_fwstp_default_rule_input_ssh_accept_template: >-
-  iifname {{ managment_conn.iface }}
-  {% if managment_conn.mode == 'manual' -%}
-  ip daddr == {{ managment_conn.ip4 }}
+  iifname {{ pbi_networking_mngt_interface }}
+  {% if managment_conn_ipv4 is defined and managment_conn_ipv4 != "" -%}
+  ip daddr == {{ managment_conn_ipv4 }}
   {% endif -%}
   tcp dport 22 accept
 

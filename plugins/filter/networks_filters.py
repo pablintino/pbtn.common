@@ -7,8 +7,13 @@ import ipaddress
 import typing
 
 from ansible.errors import AnsibleFilterError, AnsibleFilterTypeError
+from ansible_collections.pablintino.base_infra.plugins.module_utils.ip import (
+    ip_interface_filters,
+)
+from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
+    net_config_filters,
+)
 from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
-    nmcli_ansible_encoding,
     nmcli_constants,
     nmcli_filters,
 )
@@ -37,54 +42,41 @@ def __filter_iface(ifaces, conn_data):
     )
 
 
-def __nstp_filter_applyres2conns_append_status(
-    connections_statuses: typing.Dict[str, typing.Any],
-    conn_name: str,
-    conn_config_result: typing.Dict[str, typing.Any],
-) -> typing.Dict[str, typing.Any]:
-    conn_status = conn_config_result.get(
-        nmcli_ansible_encoding.FIELD_CONN_RESULT_STATUS, None
-    )
-    if conn_status:
-        connections_statuses[conn_name] = conn_status
-        for slave_conn_name, slave_conn_data in conn_status.get(
-            nmcli_ansible_encoding.FIELD_MAIN_CONN_RESULT_SLAVES, {}
-        ).items():
-            __nstp_filter_applyres2conns_append_status(
-                connections_statuses, slave_conn_name, slave_conn_data
-            )
-    return connections_statuses
-
-
-def nstp_filter_ip2conn(data, ip):
-    if (not data) or (not ip):
-        return {}
-
-    if not isinstance(data, dict):
-        raise AnsibleFilterTypeError(f"data expected to be a dict {type(data)}")
-
+def __get_ip_from_str(
+    ip_str: str,
+) -> typing.Union[ipaddress.IPv4Address, ipaddress.IPv6Address]:
     try:
-        if "/" in str(ip):
-            ip = ipaddress.ip_interface(ip).ip
+        if "/" in str(ip_str):
+            return ipaddress.ip_interface(ip_str).ip
         else:
-            ip = ipaddress.ip_address(ip)
+            return ipaddress.ip_address(ip_str)
     except ValueError as err:
         raise AnsibleFilterError(f"Invalid IP: {err}") from err
 
-    for conn_data in data.values():
-        if any(
-            ipaddress.ip_interface(str_ip).ip == ip
-            for str_ip in (
-                conn_data.get(nmcli_constants.NMCLI_CONN_FIELD_IP4_ADDRESS, [])
-                + conn_data.get(nmcli_constants.NMCLI_CONN_FIELD_IP6_ADDRESS, [])
-            )
-        ):
-            return conn_data
 
-    return {}
+def nstp_filter_get_conn_config_for_ip(
+    conn_configs: typing.Dict[str, typing.Any], ip: str
+):
+    if (not conn_configs) or (not ip):
+        return None, None
+
+    if not isinstance(conn_configs, dict):
+        raise AnsibleFilterTypeError(f"data expected to be a dict {type(conn_configs)}")
+
+    config_name, config = net_config_filters.get_static_connection_for_ip(
+        conn_configs, __get_ip_from_str(ip)
+    )
+    return (
+        {
+            "name": config_name,
+            "config": config,
+        }
+        if config_name is not None
+        else {}
+    )
 
 
-def nmcli_connections_filter(data, ifaces=None, active=None):
+def nmcli_filters_connections_by(data, ifaces=None, active=None):
     if not isinstance(data, list):
         raise AnsibleFilterTypeError(f"data expected to be a list {type(data)}")
 
@@ -98,20 +90,6 @@ def nmcli_connections_filter(data, ifaces=None, active=None):
     return results
 
 
-def nstp_filter_applyres2conns(data):
-    if not data:
-        return {}
-
-    if not isinstance(data, dict):
-        raise AnsibleFilterTypeError(f"data expected to be a dict {type(data)}")
-
-    result = {}
-    for conn_name, conn_data in data.get("result", {}).items():
-        __nstp_filter_applyres2conns_append_status(result, conn_name, conn_data)
-
-    return result
-
-
 def nmcli_filters_map_field(data, field_name):
     if not isinstance(data, list):
         raise AnsibleFilterTypeError(f"data expected to be a list {type(data)}")
@@ -119,11 +97,30 @@ def nmcli_filters_map_field(data, field_name):
     return [conn_data[field_name] for conn_data in data if field_name in conn_data]
 
 
+def ip_addr_element_by_ip(
+    ip_addr_output: typing.List[typing.Dict[str, typing.Any]], ip: str
+) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    if (not ip_addr_output) or (not ip):
+        return {}
+
+    if not isinstance(ip_addr_output, list):
+        raise AnsibleFilterTypeError(
+            f"data expected to be a list {type(ip_addr_output)}"
+        )
+
+    return (
+        ip_interface_filters.get_addr_element_for_ip(
+            ip_addr_output, __get_ip_from_str(ip)
+        )
+        or {}
+    )
+
+
 class FilterModule(object):
     def filters(self):
         return {
-            "nstp_filter_ip2conn": nstp_filter_ip2conn,
-            "nstp_filter_applyres2conns": nstp_filter_applyres2conns,
-            "nmcli_filters_connections_by": nmcli_connections_filter,
+            "nstp_filter_get_conn_config_for_ip": nstp_filter_get_conn_config_for_ip,
+            "nmcli_filters_connections_by": nmcli_filters_connections_by,
             "nmcli_filters_map_field": nmcli_filters_map_field,
+            "ip_addr_element_by_ip": ip_addr_element_by_ip,
         }

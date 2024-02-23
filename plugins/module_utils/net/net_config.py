@@ -9,10 +9,11 @@ import typing
 import uuid
 
 from ansible_collections.pablintino.base_infra.plugins.module_utils import (
-    ip_interface,
     exceptions,
 )
-
+from ansible_collections.pablintino.base_infra.plugins.module_utils.ip import (
+    ip_interface,
+)
 from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
     net_utils,
 )
@@ -105,13 +106,13 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
     FIELD_IP_MODE_VAL_DISABLED = "disabled"
     FIELD_IP_MODE_VAL_MANUAL = "manual"
 
-    __FIELD_IP_IP = "ip"
-    __FIELD_IP_GW = "gw"
-    __FIELD_IP_NS = "dns"
-    __FIELD_IP_DISABLE_DEFAULT_ROUTE = "disable-default-route"
-    __FIELD_IP_ROUTES = "routes"
+    FIELD_IP_IP = "ip"
+    FIELD_IP_GW = "gw"
+    FIELD_IP_NS = "dns"
+    FIELD_IP_DISABLE_DEFAULT_ROUTE = "disable-default-route"
+    FIELD_IP_ROUTES = "routes"
 
-    __FIELD_IP_MODE = "mode"
+    FIELD_IP_MODE = "mode"
     __FIELD_IP_VALS = [
         FIELD_IP_MODE_VAL_AUTO,
         FIELD_IP_MODE_VAL_MANUAL,
@@ -153,30 +154,30 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
         return self.__disable_default_route
 
     def __parse_config(self):
-        if self.__FIELD_IP_MODE not in self.__raw_config:
+        if self.FIELD_IP_MODE not in self.__raw_config:
             raise exceptions.ValueInfraException(
-                f"{self.__FIELD_IP_MODE} is a mandatory field for a connection",
-                field=self.__FIELD_IP_MODE,
+                f"{self.FIELD_IP_MODE} is a mandatory field for a connection",
+                field=self.FIELD_IP_MODE,
             )
-        mode = self.__raw_config[self.__FIELD_IP_MODE]
+        mode = self.__raw_config[self.FIELD_IP_MODE]
         if mode not in self.__FIELD_IP_VALS:
             raise exceptions.ValueInfraException(
                 f"{mode} is not a supported"
-                f" {self.__FIELD_IP_MODE}."
+                f" {self.FIELD_IP_MODE}."
                 f" Supported: {', '.join(self.__FIELD_IP_VALS)}",
-                field=self.__FIELD_IP_MODE,
+                field=self.FIELD_IP_MODE,
                 value=mode,
             )
 
         self.__mode = mode
-        ip_str = self.__raw_config.get(self.__FIELD_IP_IP, None)
-        ip_gw_str = self.__raw_config.get(self.__FIELD_IP_GW, None)
+        ip_str = self.__raw_config.get(self.FIELD_IP_IP, None)
+        ip_gw_str = self.__raw_config.get(self.FIELD_IP_GW, None)
         if self.__mode == self.FIELD_IP_MODE_VAL_MANUAL:
             if not ip_str:
                 raise exceptions.ValueInfraException(
-                    f"{self.__FIELD_IP_IP} is a mandatory field for a connection "
+                    f"{self.FIELD_IP_IP} is a mandatory field for a connection "
                     f"using IP{self.__version} static addressing",
-                    field=self.__FIELD_IP_IP,
+                    field=self.FIELD_IP_IP,
                 )
 
             try:
@@ -184,7 +185,7 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
                     ip_str, self.__version, enforce_prefix=True
                 )
             except exceptions.ValueInfraException as err:
-                raise err.with_field(self.__FIELD_IP_IP) from err
+                raise err.with_field(self.FIELD_IP_IP) from err
 
             try:
                 self.__gw = (
@@ -193,32 +194,32 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
                     else None
                 )
             except exceptions.ValueInfraException as err:
-                raise err.with_field(self.__FIELD_IP_GW) from err
+                raise err.with_field(self.FIELD_IP_GW) from err
 
             if self.__gw and (self.__gw not in self.__ip.network):
                 raise exceptions.ValueInfraException(
-                    f"{self.__FIELD_IP_GW} is not in the {self.__ip} range",
-                    field=self.__FIELD_IP_GW,
+                    f"{self.FIELD_IP_GW} is not in the {self.__ip} range",
+                    field=self.FIELD_IP_GW,
                 )
         elif self.__mode == self.FIELD_IP_MODE_VAL_AUTO:
             if ip_str:
                 raise exceptions.ValueInfraException(
-                    f"{self.__FIELD_IP_IP} {ip_str} is not allowed in {self.__mode} mode",
-                    field=self.__FIELD_IP_IP,
+                    f"{self.FIELD_IP_IP} {ip_str} is not allowed in {self.__mode} mode",
+                    field=self.FIELD_IP_IP,
                 )
             if ip_gw_str:
                 raise exceptions.ValueInfraException(
-                    f"{self.__FIELD_IP_GW} {ip_gw_str} is not allowed in {self.__mode} mode",
-                    field=self.__FIELD_IP_GW,
+                    f"{self.FIELD_IP_GW} {ip_gw_str} is not allowed in {self.__mode} mode",
+                    field=self.FIELD_IP_GW,
                 )
 
         disable_default_route = self.__raw_config.get(
-            self.__FIELD_IP_DISABLE_DEFAULT_ROUTE, None
+            self.FIELD_IP_DISABLE_DEFAULT_ROUTE, None
         )
         if not isinstance(disable_default_route, (bool, type(None))):
             raise exceptions.ValueInfraException(
-                f"{self.__FIELD_IP_DISABLE_DEFAULT_ROUTE} is not a proper boolean value",
-                field=self.__FIELD_IP_DISABLE_DEFAULT_ROUTE,
+                f"{self.FIELD_IP_DISABLE_DEFAULT_ROUTE} is not a proper boolean value",
+                field=self.FIELD_IP_DISABLE_DEFAULT_ROUTE,
                 value=disable_default_route,
             )
         self.__disable_default_route = disable_default_route
@@ -227,24 +228,24 @@ class IPConfig(typing.Generic[TAdd, TNet, TInt]):
         self.__parse_routes_config()
 
     def __parse_routes_config(self):
-        routes_list = self.__raw_config.get(self.__FIELD_IP_ROUTES, [])
+        routes_list = self.__raw_config.get(self.FIELD_IP_ROUTES, [])
         if not isinstance(routes_list, list):
             raise exceptions.ValueInfraException(
-                f"{self.__FIELD_IP_ROUTES} should be a list of IPv{self.__version} routes",
-                field=self.__FIELD_IP_ROUTES,
+                f"{self.FIELD_IP_ROUTES} should be a list of IPv{self.__version} routes",
+                field=self.FIELD_IP_ROUTES,
             )
         for route_data in routes_list:
             self.__routes.append(IPRouteConfig[TAdd, TNet](route_data, self.__version))
 
     def __parse_dns_config(self):
         # Check that the DNS field is a list of strings
-        nameservers_raw = self.__raw_config.get(self.__FIELD_IP_NS, [])
+        nameservers_raw = self.__raw_config.get(self.FIELD_IP_NS, [])
         if (not isinstance(nameservers_raw, collections.abc.Sequence)) or (
             not all(isinstance(ns, str) for ns in nameservers_raw)
         ):
             raise exceptions.ValueInfraException(
-                f"{self.__FIELD_IP_NS} must be a list of DNS IPs as string",
-                field=self.__FIELD_IP_NS,
+                f"{self.FIELD_IP_NS} must be a list of DNS IPs as string",
+                field=self.FIELD_IP_NS,
             )
 
         # Remove duplicated NSs without altering the order
@@ -332,9 +333,9 @@ class InterfaceIdentifier:
 class BaseConnectionConfig:
     FIELD_STATE_VAL_UP = "up"
     FIELD_STATE_VAL_DOWN = "down"
-    __FIELD_ON_STARTUP = "startup"
-    _FIELD_IFACE = "iface"
-    __FIELD_STATE = "state"
+    FIELD_ON_STARTUP = "startup"
+    FIELD_IFACE = "iface"
+    FIELD_STATE = "state"
     __FIELD_STATE_VALUES = [
         FIELD_STATE_VAL_UP,
         FIELD_STATE_VAL_DOWN,
@@ -400,24 +401,24 @@ class BaseConnectionConfig:
                 value=self._conn_name,
             )
 
-        self._startup = self._raw_config.get(self.__FIELD_ON_STARTUP, None)
+        self._startup = self._raw_config.get(self.FIELD_ON_STARTUP, None)
         if not isinstance(self._startup, (bool, type(None))):
             raise exceptions.ValueInfraException(
-                f"{self.__FIELD_ON_STARTUP} is not a proper boolean value",
-                field=self.__FIELD_ON_STARTUP,
+                f"{self.FIELD_ON_STARTUP} is not a proper boolean value",
+                field=self.FIELD_ON_STARTUP,
                 value=self._startup,
             )
 
-        self._state = self._raw_config.get(self.__FIELD_STATE, None)
+        self._state = self._raw_config.get(self.FIELD_STATE, None)
         if self._state is not None and self._state not in self.__FIELD_STATE_VALUES:
             raise exceptions.ValueInfraException(
-                f"{self._state} is not a supported {self.__FIELD_STATE}."
+                f"{self._state} is not a supported {self.FIELD_STATE}."
                 f" Supported: {', '.join(self.__FIELD_STATE_VALUES)}",
-                field=self.__FIELD_STATE,
+                field=self.FIELD_STATE,
                 value=self._state,
             )
 
-        iface_str = self._raw_config.get(self._FIELD_IFACE, None)
+        iface_str = self._raw_config.get(self.FIELD_IFACE, None)
         # Interface is always optional. Some interfaces (almost all, but specially useful
         # for someone like VPNs) do create this one dynamically, and no one cares
         # about the final name of the interface
@@ -429,9 +430,9 @@ class BaseConnectionConfig:
 
 
 class MainConnectionConfig(BaseConnectionConfig):
-    __FIELD_IPV4 = "ipv4"
-    __FIELD_IPV6 = "ipv6"
-    __FIELD_SLAVES = "slaves"
+    FIELD_IPV4 = "ipv4"
+    FIELD_IPV6 = "ipv6"
+    FIELD_SLAVES = "slaves"
 
     def __init__(
         self,
@@ -460,19 +461,19 @@ class MainConnectionConfig(BaseConnectionConfig):
         return self._slaves_config
 
     def __parse_config(self, connection_config_factory: "ConnectionConfigFactory"):
-        ipv4_data = self._raw_config.get(self.__FIELD_IPV4, None)
+        ipv4_data = self._raw_config.get(self.FIELD_IPV4, None)
         if ipv4_data:
             self._ipv4 = IPv4Config(ipv4_data)
 
-        ipv6_data = self._raw_config.get(self.__FIELD_IPV6, None)
+        ipv6_data = self._raw_config.get(self.FIELD_IPV6, None)
         if ipv6_data:
             self._ipv6 = IPv6Config(ipv6_data)
 
-        slave_connections = self._raw_config.get(self.__FIELD_SLAVES, {})
+        slave_connections = self._raw_config.get(self.FIELD_SLAVES, {})
         if not isinstance(slave_connections, dict):
             raise exceptions.ValueInfraException(
-                f"{self.__FIELD_SLAVES} should be a dict of slave connections",
-                field=self.__FIELD_SLAVES,
+                f"{self.FIELD_SLAVES} should be a dict of slave connections",
+                field=self.FIELD_SLAVES,
             )
 
         for conn_name, raw_config in slave_connections.items():
@@ -506,9 +507,9 @@ class SlaveConnectionConfig(BaseConnectionConfig):
 
 
 class VlanBaseConnectionConfig(BaseConnectionConfig):
-    __FIELD_VLAN = "vlan"
-    __FIELD_VLAN_ID = "id"
-    __FIELD_VLAN_PARENT_IFACE = "parent"
+    FIELD_VLAN = "vlan"
+    FIELD_VLAN_ID = "id"
+    FIELD_VLAN_PARENT_IFACE = "parent"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -528,19 +529,19 @@ class VlanBaseConnectionConfig(BaseConnectionConfig):
         self,
         ip_links: typing.List[ip_interface.IPLinkData],
     ):
-        vlan_config = self._raw_config.get(self.__FIELD_VLAN, None)
+        vlan_config = self._raw_config.get(self.FIELD_VLAN, None)
         if not vlan_config:
             raise exceptions.ValueInfraException(
-                f"{self.__FIELD_VLAN} is a mandatory field for a VLAN based connection",
-                field=self.__FIELD_VLAN,
+                f"{self.FIELD_VLAN} is a mandatory field for a VLAN based connection",
+                field=self.FIELD_VLAN,
             )
 
-        vlan_parent_iface = vlan_config.get(self.__FIELD_VLAN_PARENT_IFACE, None)
+        vlan_parent_iface = vlan_config.get(self.FIELD_VLAN_PARENT_IFACE, None)
         if not vlan_parent_iface:
             raise exceptions.ValueInfraException(
-                f"{self.__FIELD_VLAN_PARENT_IFACE} is a mandatory"
-                f" field of {self.__FIELD_VLAN} section for a VLAN based connection",
-                field=self.__FIELD_VLAN_PARENT_IFACE,
+                f"{self.FIELD_VLAN_PARENT_IFACE} is a mandatory"
+                f" field of {self.FIELD_VLAN} section for a VLAN based connection",
+                field=self.FIELD_VLAN_PARENT_IFACE,
             )
 
         self._parent_interface = InterfaceIdentifier(vlan_parent_iface, ip_links)
@@ -557,50 +558,48 @@ class VlanBaseConnectionConfig(BaseConnectionConfig):
             and self._parent_interface.iface_name == self.interface.iface_name
         ):
             raise exceptions.ValueInfraException(
-                f"{self.__FIELD_VLAN_PARENT_IFACE} field of "
-                f"{self.__FIELD_VLAN} cannot point to the same interface told by "
-                f"{self._FIELD_IFACE} ({self.interface.iface_name})",
+                f"{self.FIELD_VLAN_PARENT_IFACE} field of "
+                f"{self.FIELD_VLAN} cannot point to the same interface told by "
+                f"{self.FIELD_IFACE} ({self.interface.iface_name})",
                 value=self._parent_interface.iface_name,
-                field=self.__FIELD_VLAN_PARENT_IFACE,
+                field=self.FIELD_VLAN_PARENT_IFACE,
             )
 
-        vlan_id = vlan_config.get(self.__FIELD_VLAN_ID, None)
+        vlan_id = vlan_config.get(self.FIELD_VLAN_ID, None)
         if vlan_id is None:
             raise exceptions.ValueInfraException(
-                f"{self.__FIELD_VLAN_ID} is a mandatory field of {self.__FIELD_VLAN} "
+                f"{self.FIELD_VLAN_ID} is a mandatory field of {self.FIELD_VLAN} "
                 "section for a VLAN based connection",
-                field=self.__FIELD_VLAN_ID,
+                field=self.FIELD_VLAN_ID,
             )
         if not isinstance(vlan_id, int):
             raise exceptions.ValueInfraException(
-                f"{self.__FIELD_VLAN_ID}  field of {self.__FIELD_VLAN} section must be a number",
-                field=self.__FIELD_VLAN_ID,
+                f"{self.FIELD_VLAN_ID}  field of {self.FIELD_VLAN} section must be a number",
+                field=self.FIELD_VLAN_ID,
                 value=vlan_id,
             )
 
         if vlan_id < 1:
             raise exceptions.ValueInfraException(
-                f"{self.__FIELD_VLAN_ID} field of {self.__FIELD_VLAN} "
+                f"{self.FIELD_VLAN_ID} field of {self.FIELD_VLAN} "
                 "section must be greater than zero",
-                field=self.__FIELD_VLAN_ID,
+                field=self.FIELD_VLAN_ID,
                 value=vlan_id,
             )
         self._vlan_id = vlan_id
 
 
 class EthernetBaseConnectionConfig(BaseConnectionConfig):
-    __FIELD_IFACE = "iface"
-
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.__validate_config()
 
     def __validate_config(self):
-        iface_raw = self._raw_config.get(self._FIELD_IFACE, None)
+        iface_raw = self._raw_config.get(self.FIELD_IFACE, None)
         if not iface_raw:
             raise exceptions.ValueInfraException(
-                f"{self.__FIELD_IFACE} is a mandatory field for an Ethernet based connection",
-                field=self.__FIELD_IFACE,
+                f"{self.FIELD_IFACE} is a mandatory field for an Ethernet based connection",
+                field=self.FIELD_IFACE,
             )
 
 
@@ -631,20 +630,20 @@ class BridgeConnectionConfig(MainConnectionConfig):
 
 
 class ConnectionConfigFactory:
-    __FIELD_TYPE = "type"
-    __FIELD_TYPE_VAL_ETHERNET = "ethernet"
-    __FIELD_TYPE_VAL_VLAN = "vlan"
-    __FIELD_TYPE_VAL_BRIDGE = "bridge"
+    FIELD_TYPE = "type"
+    FIELD_TYPE_VAL_ETHERNET = "ethernet"
+    FIELD_TYPE_VAL_VLAN = "vlan"
+    FIELD_TYPE_VAL_BRIDGE = "bridge"
 
     __SLAVES_CONFIG_TYPES_MAP = {
-        __FIELD_TYPE_VAL_ETHERNET: EthernetSlaveConnectionConfig,
-        __FIELD_TYPE_VAL_VLAN: VlanSlaveConnectionConfig,
+        FIELD_TYPE_VAL_ETHERNET: EthernetSlaveConnectionConfig,
+        FIELD_TYPE_VAL_VLAN: VlanSlaveConnectionConfig,
     }
 
     __CONFIG_TYPES_MAP = {
-        __FIELD_TYPE_VAL_ETHERNET: EthernetConnectionConfig,
-        __FIELD_TYPE_VAL_VLAN: VlanConnectionConfig,
-        __FIELD_TYPE_VAL_BRIDGE: BridgeConnectionConfig,
+        FIELD_TYPE_VAL_ETHERNET: EthernetConnectionConfig,
+        FIELD_TYPE_VAL_VLAN: VlanConnectionConfig,
+        FIELD_TYPE_VAL_BRIDGE: BridgeConnectionConfig,
     }
 
     def __init__(self, ip_iface: ip_interface.IPInterface):
@@ -656,17 +655,17 @@ class ConnectionConfigFactory:
         conn_config: typing.Dict[str, typing.Any],
         main_connection_config: MainConnectionConfig,
     ) -> SlaveConnectionConfig:
-        conn_type = conn_config.get(self.__FIELD_TYPE, None)
+        conn_type = conn_config.get(self.FIELD_TYPE, None)
         if not conn_type:
             raise exceptions.ValueInfraException(
-                f"{self.__FIELD_TYPE} is a mandatory field for a slave connection",
-                field=self.__FIELD_TYPE,
+                f"{self.FIELD_TYPE} is a mandatory field for a slave connection",
+                field=self.FIELD_TYPE,
             )
 
         if conn_type not in self.__SLAVES_CONFIG_TYPES_MAP:
             raise exceptions.ValueInfraException(
                 f"Unsupported slave connection type {conn_type} for connection {conn_name}",
-                field=self.__FIELD_TYPE,
+                field=self.FIELD_TYPE,
                 value=conn_type,
             )
 
@@ -680,17 +679,17 @@ class ConnectionConfigFactory:
     def build_connection(
         self, conn_name: str, conn_config: typing.Dict[str, typing.Any]
     ) -> MainConnectionConfig:
-        conn_type = conn_config.get(self.__FIELD_TYPE, None)
+        conn_type = conn_config.get(self.FIELD_TYPE, None)
         if not conn_type:
             raise exceptions.ValueInfraException(
-                f"{self.__FIELD_TYPE} is a mandatory field for a connection",
-                field=self.__FIELD_TYPE,
+                f"{self.FIELD_TYPE} is a mandatory field for a connection",
+                field=self.FIELD_TYPE,
             )
 
         if conn_type not in self.__CONFIG_TYPES_MAP:
             raise exceptions.ValueInfraException(
                 f"Unsupported connection type {conn_type} for connection {conn_name}",
-                field=self.__FIELD_TYPE,
+                field=self.FIELD_TYPE,
                 value=conn_type,
             )
 

@@ -7,19 +7,18 @@
 
 - name: Append SSH input rule for the managment interface
   vars:
-    managment_conn: >-
+    managment_conn_ipv4: >-
       {{
         (
-          pbi_network_connections |
-          default({}) |
-          dict2items |
-          selectattr('value.is_mngt_connection', 'defined') |
-          selectattr('value.iface', 'defined') |
-          selectattr('value.is_mngt_connection', 'equalto', true) |
-          first | default({'value' : {}})
-        ).value
+          pbi_networking_mngt_connection_config.ipv4.ip |
+          default('') |
+          split('/') |
+          first
+        )
+        if ('ipv4' in pbi_networking_mngt_connection_config | default({}))
+        else {}
       }}
-  when: "managment_conn | length > 0"
+  when: "pbi_networking_mngt_interface is defined"
   ansible.builtin.set_fact:
     pbi_fwstp_default_input_list: "{{ pbi_fwstp_default_input_list + [pbi_fwstp_default_rule_input_ssh_accept_template] }}"
     cacheable: true

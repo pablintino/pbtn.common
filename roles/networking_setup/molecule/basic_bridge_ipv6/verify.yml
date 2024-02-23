@@ -70,15 +70,6 @@
           {{
             pbi_tst_nstp_test_nmcli_data['internal']
           }}
-      ansible.builtin.debug:
-        var: connection_data
-
-    - name: Basic common assertions for the internal
-      vars:
-        connection_data: >-
-          {{
-            pbi_tst_nstp_test_nmcli_data['internal']
-          }}
         dns6_nameservers: >-
           {{
             connection_data |

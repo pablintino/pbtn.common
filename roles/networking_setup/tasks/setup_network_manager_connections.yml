@@ -3,7 +3,6 @@
   become: true
   pablintino.base_infra.nmcli_apply:
     connections: "{{ pbi_nstp_connections }}"
-  register: _pbi_nstp_nmcli_apply_result
 
 - name: Refresh network related facts for further usage
   ansible.builtin.setup:

@@ -34,7 +34,8 @@
             that:
               - pbi_network_connections is defined
               - pbi_network_connections == pbi_nstp_connections
-              - pbi_nstp_mngt_connection is defined
-              - "pbi_nstp_mngt_connection == 'molecule'"
-              - pbi_nstp_mngt_interface is defined
-              - pbi_nstp_mngt_interface == pbi_tst_nstp_expected_ssh_iface
+              # As the molecule connection is not static we do not pick up it
+              - pbi_networking_mngt_connection_name is not defined
+              - pbi_networking_mngt_connection_config is not defined
+              - pbi_networking_mngt_interface is defined
+              - pbi_networking_mngt_interface == pbi_tst_nstp_expected_ssh_iface

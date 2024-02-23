@@ -27,14 +27,19 @@
           {{
             _pbi_nstp_output_file_content['pbi_network_connections']
           }}
-        pbi_nstp_mngt_connection: >-
+        pbi_networking_mngt_connection_config: >-
           {{
-            _pbi_nstp_output_file_content.pbi_nstp_mngt_connection |
+            _pbi_nstp_output_file_content['pbi_networking_mngt_connection_config] |
             default(omit)
           }}
-        pbi_nstp_mngt_interface: >-
+        pbi_networking_mngt_connection_name: >-
           {{
-            _pbi_nstp_output_file_content.pbi_nstp_mngt_interface |
+            _pbi_nstp_output_file_content['pbi_networking_mngt_connection_name] |
+            default(omit)
+          }}
+        pbi_networking_mngt_interface: >-
+          {{
+            _pbi_nstp_output_file_content['pbi_networking_mngt_interface] |
             default(omit)
           }}
         cacheable: true

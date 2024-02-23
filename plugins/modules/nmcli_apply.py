@@ -6,8 +6,10 @@ __metaclass__ = type
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.pablintino.base_infra.plugins.module_utils import (
-    ip_interface,
     exceptions,
+)
+from ansible_collections.pablintino.base_infra.plugins.module_utils.ip import (
+    ip_interface,
 )
 from ansible_collections.pablintino.base_infra.plugins.module_utils.module_command_utils import (
     get_module_command_runner,

@@ -1,6 +1,6 @@
 import typing
 
-from ansible_collections.pablintino.base_infra.plugins.module_utils.ip_interface import (
+from ansible_collections.pablintino.base_infra.plugins.module_utils.ip.ip_interface import (
     IPLinkData,
     IPInterface,
 )

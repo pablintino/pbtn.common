@@ -1,36 +1,76 @@
 ---
-# Important: We only take into consideration the interfaces
-# and connections we manage. Connections outside of the scope
-# of the role are not part of the apply output and won't be
-# considered
-- name: Get SSH connection target IP
+- name: Set the raw SSH destination address if available
   when:
     - "'SSH_CONNECTION' in ansible_env"
-    - >-
-      (pbi_nstp_mngt_connection is not defined) or
-      (pbi_nstp_mngt_interface is not defined)
+  vars:
+    _pbi_nstp_ssh_conn_raw_ip: "{{ ((ansible_env.SSH_CONNECTION | split(' '))[2]) }}"
   ansible.builtin.set_fact:
-    _pbi_nstp_mngt_connection_data: >-
+    _pbi_nstp_mngt_ssh_dst_addr: >-
       {{
-        _pbi_nstp_nmcli_apply_result |
-        pablintino.base_infra.nstp_filter_applyres2conns |
-        pablintino.base_infra.nstp_filter_ip2conn(
-          ((ansible_env.SSH_CONNECTION | split(' '))[2])
-        )
+        _pbi_nstp_ssh_conn_raw_ip | split('/') | first
+        if '/' in _pbi_nstp_ssh_conn_raw_ip else _pbi_nstp_ssh_conn_raw_ip
       }}
 
-- name: Set management connection if infered
-  when: >-
-    _pbi_nstp_mngt_connection_data |
-    default({}) |
-    length > 0
-  ansible.builtin.set_fact:
-    pbi_nstp_mngt_connection: >-
-      {{
-        _pbi_nstp_mngt_connection_data['general.name']
-      }}
-    pbi_nstp_mngt_interface: >-
-      {{
-        _pbi_nstp_mngt_connection_data['general.ip-iface']
-      }}
-    cacheable: true
+- name: Fetch management connection data
+  when:
+    - _pbi_nstp_mngt_ssh_dst_addr is defined
+    - >-
+      (pbi_networking_mngt_connection is not defined) or
+      (pbi_networking_mngt_interface is not defined)
+  block:
+    - name: Get SSH connection config from IP
+      ansible.builtin.set_fact:
+        _pbi_nstp_mngt_connection_data: >-
+          {{
+            pbi_nstp_connections |
+            pablintino.base_infra.nstp_filter_get_conn_config_for_ip(
+              _pbi_nstp_mngt_ssh_dst_addr
+            )
+          }}
+
+    - name: Set management connection if inferred
+      when:
+        - _pbi_nstp_mngt_connection_data | length > 0
+      ansible.builtin.set_fact:
+        pbi_networking_mngt_connection_config: >-
+          {{
+            _pbi_nstp_mngt_connection_data.config
+          }}
+        pbi_networking_mngt_connection_name: >-
+          {{
+            _pbi_nstp_mngt_connection_data.name
+          }}
+        cacheable: true
+
+- name: Fetch management interface data
+  when:
+    - _pbi_nstp_mngt_ssh_dst_addr is defined
+    - pbi_networking_mngt_interface is not defined
+  block:
+    - name: Fetch IP addresses
+      ansible.builtin.command:
+        cmd: ip -j addr
+      register: _pbi_nstp_post_links_out
+      changed_when: false
+
+    - name: Get SSH IP address data from IP
+      ansible.builtin.set_fact:
+        _pbi_nstp_mngt_ip_addr_data: >-
+          {{
+            _pbi_nstp_post_links_out.stdout |
+            from_json |
+            pablintino.base_infra.ip_addr_element_by_ip(
+              _pbi_nstp_mngt_ssh_dst_addr
+            )
+          }}
+
+    - name: Set management interface if inferred
+      when:
+        - _pbi_nstp_mngt_ip_addr_data | length > 0
+        - _pbi_nstp_mngt_ip_addr_data.ifname is defined
+      ansible.builtin.set_fact:
+        pbi_networking_mngt_interface: >-
+          {{
+            _pbi_nstp_mngt_ip_addr_data.ifname
+          }}
+        cacheable: true
