@@ -12,8 +12,8 @@ platforms:
     # that add things such as python and sudo, both needed
     pre_build_image: false
 
-  - name: debian-11
-    image: debian:bullseye
+  - name: debian-12
+    image: debian:bookworm
     # If we prebuild images we use the default Dockerfile.j2
     # that add things such as python and sudo, both needed
     pre_build_image: false

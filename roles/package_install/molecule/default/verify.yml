@@ -9,7 +9,7 @@
     - name: Assert that packages are present
       vars:
         packages:
-          debian-11:
+          debian-12:
             - sudo
             - python3
             - python3-pip

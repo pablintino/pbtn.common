@@ -16,7 +16,7 @@
 
     - name: Load the static file information
       when: "'content' in _pbi_nstp_output_file_slrup"
-      var:
+      vars:
         _pbi_nstp_output_file_content: >-
           {{
             (_pbi_nstp_output_file_slrup['content'] | b64decode) |

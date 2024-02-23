@@ -4,6 +4,7 @@
     file: "{{ role_path }}/vars/{{ ansible_os_family | lower }}_vars.yml"
 
 - name: Remove the native firewall
+  become: true
   ansible.builtin.package:
     name: "{{ pbi_fwstp_native_firewall_service_name }}"
     state: absent
