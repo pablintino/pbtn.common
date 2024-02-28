@@ -1304,3 +1304,90 @@ def test_target_connection_data_factory_build_delete_conn_list_7_ok(mocker):
             target_connection_data,
             [bridge_uuid_2],
         )
+
+
+def test_target_connection_data_factory_build_delete_conn_list_8_ok(mocker):
+    """
+    Tests that the factory is able to build the to-delete connections list when
+    there is no matching connection for the one that is getting configured.
+    The factory should be able to handle an empty list in that case.
+    :param mocker: The pytest mocker fixture
+    """
+    # Create a list of queries with all the possible combinations
+    # of connections order to ensure the result is not order
+    # dependant
+    bridge_uuid_1 = "98ef06cf-a80e-4771-ad96-8375b123c8a7"
+    vlan_uuid_1 = "f7e59009-1367-47e9-9414-ac35b89ec8a4"
+    ether_uuid_1 = "ceb771f1-b183-4ce4-89be-95bea292d917"
+    connection_data_raw_bridge = {
+        "connection.id": "bridge-conn-1",
+        "connection.type": "bridge",
+        "general.state": "activated",
+        "connection.interface-name": "br1",
+        "connection.uuid": bridge_uuid_1,
+    }
+    # This slave here that is not linked to a connection
+    # declared here is on purpose to ensure the logic
+    # is able to handle main connection gathering for
+    # slaves with inconsistent data.
+    connection_data_raw_vlan_slave = {
+        "connection.id": "vlan-conn-001",
+        "connection.type": "vlan",
+        "general.state": "activated",
+        "connection.master": "de92e85b-316f-425a-835c-5d4dc3169563",
+        "connection.uuid": "df5a3001-b57e-4aef-bb5d-29c1fe458315",
+    }
+    connection_data_raw_ether = {
+        "connection.id": "ether-conn-1",
+        "connection.type": "802-3-ethernet",
+        "general.state": "activated",
+        "connection.interface-name": "eth5",
+        "connection.uuid": ether_uuid_1,
+    }
+
+    conn_config = net_config.BridgeConnectionConfig(
+        conn_name="bridge-conn-001",
+        raw_config={
+            "type": "bridge",
+            "iface": "br0",
+            "slaves": {
+                "vlan-conn-1": {
+                    "type": "vlan",
+                    "iface": "eth0.200",
+                    "vlan": {
+                        "id": 200,
+                        "parent": "eth0",
+                    },
+                }
+            },
+        },
+        ip_links=[],
+        connection_config_factory=net_config_stub.build_testing_config_factory(mocker),
+    )
+    target_connection_data = (
+        nmcli_interface_types.TargetConnectionData.Builder(
+            connection_data_raw_bridge, conn_config
+        )
+        .append_slave(
+            nmcli_interface_types.ConfigurableConnectionData(
+                None, conn_config.slaves[0]
+            )
+        )
+        .build()
+    )
+
+    queriers = __prepare_permute_queriers(
+        mocker,
+        [
+            connection_data_raw_bridge,
+            connection_data_raw_vlan_slave,
+            connection_data_raw_ether,
+        ],
+    )
+    for querier in queriers:
+        __test_build_delete_conn_list_from_mocks(
+            querier,
+            mocker,
+            target_connection_data,
+            [],
+        )
