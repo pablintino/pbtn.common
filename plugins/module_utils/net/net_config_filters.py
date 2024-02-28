@@ -10,7 +10,15 @@ def get_static_connection_for_ip(
     raw_config: typing.Dict[str, typing.Any],
     ip_addr: typing.Union[ipaddress.IPv4Address, ipaddress.IPv6Address],
 ) -> typing.Tuple[typing.Optional[str], typing.Optional[typing.Dict[str, typing.Any]]]:
+    # Ensure the input is a proper mapping.
+    if not isinstance(raw_config, dict):
+        return None, None
+
     for conn_name, conn_data in raw_config.items():
+        # Ensure the content of each connection is a dict
+        if not isinstance(conn_data, dict):
+            continue
+
         ip_field = (
             net_config.MainConnectionConfig.FIELD_IPV4
             if ip_addr.version == 4
