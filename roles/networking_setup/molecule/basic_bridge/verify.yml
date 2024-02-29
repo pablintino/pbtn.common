@@ -130,3 +130,57 @@
       ansible.builtin.assert:
         that: >-
           filtered_connections | length == pbi_tst_nstp_test_nmcli_data | length
+
+    - name: Check for the existence of the networking descriptor file
+      ansible.builtin.stat:
+        path: "/etc/automation/networking.yaml"
+      register: _networking_descriptor_stat
+
+    - name: Assert its properties are the expected ones
+      ansible.builtin.assert:
+        that:
+          - _networking_descriptor_stat.stat.exists
+          - _networking_descriptor_stat.stat.mode == "0644"
+          - _networking_descriptor_stat.stat.uid == 0
+          - _networking_descriptor_stat.stat.gid == 0
+
+    - name: Load its content
+      ansible.builtin.slurp:
+        src: "/etc/automation/networking.yaml"
+      register: _networking_descriptor_slurp
+
+    - name: Ensure its content is the expected one
+      vars:
+        _file_content: "{{ _networking_descriptor_slurp.content | b64decode | from_yaml }}"
+      ansible.builtin.assert:
+        that:
+          - _file_content.pbi_network_connections is defined
+          - _file_content.pbi_network_connections == pbi_tst_nstp_connections_config
+          - _file_content.pbi_networking_mngt_connection_config is not defined # auto connection -> not defined
+          - _file_content.pbi_networking_mngt_connection_name is not defined  # auto connection -> not defined
+          - _file_content.pbi_networking_mngt_interface is defined
+          - _file_content.pbi_networking_mngt_interface == pbi_tst_nstp_ssh_interface
+
+    # Test the load_networking_vars.yml task file now that its content is validated
+    - name: Ensure that the networking_setup output facts are not set at this point
+      ansible.builtin.assert:
+        that:
+          - pbi_network_connections is not defined
+          - pbi_networking_mngt_connection_config is not defined
+          - pbi_networking_mngt_connection_name is not defined
+          - pbi_networking_mngt_interface is not defined
+
+    - name: Try loading the networking metadata
+      ansible.builtin.include_role:
+        name: networking_setup
+        tasks_from: load_networking_vars.yml
+
+    - name: Ensure that the variables are now loaded
+      ansible.builtin.assert:
+        that:
+          - pbi_network_connections is defined
+          - pbi_networking_mngt_connection_config is not defined
+          - pbi_networking_mngt_connection_name is not defined
+          - pbi_networking_mngt_interface is defined
+          - pbi_network_connections == pbi_tst_nstp_connections_config
+          - pbi_networking_mngt_interface == pbi_tst_nstp_ssh_interface
