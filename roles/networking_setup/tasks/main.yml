@@ -26,34 +26,43 @@
   ansible.builtin.import_tasks:
     file: detect_managment_connection.yml
 
-- name: Ensure infra folder exists
-  ansible.builtin.file:
-    path: "{{ ansible_user_dir }}/.infra"
-    state: directory
+- name: Save the networking descriptor file
+  become: true
+  block:
+    - name: Ensure target directory exists
+      ansible.builtin.file:
+        path: "{{ pbi_nstp_networking_output_file_path | dirname }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
 
-- name: Copy role related vars to the infra directory
-  vars:
-    _pbi_nstp_role_file_base_content:
-      pbi_network_connections: "{{ pbi_network_connections }}"
-  ansible.builtin.copy:
-    content: >-
-      {{
-        _pbi_nstp_role_file_base_content |
-        combine(
-          {
-            'pbi_networking_mngt_connection_config': pbi_networking_mngt_connection_config,
-          } if pbi_networking_mngt_connection_config is defined else {}
-        ) |  
-      combine(
-          {
-            'pbi_networking_mngt_connection_name': pbi_networking_mngt_connection_name,
-          } if pbi_networking_mngt_connection_name is defined else {}
-        ) |
-        combine(
-          {
-            'pbi_networking_mngt_interface': pbi_networking_mngt_interface,
-          } if pbi_networking_mngt_interface is defined else {}
-        ) | to_nice_yaml
-      }}
+    - name: Copy role related vars to the infra directory
+      vars:
+        _pbi_nstp_role_file_base_content:
+          pbi_network_connections: "{{ pbi_network_connections }}"
+      ansible.builtin.copy:
+        content: >-
+          {{
+            _pbi_nstp_role_file_base_content |
+            combine(
+              {
+                'pbi_networking_mngt_connection_config': pbi_networking_mngt_connection_config,
+              } if pbi_networking_mngt_connection_config is defined else {}
+            ) |  
+          combine(
+              {
+                'pbi_networking_mngt_connection_name': pbi_networking_mngt_connection_name,
+              } if pbi_networking_mngt_connection_name is defined else {}
+            ) |
+            combine(
+              {
+                'pbi_networking_mngt_interface': pbi_networking_mngt_interface,
+              } if pbi_networking_mngt_interface is defined else {}
+            ) | to_nice_yaml
+          }}
 
-    dest: "{{ pbi_nstp_networking_output_file_path }}"
+        dest: "{{ pbi_nstp_networking_output_file_path }}"
+        owner: root
+        group: root
+        mode: '0644'

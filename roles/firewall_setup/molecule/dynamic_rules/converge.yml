@@ -1,0 +1,12 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  vars:
+    pbi_fwstp_default_output_policy: drop
+    pbi_fwstp_input_pre_rules:
+      - "tcp dport 22 accept"
+    pbi_fwstp_output_pre_rules:
+      - "tcp sport 22 accept"
+  roles:
+    - pablintino.base_infra.firewall_setup

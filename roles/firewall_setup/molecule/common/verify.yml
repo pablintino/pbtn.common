@@ -1,0 +1,33 @@
+- name: Get service facts
+  service_facts:
+
+- name: Ensure that the nftables service is enabled
+  ansible.builtin.assert:
+    that:
+      - "'nftables.service' in ansible_facts.services"
+      - "ansible_facts.services['nftables.service'].status == 'enabled'"
+
+- name: Fetch target rules stat
+  become: true
+  ansible.builtin.stat:
+    path: "{{ pbi_molecule_nft_rules_path }}"
+  register: nftables_rules_stat
+
+- name: Assert that the target rules file exists and has proper permissions
+  ansible.builtin.assert:
+    that:
+      - nftables_rules_stat.stat.exists
+      - nftables_rules_stat.stat.mode == pbi_molecule_nft_rules_permissions
+      - nftables_rules_stat.stat.uid == 0
+      - nftables_rules_stat.stat.gid == 0
+
+- name: Fetch the golden target rules stat
+  delegate_to: localhost
+  connection: local
+  ansible.builtin.stat:
+    path: "{{ [playbook_dir, 'files', 'golden-file.nft'] | ansible.builtin.path_join }}"
+  register: nftables_golden_rules_stat
+
+- name: Assert that rules are the expected ones
+  ansible.builtin.assert:
+    that: nftables_golden_rules_stat.stat.checksum == nftables_rules_stat.stat.checksum

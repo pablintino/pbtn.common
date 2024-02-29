@@ -1,0 +1,35 @@
+---
+- name: Prepare
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Create the needed directories
+      become: true
+      ansible.builtin.file:
+        path: "/etc/automation"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Emulate having the networking descriptor data
+      become: true
+      vars:
+        _connections_configs:
+          molecule:
+            type: ethernet
+            iface: "{{ ansible_default_ipv4.interface }}"
+            state: up
+            ipv4:
+              mode: auto
+        content:
+          pbi_network_connections: "{{ _connections_configs }}"
+          pbi_networking_mngt_connection_config: "{{ _connections_configs.molecule }}"
+          pbi_networking_mngt_interface: "{{ _connections_configs.molecule.iface }}"
+          pbi_networking_mngt_connection_name: "molecule"
+      ansible.builtin.copy:
+        content: "{{ content | to_nice_yaml }}"
+        dest: "/etc/automation/networking.yaml"
+        owner: root
+        group: root
+        mode: '0644'

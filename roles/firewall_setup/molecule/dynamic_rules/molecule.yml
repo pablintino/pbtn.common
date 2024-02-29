@@ -1,0 +1,19 @@
+---
+log: true
+
+provisioner:
+  name: ansible
+  log: true
+  inventory:
+    host_vars:
+      rocky-9:
+        pbi_molecule_nft_rules_path: "/etc/sysconfig/nftables.conf"
+        pbi_molecule_nft_rules_permissions: "0600"
+
+      debian-12:
+        pbi_molecule_nft_rules_path: "/etc/nftables.conf"
+        pbi_molecule_nft_rules_permissions: "0755"
+
+      ubuntu-22:
+        pbi_molecule_nft_rules_path: "/etc/nftables.conf"
+        pbi_molecule_nft_rules_permissions: "0755"

@@ -1,5 +1,5 @@
 ---
-pbi_nstp_networking_output_file_path: "{{ ansible_user_dir }}/.infra/networking.yaml"
+pbi_nstp_networking_output_file_path: "/etc/automation/networking.yaml"
 pbi_nstp_nm_config_path: "/etc/NetworkManager/NetworkManager.conf"
 pbi_nstp_netplan_config_dir: "/etc/netplan/"
 pbi_nstp_netplan_disabling_config: |-
