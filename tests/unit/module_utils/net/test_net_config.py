@@ -1562,3 +1562,69 @@ def test_connection_config_handler_validation_names_fail(
             handler.parse()
         assert err.value.value == test_conn_name
         assert str(err.value) == f"Connection {test_conn_name} name is not unique"
+
+
+@pytest.mark.parametrize(
+    "test_config,test_conn_name,test_conn_conflict_name,test_iface_name",
+    [
+        pytest.param(
+            {
+                "conn-1": {
+                    "type": "bridge",
+                    "slaves": {
+                        "slave-conn-1": {"type": "ethernet", "iface": "eth0"},
+                        "slave-conn-2": {"type": "ethernet", "iface": "eth4"},
+                    },
+                },
+                "conn-2": {"type": "bridge"},
+                "conn-3": {
+                    "type": "bridge",
+                    "slaves": {"slave-conn-3": {"type": "ethernet", "iface": "eth0"}},
+                },
+            },
+            "slave-conn-1",
+            "slave-conn-3",
+            "eth0",
+            id="slaves-iface-reuse",
+        ),
+        pytest.param(
+            {
+                "conn-1": {
+                    "type": "bridge",
+                    "slaves": {
+                        "slave-conn-1": {"type": "ethernet", "iface": "eth0"},
+                        "slave-conn-2": {"type": "ethernet", "iface": "eth4"},
+                    },
+                },
+                "conn-2": {"type": "bridge"},
+                "conn-3": {
+                    "type": "bridge",
+                    "iface": "eth4",
+                    "slaves": {"slave-conn-3": {"type": "ethernet", "iface": "eth1"}},
+                },
+            },
+            "slave-conn-1",
+            "conn-3",
+            "eth4",
+            id="main-iface-reuse",
+        ),
+    ],
+)
+def test_connection_config_handler_validation_interfaces_fail(
+    mocker,
+    test_config: typing.Dict[str, typing.Any],
+    test_conn_name: str,
+    test_conn_conflict_name: str,
+    test_iface_name: str,
+):
+    all_configs_combinations = __validate_util_generate_all_conn_dict_combinations(
+        test_config
+    )
+    for conn_configs in all_configs_combinations:
+        handler = net_config.ConnectionsConfigurationHandler(
+            conn_configs, __build_testing_config_factory(mocker)
+        )
+        with pytest.raises(exceptions.ValueInfraException) as err:
+            handler.parse()
+        assert err.value.value == test_iface_name
+        assert test_iface_name in str(err.value)

@@ -815,6 +815,7 @@ class ConnectionsConfigurationHandler:
 
     def __validate_connections(self):
         self.__validate_connection_names()
+        self.__validate_interfaces_references_uniqueness()
 
     def __validate_connection_names(self):
         # Ensure that connection names are unique.
@@ -831,3 +832,26 @@ class ConnectionsConfigurationHandler:
                         value=slave_conn_config.name,
                     )
                 connection_names.add(slave_conn_config.name)
+
+    def __validate_interfaces_references_uniqueness(self):
+        # Ensure that if a connection references an interface,
+        # no other connection can reference it
+
+        conn_configs = []
+        # Prepare a flattened list of configs
+        for conn_config in self.__conn_configs:
+            if conn_config.interface:
+                conn_configs.append(conn_config)
+            for slave_conn_config in conn_config.slaves:
+                if slave_conn_config.interface:
+                    conn_configs.append(slave_conn_config)
+        ifaces_conn = {}
+        for conn_config in conn_configs:
+            iface_name = conn_config.interface.iface_name
+            if iface_name in ifaces_conn:
+                raise exceptions.ValueInfraException(
+                    f"Connection {conn_config.name} references {iface_name}, "
+                    f"already used by {ifaces_conn[iface_name]}",
+                    value=iface_name,
+                )
+            ifaces_conn[conn_config.interface.iface_name] = conn_config.name
