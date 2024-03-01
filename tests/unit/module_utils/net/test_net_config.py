@@ -1505,3 +1505,60 @@ def test_net_config_ethernet_missing_iface_field_fail(mocker):
     assert (
         str(err1.value) == "iface is a mandatory field for an Ethernet based connection"
     )
+
+
+@pytest.mark.parametrize(
+    "test_config,test_conn_name",
+    [
+        pytest.param(
+            {
+                "conn-1": {
+                    "type": "bridge",
+                    "slaves": {
+                        "slave-conn-1": {"type": "ethernet", "iface": "eth0"},
+                        "slave-conn-2": {"type": "ethernet", "iface": "eth4"},
+                    },
+                },
+                "conn-2": {"type": "bridge"},
+                "conn-3": {
+                    "type": "bridge",
+                    "slaves": {"slave-conn-1": {"type": "ethernet", "iface": "eth1"}},
+                },
+            },
+            "slave-conn-1",
+            id="slaves-cannot-share-name",
+        ),
+        pytest.param(
+            {
+                "conn-1": {
+                    "type": "bridge",
+                    "slaves": {
+                        "slave-conn-1": {"type": "ethernet", "iface": "eth0"},
+                        "slave-conn-2": {"type": "ethernet", "iface": "eth4"},
+                    },
+                },
+                "conn-2": {"type": "bridge"},
+                "conn-3": {
+                    "type": "bridge",
+                    "slaves": {"conn-1": {"type": "ethernet", "iface": "eth1"}},
+                },
+            },
+            "conn-1",
+            id="slave-cannot-use-main-name",
+        ),
+    ],
+)
+def test_connection_config_handler_validation_names_fail(
+    mocker, test_config: typing.Dict[str, typing.Any], test_conn_name: str
+):
+    all_configs_combinations = __validate_util_generate_all_conn_dict_combinations(
+        test_config
+    )
+    for conn_configs in all_configs_combinations:
+        handler = net_config.ConnectionsConfigurationHandler(
+            conn_configs, __build_testing_config_factory(mocker)
+        )
+        with pytest.raises(exceptions.ValueInfraException) as err:
+            handler.parse()
+        assert err.value.value == test_conn_name
+        assert str(err.value) == f"Connection {test_conn_name} name is not unique"

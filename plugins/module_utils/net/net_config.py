@@ -722,6 +722,7 @@ class ConnectionsConfigurationHandler:
             for conn_name, conn_data in self.__raw_config.items()
         ]
         self.__conn_configs = self.__sort_connections(mapped_connections)
+        self.__validate_connections()
 
     @property
     def connections(self) -> typing.List[MainConnectionConfig]:
@@ -811,3 +812,22 @@ class ConnectionsConfigurationHandler:
         # to be configured
         sorted_conn_configs.extend(non_iface_connections)
         return sorted_conn_configs
+
+    def __validate_connections(self):
+        self.__validate_connection_names()
+
+    def __validate_connection_names(self):
+        # Ensure that connection names are unique.
+        # Slave connections may take main ones names as they
+        # are nested in the config of each main connection
+        connection_names = set(
+            (conn_config.name for conn_config in self.__conn_configs)
+        )
+        for conn_config in self.__conn_configs:
+            for slave_conn_config in conn_config.slaves:
+                if slave_conn_config.name in connection_names:
+                    raise exceptions.ValueInfraException(
+                        f"Connection {slave_conn_config.name} name is not unique",
+                        value=slave_conn_config.name,
+                    )
+                connection_names.add(slave_conn_config.name)
