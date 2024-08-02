@@ -1,1 +1,5 @@
 ansible==8.3.0
+urllib3
+proxmoxer
+requests
+requests_toolbelt

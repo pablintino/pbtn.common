@@ -1,0 +1,75 @@
+---
+- name: Template the passed packer variable files
+  when: item | regex_search("\.j2$")
+  vars:
+    _pbi_packer_var_file_abs: >-
+      {{
+        (item is abs) |
+        ternary(
+          item,
+          [
+            (pbi_packer_workspace | default(playbook_dir)),
+            item
+          ] | path_join
+        )
+      }}
+  ansible.builtin.template:
+    src: "{{ _pbi_packer_var_file_abs }}"
+    dest: "{{ _pbi_packer_var_file_abs | regex_replace('\\.j2$', '') }}"
+    mode: '0644'
+    backup: yes
+  loop: "{{ pbi_packer_variable_files | default([]) }}"
+
+- name: Template the packer template if required
+  when: "pbi_packer_template_path | regex_search('\\.j2$')"
+  vars:
+    _pbi_packer_template_file_abs: >-
+      {{
+        (
+          (pbi_packer_template_path is abs) |
+          ternary(
+            pbi_packer_template_path,
+            [
+              (pbi_packer_workspace | default(playbook_dir)),
+              pbi_packer_template_path
+            ] | path_join | regex_replace('\\.j2$', '')
+          )
+        )
+      }}
+  ansible.builtin.template:
+    src: "{{ _pbi_packer_template_file_abs }}.j2"
+    dest: "{{ _pbi_packer_template_file_abs }}"
+    mode: "0644"
+    backup: yes
+
+- name: Try fetch the build name
+  ansible.builtin.command:
+    cmd: >-
+      {{ _pbi_packer_binary }}
+      inspect
+      {{
+        pbi_packer_template_path | regex_replace('.j2$', '')
+      }}
+      -machine-readable
+    chdir: "{{ pbi_packer_workspace | default(omit) }}"
+  register: _pbi_packer_inspect_cmd_out
+  changed_when: false
+  failed_when: false
+
+- name: Set reusable facts
+  ansible.builtin.set_fact:
+    _pbi_packer_template_path_sanitized: >-
+      {{
+        pbi_packer_template_path | regex_replace('.j2$', '')
+      }}
+    _pbi_packer_variable_files_sanitized: >-
+      {{
+        pbi_packer_variable_files | default([]) | map('regex_replace', '\.j2$', '')
+      }}
+    _pbi_packer_build_name: >-
+      {{
+        (
+          _pbi_packer_inspect_cmd_out.stdout |
+          regex_findall('builds:\s*(\\n)*\s*>?\s*(.+?(?=:))')
+        ) | first | default([]) | last | default('')
+      }}

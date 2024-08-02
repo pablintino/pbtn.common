@@ -85,17 +85,17 @@ def __delete_storage(
 def main():
     module = base_module.BaseProxmoxModule(
         argument_spec={
-            "node": {"type": "raw", "required": True},
-            "storage": {"type": "raw", "required": True},
+            "node": {"type": "str", "required": True},
+            "storage": {"type": "str", "required": True},
             "state": {
-                "type": "raw",
+                "type": "str",
                 "required": True,
                 "choices": ["absent", "present"],
             },
-            "content_type": {"type": "raw", "required": True},
-            "source": {"type": "raw", "required": False},
-            "name": {"type": "raw", "required": False},
-            "sha1_sum": {"type": "raw", "required": False},
+            "content_type": {"type": "str", "required": True},
+            "source": {"type": "str", "required": False},
+            "name": {"type": "str", "required": False},
+            "sha1_sum": {"type": "str", "required": False},
             "force": {
                 "type": "bool",
                 "required": False,

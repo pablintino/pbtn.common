@@ -1,0 +1,91 @@
+---
+- name: Check if the packer binary is present
+  ansible.builtin.command:
+    cmd: which packer
+  changed_when: false
+  failed_when: false
+  register: _pbi_packer_binary_check_out
+
+- name: Install if not present
+  when: _pbi_packer_binary_check_out.stdout | default('') | length == 0
+  block:
+    - name: Fetch the latest packer version
+      when: pbi_packer_install_version is not defined
+      ansible.builtin.uri:
+        url: https://checkpoint-api.hashicorp.com/v1/check/packer
+        method: GET
+        status_code: 200
+      register: _pbi_packer_latest_metadata
+
+    - name: Set the packer version in a fact
+      ansible.builtin.set_fact:
+        _pbi_packer_target_version: >-
+          {{
+            pbi_packer_install_version |
+            default(
+              _pbi_packer_latest_metadata.json['current_version'] | default('')
+            )
+          }}
+
+    - name: Verify the version is present
+      ansible.builtin.assert:
+        that: _pbi_packer_target_version | length > 0
+        quiet: true
+        fail_msg: "Unable to determine tha packer version to install"
+
+
+    - name: Create temporary unarchive directory
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: build
+      register: _pbi_packer_tmp_unzip_dir
+
+    - name: Fetch the binary
+      vars:
+        _hashi_archs_matrix:
+          x86_64: amd64
+          i386: "386"
+          aarch64: "arm64"
+      ansible.builtin.unarchive:
+        src: >-
+          {{
+            [
+              pbi_packer_download_base_url,
+              _pbi_packer_target_version,
+              (
+                'packer_' + _pbi_packer_target_version + '_' +
+                ansible_system + '_' +
+                (_hashi_archs_matrix[ansible_architecture] | default(ansible_architecture)) +
+                '.zip'
+              )
+            ] | join('/') | lower
+          }}
+        remote_src: true
+        dest: "{{ _pbi_packer_tmp_unzip_dir.path }}"
+
+    - name: Copy the binary to the target path
+      become: "{{ not _pbi_packer_is_user_dir }}"
+      vars:
+        _pbi_packer_is_user_dir: >-
+          {{
+            pbi_packer_binary_path.startswith(ansible_user_dir)
+          }}
+      ansible.builtin.copy:
+        dest: "{{ pbi_packer_binary_path }}"
+        src: "{{ _pbi_packer_tmp_unzip_dir.path }}/packer"
+        owner: "{{ _pbi_packer_is_user_dir | ternary(ansible_user_id, 'root') }}"
+        group: "{{ _pbi_packer_is_user_dir | ternary(ansible_user_id, 'root') }}"
+        mode: '0755'
+
+    - name: Delete the temporal directory
+      ansible.builtin.file:
+        path: "{{ _pbi_packer_tmp_unzip_dir.path }}"
+        state: absent
+
+- name: Set the binary fact
+  ansible.builtin.set_fact:
+    _pbi_packer_binary: >-
+      {{
+        (_pbi_packer_binary_check_out.stdout | default('') | length != 0) |
+        ternary(_pbi_packer_binary_check_out.stdout, pbi_packer_binary_path)
+      }}
