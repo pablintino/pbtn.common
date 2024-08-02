@@ -3,11 +3,11 @@ import pathlib
 import subprocess
 import typing
 
-from ansible_collections.pablintino.base_infra.plugins.module_utils.module_command_utils import (
+from ansible_collections.pbtn.common.plugins.module_utils.module_command_utils import (
     CommandRunException,
 )
 
-from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_utils import (
+from ansible_collections.pbtn.common.tests.unit.module_utils.test_utils import (
     file_manager,
 )
 

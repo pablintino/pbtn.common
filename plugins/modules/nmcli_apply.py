@@ -5,19 +5,19 @@ from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.pablintino.base_infra.plugins.module_utils import (
+from ansible_collections.pbtn.common.plugins.module_utils import (
     exceptions,
 )
-from ansible_collections.pablintino.base_infra.plugins.module_utils.ip import (
+from ansible_collections.pbtn.common.plugins.module_utils.ip import (
     ip_interface,
 )
-from ansible_collections.pablintino.base_infra.plugins.module_utils.module_command_utils import (
+from ansible_collections.pbtn.common.plugins.module_utils.module_command_utils import (
     get_module_command_runner,
 )
-from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
+from ansible_collections.pbtn.common.plugins.module_utils.net import (
     net_config,
 )
-from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
+from ansible_collections.pbtn.common.plugins.module_utils.nmcli import (
     nmcli_ansible_encoding,
     nmcli_interface,
     nmcli_interface_args_builders,

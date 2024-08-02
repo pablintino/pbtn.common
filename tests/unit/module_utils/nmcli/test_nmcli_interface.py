@@ -3,23 +3,23 @@ import dataclasses
 import typing
 
 import pytest
-from ansible_collections.pablintino.base_infra.plugins.module_utils import (
+from ansible_collections.pbtn.common.plugins.module_utils import (
     exceptions,
 )
-from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
+from ansible_collections.pbtn.common.plugins.module_utils.net import (
     net_config,
 )
-from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
+from ansible_collections.pbtn.common.plugins.module_utils.nmcli import (
     nmcli_interface,
     nmcli_interface_exceptions,
     nmcli_interface_target_connection,
     nmcli_interface_types,
 )
-from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_utils.command_mocker import (
+from ansible_collections.pbtn.common.tests.unit.module_utils.test_utils.command_mocker import (
     MockCall,
 )
 
-from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_utils import (
+from ansible_collections.pbtn.common.tests.unit.module_utils.test_utils import (
     net_config_stub,
 )
 

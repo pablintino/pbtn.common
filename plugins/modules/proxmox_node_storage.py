@@ -8,10 +8,10 @@ import os
 
 import urllib3
 
-from ansible_collections.pablintino.base_infra.plugins.module_utils import (
+from ansible_collections.pbtn.common.plugins.module_utils import (
     exceptions,
 )
-from ansible_collections.pablintino.base_infra.plugins.module_utils.proxmox import (
+from ansible_collections.pbtn.common.plugins.module_utils.proxmox import (
     base_module,
     client,
     node_storage,

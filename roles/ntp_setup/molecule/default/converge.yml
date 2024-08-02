@@ -7,4 +7,4 @@
       vars:
         pbi_ntstp_timezone: "Europe/Madrid"
       ansible.builtin.include_role:
-        name: "pablintino.base_infra.ntp_setup"
+        name: "pbtn.common.ntp_setup"

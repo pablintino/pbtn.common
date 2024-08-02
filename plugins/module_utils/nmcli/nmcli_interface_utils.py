@@ -5,7 +5,7 @@ __metaclass__ = type
 import collections.abc
 import typing
 
-from ansible_collections.pablintino.base_infra.plugins.module_utils import (
+from ansible_collections.pbtn.common.plugins.module_utils import (
     exceptions,
 )
 

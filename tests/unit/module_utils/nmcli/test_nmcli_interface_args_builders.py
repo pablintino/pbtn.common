@@ -2,15 +2,15 @@ import typing
 
 import pytest
 from unittest import mock
-from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
+from ansible_collections.pbtn.common.plugins.module_utils.net import (
     net_config,
 )
-from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
+from ansible_collections.pbtn.common.plugins.module_utils.nmcli import (
     nmcli_constants,
     nmcli_interface_args_builders,
 )
 
-from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_utils import (
+from ansible_collections.pbtn.common.tests.unit.module_utils.test_utils import (
     config_stub_data,
     net_config_stub,
 )
@@ -1372,7 +1372,7 @@ def test_nmcli_interface_args_builders_slave_connection_args_builder_ok(
     slave_conn_config = typing.cast(net_config.SlaveConnectionConfig, config.slaves[0])
     # New connection
     with mock.patch(
-        "ansible_collections.pablintino.base_infra.plugins.module_utils."
+        "ansible_collections.pbtn.common.plugins.module_utils."
         "nmcli.nmcli_constants.map_config_to_nmcli_type_field"
     ) as mocked_fn:
         mocked_fn.return_value = "main_type"
@@ -1391,7 +1391,7 @@ def test_nmcli_interface_args_builders_slave_connection_args_builder_ok(
 
     # Existing connection changing the main connection
     with mock.patch(
-        "ansible_collections.pablintino.base_infra.plugins.module_utils."
+        "ansible_collections.pbtn.common.plugins.module_utils."
         "nmcli.nmcli_constants.map_config_to_nmcli_type_field"
     ) as mocked_fn:
         mocked_fn.return_value = "main_type"
@@ -1411,7 +1411,7 @@ def test_nmcli_interface_args_builders_slave_connection_args_builder_ok(
 
     # Existing connection changing the main type
     with mock.patch(
-        "ansible_collections.pablintino.base_infra.plugins.module_utils."
+        "ansible_collections.pbtn.common.plugins.module_utils."
         "nmcli.nmcli_constants.map_config_to_nmcli_type_field"
     ) as mocked_fn:
         mocked_fn.return_value = "main_type_2"

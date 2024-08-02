@@ -27,7 +27,7 @@
       block:
         - name: "Include role under test"
           ansible.builtin.include_role:
-            name: "pablintino.base_infra.networking_setup"
+            name: "pbtn.common.networking_setup"
 
         - name: Check that the expected facts are set
           ansible.builtin.assert:

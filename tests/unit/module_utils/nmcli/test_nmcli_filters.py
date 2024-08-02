@@ -1,10 +1,10 @@
 from unittest import mock
 
 import pytest
-from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
+from ansible_collections.pbtn.common.plugins.module_utils.net import (
     net_config,
 )
-from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
+from ansible_collections.pbtn.common.plugins.module_utils.nmcli import (
     nmcli_constants,
     nmcli_filters,
 )
@@ -51,7 +51,7 @@ def test_nmcli_filters_is_for_interface_name_ok():
 
 
 @mock.patch(
-    r"ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli."
+    r"ansible_collections.pbtn.common.plugins.module_utils.nmcli."
     "nmcli_constants.map_config_to_nmcli_type_field"
 )
 def test_nmcli_filters_is_for_configuration_type_ok(

@@ -1,6 +1,6 @@
 ---
 - name: Check that interfaces file exists
-  pablintino.base_infra.ifaces_file_get_ifaces:
+  pbtn.common.ifaces_file_get_ifaces:
     ignore_non_existent: true
   register: _pbi_nstp_interfaces_files_parse_out
 

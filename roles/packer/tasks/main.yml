@@ -24,7 +24,7 @@
       }}
   block:
     - name: Run packer init
-      pablintino.base_infra.script:
+      pbtn.common.script:
         cmd: >-
           {{ _pbi_packer_binary }}
           init
@@ -47,7 +47,7 @@
         msg: "{{  _pbi_packer_init_cmd_out.stdout_lines }}"
 
     - name: Run packer build
-      pablintino.base_infra.script:
+      pbtn.common.script:
         cmd: >-
           {{ _pbi_packer_binary }}
           build

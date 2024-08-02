@@ -5,7 +5,7 @@ from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.pablintino.base_infra.plugins.module_utils.interfaces_file_utils import (
+from ansible_collections.pbtn.common.plugins.module_utils.interfaces_file_utils import (
     ifaces_file_utils_read_interfaces_file,
     ifaces_file_utils_parse_iface_option_line,
     ifaces_file_utils_parse_iface_line,
@@ -15,7 +15,7 @@ import os
 
 __INTERFACES_DEFAULT_PATH = "/etc/network/interfaces"
 __TO_SKIP_DIRECTIVES = ["source", "source-directory", "mapping", "templace"]
-__DISABLE_COMMENT = "Ansible pablintino.base_infra disabled iface"
+__DISABLE_COMMENT = "Ansible pbtn.common disabled iface"
 
 
 def __append_line(lines, line_content, comment_out):

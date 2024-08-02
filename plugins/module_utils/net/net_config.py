@@ -8,13 +8,13 @@ import re
 import typing
 import uuid
 
-from ansible_collections.pablintino.base_infra.plugins.module_utils import (
+from ansible_collections.pbtn.common.plugins.module_utils import (
     exceptions,
 )
-from ansible_collections.pablintino.base_infra.plugins.module_utils.ip import (
+from ansible_collections.pbtn.common.plugins.module_utils.ip import (
     ip_interface,
 )
-from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
+from ansible_collections.pbtn.common.plugins.module_utils.net import (
     net_utils,
 )
 

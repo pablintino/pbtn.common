@@ -9,4 +9,4 @@
     pbi_fwstp_output_pre_rules:
       - "tcp sport 22 accept"
   roles:
-    - pablintino.base_infra.firewall_setup
+    - pbtn.common.firewall_setup

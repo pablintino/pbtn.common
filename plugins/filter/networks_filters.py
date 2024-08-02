@@ -7,13 +7,13 @@ import ipaddress
 import typing
 
 from ansible.errors import AnsibleFilterError, AnsibleFilterTypeError
-from ansible_collections.pablintino.base_infra.plugins.module_utils.ip import (
+from ansible_collections.pbtn.common.plugins.module_utils.ip import (
     ip_interface_filters,
 )
-from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
+from ansible_collections.pbtn.common.plugins.module_utils.net import (
     net_config_filters,
 )
-from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
+from ansible_collections.pbtn.common.plugins.module_utils.nmcli import (
     nmcli_constants,
     nmcli_filters,
 )

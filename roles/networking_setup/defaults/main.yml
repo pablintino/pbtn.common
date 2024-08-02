@@ -3,7 +3,7 @@ pbi_nstp_networking_output_file_path: "/etc/automation/networking.yaml"
 pbi_nstp_nm_config_path: "/etc/NetworkManager/NetworkManager.conf"
 pbi_nstp_netplan_config_dir: "/etc/netplan/"
 pbi_nstp_netplan_disabling_config: |-
-  # Ansible pablintino.base_infra managed
+  # Ansible pbtn.common managed
   network:
     renderer: NetworkManager
     version: 2

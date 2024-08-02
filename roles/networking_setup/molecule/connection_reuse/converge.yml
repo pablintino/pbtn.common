@@ -38,7 +38,7 @@
             ipv4:
               mode: auto
       ansible.builtin.include_role:
-        name: "pablintino.base_infra.networking_setup"
+        name: "pbtn.common.networking_setup"
 
     - name: Fetch the connection Ethernet connection UUID
       ansible.builtin.command:
@@ -61,7 +61,7 @@
                 iface: "{{ custom_net_ifaces_facts[0].device }}"
                 disable-default-route: true
       ansible.builtin.include_role:
-        name: "pablintino.base_infra.networking_setup"
+        name: "pbtn.common.networking_setup"
 
     - name: Fetch the connection bridge connection UUID
       ansible.builtin.command:
@@ -92,7 +92,7 @@
             ipv4:
               mode: auto
       ansible.builtin.include_role:
-        name: "pablintino.base_infra.networking_setup"
+        name: "pbtn.common.networking_setup"
 
     - name: Fetch the connection Ethernet connection UUID
       ansible.builtin.command:
@@ -128,7 +128,7 @@
               parent: "{{ custom_net_ifaces_facts[0].device }}"
               id: 20
       ansible.builtin.include_role:
-        name: "pablintino.base_infra.networking_setup"
+        name: "pbtn.common.networking_setup"
 
     - name: Fetch the connection VLAN connection UUID
       ansible.builtin.command:
@@ -158,7 +158,7 @@
                   parent: "{{ custom_net_ifaces_facts[0].device }}"
                   id: 20
       ansible.builtin.include_role:
-        name: "pablintino.base_infra.networking_setup"
+        name: "pbtn.common.networking_setup"
 
     - name: Fetch the connection bridge connection UUID
       ansible.builtin.command:
@@ -194,7 +194,7 @@
               parent: "{{ custom_net_ifaces_facts[0].device }}"
               id: 20
       ansible.builtin.include_role:
-        name: "pablintino.base_infra.networking_setup"
+        name: "pbtn.common.networking_setup"
 
     - name: Fetch the connection VLAN connection UUID
       ansible.builtin.command:

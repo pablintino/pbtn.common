@@ -7,10 +7,10 @@ __metaclass__ = type
 import copy
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.pablintino.base_infra.plugins.module_utils.proxmox import (
+from ansible_collections.pbtn.common.plugins.module_utils.proxmox import (
     client,
 )
-from ansible_collections.pablintino.base_infra.plugins.module_utils import (
+from ansible_collections.pbtn.common.plugins.module_utils import (
     exceptions,
 )
 

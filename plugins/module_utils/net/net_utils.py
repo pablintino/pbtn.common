@@ -6,7 +6,7 @@ import ipaddress
 import re
 import typing
 
-from ansible_collections.pablintino.base_infra.plugins.module_utils import (
+from ansible_collections.pbtn.common.plugins.module_utils import (
     exceptions,
 )
 

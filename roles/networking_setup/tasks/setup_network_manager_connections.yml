@@ -1,7 +1,7 @@
 ---
 - name: Apply the connections configuration
   become: true
-  pablintino.base_infra.nmcli_apply:
+  pbtn.common.nmcli_apply:
     connections: "{{ pbi_nstp_connections }}"
 
 - name: Refresh network related facts for further usage

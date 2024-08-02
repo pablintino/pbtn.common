@@ -3,16 +3,16 @@ import itertools
 import typing
 
 import mock
-from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
+from ansible_collections.pbtn.common.plugins.module_utils.net import (
     net_config,
 )
-from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
+from ansible_collections.pbtn.common.plugins.module_utils.nmcli import (
     nmcli_constants,
     nmcli_interface_target_connection,
     nmcli_interface_types,
 )
 
-from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_utils import (
+from ansible_collections.pbtn.common.tests.unit.module_utils.test_utils import (
     net_config_stub,
 )
 
@@ -49,11 +49,11 @@ def __test_build_delete_conn_list_from_mocks(
     config_session_uuids: typing.Sequence[str] = None,
 ):
     with mock.patch(
-        "ansible_collections.pablintino.base_infra.plugins.module_utils."
+        "ansible_collections.pbtn.common.plugins.module_utils."
         "net.net_config.ConnectionsConfigurationHandler.connections",
         new_callable=mock.PropertyMock,
     ) as mock_connections, mock.patch(
-        "ansible_collections.pablintino.base_infra.plugins.module_utils."
+        "ansible_collections.pbtn.common.plugins.module_utils."
         "nmcli.nmcli_interface_types.ConfigurationSession.uuids",
         new_callable=mock.PropertyMock,
     ) as mock_config_session:

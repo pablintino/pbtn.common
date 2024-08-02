@@ -1,7 +1,7 @@
-from ansible_collections.pablintino.base_infra.plugins.module_utils.net import (
+from ansible_collections.pbtn.common.plugins.module_utils.net import (
     net_config_filters,
 )
-from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_utils import (
+from ansible_collections.pbtn.common.tests.unit.module_utils.test_utils import (
     config_stub_data,
 )
 

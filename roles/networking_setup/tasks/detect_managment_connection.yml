@@ -23,7 +23,7 @@
         _pbi_nstp_mngt_connection_data: >-
           {{
             pbi_nstp_connections |
-            pablintino.base_infra.nstp_filter_get_conn_config_for_ip(
+            pbtn.common.nstp_filter_get_conn_config_for_ip(
               _pbi_nstp_mngt_ssh_dst_addr
             )
           }}
@@ -59,7 +59,7 @@
           {{
             _pbi_nstp_post_links_out.stdout |
             from_json |
-            pablintino.base_infra.ip_addr_element_by_ip(
+            pbtn.common.ip_addr_element_by_ip(
               _pbi_nstp_mngt_ssh_dst_addr
             )
           }}

@@ -36,6 +36,6 @@
 
 - name: Apply rules if necessary
   become: true
-  pablintino.base_infra.nftables_apply:
+  pbtn.common.nftables_apply:
     target_config_file: "{{ pbi_fwstp_nftables_file }}"
     config: "{{ lookup('ansible.builtin.template', pbi_fwstp_rules_template) }}"

@@ -1,7 +1,7 @@
 import pathlib
 
 import pytest
-from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_utils import (
+from ansible_collections.pbtn.common.tests.unit.module_utils.test_utils import (
     command_mocker,
     file_manager,
 )

@@ -6,7 +6,7 @@ import pytest
 import subprocess
 
 
-from ansible_collections.pablintino.base_infra.plugins.module_utils.module_command_utils import (
+from ansible_collections.pbtn.common.plugins.module_utils.module_command_utils import (
     get_module_command_runner,
     CommandRunException,
 )

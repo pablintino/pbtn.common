@@ -1,16 +1,16 @@
 import typing
 
-from ansible_collections.pablintino.base_infra.plugins.module_utils.ip.ip_interface import (
+from ansible_collections.pbtn.common.plugins.module_utils.ip.ip_interface import (
     IPAddrData,
     IPLinkData,
     IPInterface,
 )
 
-from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_utils.command_mocker import (
+from ansible_collections.pbtn.common.tests.unit.module_utils.test_utils.command_mocker import (
     CommandMockerBuilder,
     MockCall,
 )
-from ansible_collections.pablintino.base_infra.tests.unit.module_utils.test_utils.file_manager import (
+from ansible_collections.pbtn.common.tests.unit.module_utils.test_utils.file_manager import (
     FileManager,
 )
 

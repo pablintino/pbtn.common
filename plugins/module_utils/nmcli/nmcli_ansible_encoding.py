@@ -4,7 +4,7 @@ __metaclass__ = type
 
 import typing
 
-from ansible_collections.pablintino.base_infra.plugins.module_utils.nmcli import (
+from ansible_collections.pbtn.common.plugins.module_utils.nmcli import (
     nmcli_interface_types,
 )
 

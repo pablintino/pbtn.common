@@ -1,3 +1,3 @@
-# Ansible Collection - pablintino.base_infra
+# Ansible Collection - pbtn.common
 
 Documentation for the collection.
