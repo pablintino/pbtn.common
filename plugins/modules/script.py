@@ -239,12 +239,6 @@ def main():
             stderr_file=stderr_file,
         )
 
-        result["rc"] = rc
-        if rc != 0:
-            result["msg"] = "non-zero return code" if not timed_out else "timed out"
-            module.fail_json(**result)
-
-        result["success"] = True
         if stdout is not None:
             result["stdout_lines"] = stdout.splitlines()
             result["stdout"] = stdout.rstrip("\n")
@@ -255,6 +249,13 @@ def main():
             result["stdout_filename"] = stdout_filename
         if stderr_filename:
             result["stderr_filename"] = stderr_filename
+
+        result["rc"] = rc
+        if rc != 0:
+            result["msg"] = "non-zero return code" if not timed_out else "timed out"
+            module.fail_json(**result)
+
+    result["success"] = True
     module.exit_json(**result)
 
 

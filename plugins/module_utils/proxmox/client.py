@@ -1,15 +1,12 @@
-import dataclasses
-import os
 import typing
 
 import proxmoxer.tools.tasks
 import requests
 import urllib3
-from proxmoxer import ProxmoxAPI
-
 from ansible_collections.pbtn.common.plugins.module_utils import (
     exceptions,
 )
+from proxmoxer import ProxmoxAPI
 
 
 class ProxmoxClientException(exceptions.BaseInfraException):
@@ -77,9 +74,11 @@ class Client:
         # todo, consider removing this and let the noise output show up
         if not verify_ssl:
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        # This allows passing as host the full URL or the <host>:<port> string
+        parsed_host = urllib3.util.parse_url(host)
         try:
             self.__api = ProxmoxAPI(
-                host,
+                parsed_host.netloc,
                 user=username,
                 password=password,
                 token_name=token_id,
@@ -90,7 +89,9 @@ class Client:
             raise ProxmoxApiClientException(
                 "failed to connect to the PVE host", error=str(err)
             ) from err
+        except Exception as err:
 
+            raise Exception(str(parsed_host)) from err
     def wait_task(self, task_id: str):
         task_status = proxmoxer.tools.tasks.Tasks.blocking_status(self.__api, task_id)
         if "exitstatus" in task_status and task_status["exitstatus"].lower() != "ok":

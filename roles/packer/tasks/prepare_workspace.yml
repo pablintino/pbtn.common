@@ -7,10 +7,7 @@
         (item is abs) |
         ternary(
           item,
-          [
-            (pbi_packer_workspace | default(playbook_dir)),
-            item
-          ] | path_join
+          [_pbi_packer_base_run_dir, item] | path_join
         )
       }}
   ansible.builtin.template:
@@ -22,20 +19,6 @@
 
 - name: Template the packer template if required
   when: "pbi_packer_template_path | regex_search('\\.j2$')"
-  vars:
-    _pbi_packer_template_file_abs: >-
-      {{
-        (
-          (pbi_packer_template_path is abs) |
-          ternary(
-            pbi_packer_template_path,
-            [
-              (pbi_packer_workspace | default(playbook_dir)),
-              pbi_packer_template_path
-            ] | path_join | regex_replace('\\.j2$', '')
-          )
-        )
-      }}
   ansible.builtin.template:
     src: "{{ _pbi_packer_template_file_abs }}.j2"
     dest: "{{ _pbi_packer_template_file_abs }}"
@@ -51,20 +34,36 @@
         pbi_packer_template_path | regex_replace('.j2$', '')
       }}
       -machine-readable
-    chdir: "{{ pbi_packer_workspace | default(omit) }}"
+    chdir: "{{ _pbi_packer_base_run_dir }}"
   register: _pbi_packer_inspect_cmd_out
   changed_when: false
   failed_when: false
 
 - name: Set reusable facts
+  vars:
+    _pbi_packer_vars_file_path: >-
+      {{
+        [
+          (_pbi_packer_template_file_abs | dirname),
+          'pbi-packer-ansible-vars.pkrvars.hcl'
+        ] | path_join
+      }}
   ansible.builtin.set_fact:
+    _pbi_packer_vars_file: "{{ _pbi_packer_vars_file_path }}"
     _pbi_packer_template_path_sanitized: >-
       {{
         pbi_packer_template_path | regex_replace('.j2$', '')
       }}
     _pbi_packer_variable_files_sanitized: >-
       {{
-        pbi_packer_variable_files | default([]) | map('regex_replace', '\.j2$', '')
+        (
+          pbi_packer_variable_files | default([]) |
+          map('regex_replace', '\.j2$', '') | list
+        ) +
+        (
+          [_pbi_packer_vars_file_path]
+          if (pbi_packer_vars | default({}) | length > 0) else []
+        )
       }}
     _pbi_packer_build_name: >-
       {{
@@ -73,3 +72,13 @@
           regex_findall('builds:\s*(\\n)*\s*>?\s*(.+?(?=:))')
         ) | first | default([]) | last | default('')
       }}
+
+- name: Generate variable file if required
+  when: pbi_packer_vars | default({}) | length > 0
+  ansible.builtin.copy:
+    content: |-
+      {% for elem, val in pbi_packer_vars.items() %}
+      {{ elem }} = "{{ val | string | trim('"') | trim("'") }}"
+      {% endfor %}
+    dest: "{{ _pbi_packer_vars_file }}"
+    mode: "0600"

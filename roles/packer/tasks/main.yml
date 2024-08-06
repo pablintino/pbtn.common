@@ -3,79 +3,44 @@
   ansible.builtin.include_tasks:
     file: check_install_binary.yml
 
-- name: Prepare the needed files and variables
-  ansible.builtin.include_tasks:
-    file: prepare_workspace.yml
-
 - name: Create the logs directory
   ansible.builtin.file:
     path: "{{ (ansible_user_dir, 'logs') | path_join }}"
     state: directory
     mode: "0755"
 
-- name: Run packer
+- name: Prepare workspace and run packer
   vars:
-    _log_suffix: >-
+    _pbi_packer_base_run_dir: >-
+      {{
+        pbi_packer_workspace | default(pbi_packer_template_path | dirname)
+      }}
+    _pbi_packer_template_file_abs: >-
       {{
         (
-          ('-' + (_pbi_packer_build_name | regex_replace('[^a-zA-Z\d-]', '')))
-          if _pbi_packer_build_name | length > 0 else ''
-        ) + '.log'
+          (pbi_packer_template_path is abs) |
+          ternary(
+            pbi_packer_template_path,
+            [
+              _pbi_packer_base_run_dir,
+              pbi_packer_template_path
+            ] | path_join | regex_replace('.j2$', '')
+          )
+        )
       }}
   block:
-    - name: Run packer init
-      pbtn.common.script:
-        cmd: >-
-          {{ _pbi_packer_binary }}
-          init
-          {{
-            _pbi_packer_template_path_sanitized
-          }}
-        log_path: >-
-          {{
-            (ansible_user_dir, "logs", "packer-init" + _log_suffix) | path_join
-          }}
-        log_combine: true
-        log_timestamp: true
-        chdir: "{{ pbi_packer_workspace | default(omit) }}"
-      register: _pbi_packer_init_cmd_out
-      changed_when: "_pbi_packer_init_cmd_out.stdout | length != 0"
+    - name: Prepare the needed files and variables
+      ansible.builtin.include_tasks:
+        file: prepare_workspace.yml
 
-    - name: Print the packer init output
-      when: _pbi_packer_init_cmd_out.stdout_lines | length > 0
-      ansible.builtin.debug:
-        msg: "{{  _pbi_packer_init_cmd_out.stdout_lines }}"
-
-    - name: Run packer build
-      pbtn.common.script:
-        cmd: >-
-          {{ _pbi_packer_binary }}
-          build
-          -color=false
-          {{
-            (
-              ['-var-file '] |
-              product(_pbi_packer_variable_files_sanitized) | flatten | join(' ')
-            ) if pbi_packer_variable_files | default([]) | length > 0 else ''
-          }}
-          {{
-            _pbi_packer_template_path_sanitized
-          }}
-        log_path: >-
-          {{
-            (ansible_user_dir, "logs", "packer-build" + _log_suffix) | path_join
-          }}
-        log_combine: true
-        log_timestamp: true
-        chdir: "{{ pbi_packer_workspace | default(omit) }}"
-      register: _pbi_packer_build_cmd_out
-      changed_when: true
-
-    - name: Print the packer build output
-      when: _pbi_packer_build_cmd_out.stdout_lines | length > 0
-      ansible.builtin.debug:
-        var: _pbi_packer_build_cmd_out.stdout_lines
-  rescue:
-    - name: Fail if the init command failed
-      ansible.builtin.fail:
-        msg: "packer image build failed"
+    - name: Run packer commands
+      ansible.builtin.import_tasks:
+        file: packer_run.yml
+  always:
+    - name: Delete the generated vars file
+      when:
+        - _pbi_packer_vars_file is defined
+        - not pbi_packer_preserve_vars_file
+      ansible.builtin.file:
+        path: "{{ _pbi_packer_vars_file }}"
+        state: absent
