@@ -1,6 +1,5 @@
 ---
 - name: Template the passed packer variable files
-  when: item | regex_search("\.j2$")
   vars:
     _pbi_packer_var_file_abs: >-
       {{
@@ -14,16 +13,35 @@
     src: "{{ _pbi_packer_var_file_abs }}"
     dest: "{{ _pbi_packer_var_file_abs | regex_replace('\\.j2$', '') }}"
     mode: '0644'
-    backup: yes
-  loop: "{{ pbi_packer_variable_files | default([]) }}"
+  loop: >-
+    {{
+      pbi_packer_variable_files | default([]) |
+      select('regex_search', '\\.j2$')
+    }}
+
+- name: Fetch the jinja files under the template path
+  when: _pbi_packer_template_stat.stat.isdir
+  ansible.builtin.find:
+    paths: "{{ _pbi_packer_template_stat.stat.path }}"
+    patterns: '*.j2'
+  register: _pbi_packer_template_jinja_find
 
 - name: Template the packer template if required
-  when: "pbi_packer_template_path | regex_search('\\.j2$')"
   ansible.builtin.template:
-    src: "{{ _pbi_packer_template_file_abs }}.j2"
-    dest: "{{ _pbi_packer_template_file_abs }}"
+    src: "{{ item }}"
+    dest: "{{ item | regex_replace('\\.j2$', '') }}"
     mode: "0644"
-    backup: yes
+  loop: >-
+    {{
+      (
+        (
+          _pbi_packer_template_jinja_find.files |
+          default([]) |
+          map(attribute='path')
+        ) if _pbi_packer_template_stat.stat.isdir else
+        [_pbi_packer_template_stat.stat.path]
+      ) | select('search', '\.j2$')
+    }}
 
 - name: Try fetch the build name
   ansible.builtin.command:
@@ -44,7 +62,7 @@
     _pbi_packer_vars_file_path: >-
       {{
         [
-          (_pbi_packer_template_file_abs | dirname),
+          _pbi_packer_base_run_dir,
           'pbi-packer-ansible-vars.pkrvars.hcl'
         ] | path_join
       }}
@@ -52,7 +70,15 @@
     _pbi_packer_vars_file: "{{ _pbi_packer_vars_file_path }}"
     _pbi_packer_template_path_sanitized: >-
       {{
-        pbi_packer_template_path | regex_replace('.j2$', '')
+        (
+          '.' if
+            (
+              _pbi_packer_base_run_dir | trim("/") ==
+              _pbi_packer_template_stat.stat.path | trim("/")
+            ) else _pbi_packer_template_stat.stat.path
+        )
+        if _pbi_packer_template_stat.stat.isdir else
+        (_pbi_packer_template_stat.stat.path | regex_replace('.j2$', ''))
       }}
     _pbi_packer_variable_files_sanitized: >-
       {{

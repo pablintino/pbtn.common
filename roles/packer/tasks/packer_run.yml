@@ -15,6 +15,9 @@
           {{ _pbi_packer_binary }}
           init
           {{
+            pbi_packer_force_init | ternary('-force', '')
+          }}
+          {{
             _pbi_packer_template_path_sanitized
           }}
         log_path: >-
@@ -23,7 +26,7 @@
           }}
         log_combine: true
         log_timestamp: true
-        chdir: "{{ pbi_packer_workspace | default(omit) }}"
+        chdir: "{{ _pbi_packer_base_run_dir }}"
       register: _pbi_packer_init_cmd_out
       changed_when: "_pbi_packer_init_cmd_out.stdout | length != 0"
 
@@ -33,6 +36,9 @@
           {{ _pbi_packer_binary }}
           build
           -color=false
+          {{
+            pbi_packer_debug | ternary('-debug', '')
+          }}
           {{
             (
               ['-var-file '] |
@@ -48,6 +54,6 @@
           }}
         log_combine: true
         log_timestamp: true
-        chdir: "{{ pbi_packer_workspace | default(omit) }}"
+        chdir: "{{ _pbi_packer_base_run_dir }}"
       register: _pbi_packer_build_cmd_out
       changed_when: true

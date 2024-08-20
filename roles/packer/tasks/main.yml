@@ -9,22 +9,46 @@
     state: directory
     mode: "0755"
 
+- name: Early assert the workspace and template paths
+  ansible.builtin.assert:
+    that:
+      - "pbi_packer_template_path is defined"
+      # If the template path is relative, the
+      # workspace is mandatory
+      - >-
+        (pbi_packer_template_path is abs) or
+        (pbi_packer_workspace is defined)
+    quiet: true
+
+- name: Ensure the workspace is a dir if given
+  when: "pbi_packer_workspace is defined"
+  ansible.builtin.stat:
+    path: "{{ pbi_packer_workspace }}"
+  register: _pbi_packer_workspace_stat
+  failed_when: "not _pbi_packer_workspace_stat.stat.isdir"
+
+- name: Fetch the stat data of the template path
+  ansible.builtin.stat:
+    path: >-
+      {{
+        pbi_packer_template_path
+        if (pbi_packer_template_path is abs) else
+        [pbi_packer_workspace, pbi_packer_template_path] | path_join
+      }}
+  register: _pbi_packer_template_stat
+  failed_when: "not _pbi_packer_template_stat.stat.exists"
+
 - name: Prepare workspace and run packer
   vars:
     _pbi_packer_base_run_dir: >-
       {{
-        pbi_packer_workspace | default(pbi_packer_template_path | dirname)
-      }}
-    _pbi_packer_template_file_abs: >-
-      {{
+        pbi_packer_workspace
+        if (pbi_packer_workspace is defined) else
         (
-          (pbi_packer_template_path is abs) |
+          _pbi_packer_template_stat.stat.isdir |
           ternary(
-            pbi_packer_template_path,
-            [
-              _pbi_packer_base_run_dir,
-              pbi_packer_template_path
-            ] | path_join | regex_replace('.j2$', '')
+            _pbi_packer_template_stat.stat.path,
+            (_pbi_packer_template_stat.stat.path | dirname )
           )
         )
       }}

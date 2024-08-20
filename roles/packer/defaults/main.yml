@@ -1,3 +1,5 @@
 ---
 pbi_packer_binary_path: "/usr/local/bin"
 pbi_packer_preserve_vars_file: false
+pbi_packer_debug: false
+pbi_packer_force_init: true
