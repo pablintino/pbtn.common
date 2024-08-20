@@ -98,24 +98,16 @@ def __storage_create_from_url(
     hash_args = {}
     if sha1_sum:
         hash_args.update({"checksum": sha1_sum, "checksum-algorithm": "sha1"})
-    import pydevd_pycharm
 
-    pydevd_pycharm.settrace(
-        "localhost", port=5555, stdoutToServer=True, stderrToServer=True
+    node_client.node_resource_post(
+        "storage/{}/download-url".format(storage),
+        wait=True,
+        url=url,
+        content=content_type,
+        filename=filename,
+        timeout=timeout,
+        **hash_args,
     )
-    try:
-        node_client.node_resource_post(
-            "storage/{}/download-url".format(storage),
-            wait=True,
-            url=url,
-            content=content_type,
-            filename=filename,
-            timeout=timeout,
-            **hash_args,
-        )
-    except Exception as err:
-        print(err)
-        raise err
 
 
 def __storage_create_from_file(
