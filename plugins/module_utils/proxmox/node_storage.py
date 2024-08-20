@@ -68,12 +68,19 @@ def storage_create(
     source: str,
     name: str = None,
     sha1_sum: str = None,
+    timeout: int = None,
 ):
     url = urllib3.util.parse_url(source)
     if url.scheme is not None:
         filename = name or os.path.basename(url.path)
         __storage_create_from_url(
-            node_client, storage, content_type, source, filename, sha1_sum=sha1_sum
+            node_client,
+            storage,
+            content_type,
+            source,
+            filename,
+            sha1_sum=sha1_sum,
+            timeout=timeout,
         )
     else:
         __storage_create_from_file(node_client, storage, content_type, source)
@@ -86,18 +93,29 @@ def __storage_create_from_url(
     url: str,
     filename: str,
     sha1_sum: str = None,
+    timeout: int = None,
 ):
     hash_args = {}
     if sha1_sum:
         hash_args.update({"checksum": sha1_sum, "checksum-algorithm": "sha1"})
-    node_client.node_resource_post(
-        "storage/{}/download-url".format(storage),
-        wait=True,
-        url=url,
-        content=content_type,
-        filename=filename,
-        **hash_args,
+    import pydevd_pycharm
+
+    pydevd_pycharm.settrace(
+        "localhost", port=5555, stdoutToServer=True, stderrToServer=True
     )
+    try:
+        node_client.node_resource_post(
+            "storage/{}/download-url".format(storage),
+            wait=True,
+            url=url,
+            content=content_type,
+            filename=filename,
+            timeout=timeout,
+            **hash_args,
+        )
+    except Exception as err:
+        print(err)
+        raise err
 
 
 def __storage_create_from_file(
@@ -105,6 +123,7 @@ def __storage_create_from_file(
     storage: str,
     content_type: str,
     filename: str,
+    timeout: int = None,
 ):
     if not os.path.isfile(filename):
         raise client.ProxmoxClientValidationException(
@@ -119,6 +138,7 @@ def __storage_create_from_file(
             wait=True,
             filename=f,
             content=content_type,
+            timeout=timeout,
         )
 
 

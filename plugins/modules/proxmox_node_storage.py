@@ -59,6 +59,7 @@ def __create_storage(
         module.params["source"],
         name=module.params.get("name", None),
         sha1_sum=module.params.get("sha1_sum", None),
+        timeout=module.params.get("timeout", None),
     )
     return True
 
@@ -96,6 +97,7 @@ def main():
             "source": {"type": "str", "required": False},
             "name": {"type": "str", "required": False},
             "sha1_sum": {"type": "str", "required": False},
+            "timeout": {"type": "int", "required": False},
             "force": {
                 "type": "bool",
                 "required": False,

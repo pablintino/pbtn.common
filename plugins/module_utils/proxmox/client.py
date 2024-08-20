@@ -92,8 +92,11 @@ class Client:
         except Exception as err:
 
             raise Exception(str(parsed_host)) from err
-    def wait_task(self, task_id: str):
-        task_status = proxmoxer.tools.tasks.Tasks.blocking_status(self.__api, task_id)
+
+    def wait_task(self, task_id: str, timeout: int = None):
+        task_status = proxmoxer.tools.tasks.Tasks.blocking_status(
+            self.__api, task_id, timeout=timeout
+        )
         if "exitstatus" in task_status and task_status["exitstatus"].lower() != "ok":
             raise ProxmoxTaskClientException(task_status["exitstatus"], task_status)
 
@@ -101,7 +104,12 @@ class Client:
         return NodeClient(name, self)
 
     def _resource_call(
-        self, method: str, bare_url: str, wait: bool = False, **kwargs: typing.Any
+        self,
+        method: str,
+        bare_url: str,
+        wait: bool = False,
+        timeout: int = None,
+        **kwargs: typing.Any,
     ) -> typing.Any:
         try:
             return_data = getattr(self.__api, method)(bare_url, **kwargs)
@@ -115,7 +123,7 @@ class Client:
             elif wait:
                 # if the caller sets the wait flag we assume
                 # that the post returns a taskid
-                self.wait_task(return_data)
+                self.wait_task(return_data, timeout=timeout)
             return return_data
         except proxmoxer.ResourceException as err:
             raise ProxmoxApiClientException(
@@ -135,24 +143,48 @@ class Client:
             ) from err
 
     def resource_post(
-        self, bare_url: str, wait: bool = False, **kwargs: typing.Any
+        self,
+        bare_url: str,
+        wait: bool = False,
+        timeout: int = None,
+        **kwargs: typing.Any,
     ) -> typing.Any:
-        return self._resource_call("post", bare_url, wait=wait, **kwargs)
+        return self._resource_call(
+            "post", bare_url, wait=wait, timeout=timeout, **kwargs
+        )
 
     def resource_put(
-        self, bare_url: str, wait: bool = False, **kwargs: typing.Any
+        self,
+        bare_url: str,
+        wait: bool = False,
+        timeout: int = None,
+        **kwargs: typing.Any,
     ) -> typing.Any:
-        return self._resource_call("put", bare_url, wait=wait, **kwargs)
+        return self._resource_call(
+            "put", bare_url, wait=wait, timeout=timeout, **kwargs
+        )
 
     def resource_delete(
-        self, bare_url: str, wait: bool = False, **kwargs: typing.Any
+        self,
+        bare_url: str,
+        wait: bool = False,
+        timeout: int = None,
+        **kwargs: typing.Any,
     ) -> typing.Any:
-        return self._resource_call("delete", bare_url, wait=wait, **kwargs)
+        return self._resource_call(
+            "delete", bare_url, wait=wait, timeout=timeout, **kwargs
+        )
 
     def resource_get(
-        self, bare_url: str, wait: bool = False, **kwargs: typing.Any
+        self,
+        bare_url: str,
+        wait: bool = False,
+        timeout: int = None,
+        **kwargs: typing.Any,
     ) -> typing.Any:
-        return self._resource_call("get", bare_url, wait=wait, **kwargs)
+        return self._resource_call(
+            "get", bare_url, wait=wait, timeout=timeout, **kwargs
+        )
 
 
 class NodeClient:
@@ -161,31 +193,47 @@ class NodeClient:
         self.__client = client
 
     def node_resource_post(
-        self, bare_url: str, wait: bool = False, **kwargs: typing.Any
+        self,
+        bare_url: str,
+        wait: bool = False,
+        timeout: int = None,
+        **kwargs: typing.Any,
     ) -> typing.Any:
         return self.__client.resource_post(
-            self.__build_node_url(bare_url), wait=wait, **kwargs
+            self.__build_node_url(bare_url), wait=wait, timeout=timeout, **kwargs
         )
 
     def node_resource_put(
-        self, bare_url: str, wait: bool = False, **kwargs: typing.Any
+        self,
+        bare_url: str,
+        wait: bool = False,
+        timeout: int = None,
+        **kwargs: typing.Any,
     ) -> typing.Any:
         return self.__client.resource_put(
-            self.__build_node_url(bare_url), wait=wait, **kwargs
+            self.__build_node_url(bare_url), wait=wait, timeout=timeout, **kwargs
         )
 
     def node_resource_delete(
-        self, bare_url: str, wait: bool = False, **kwargs: typing.Any
+        self,
+        bare_url: str,
+        wait: bool = False,
+        timeout: int = None,
+        **kwargs: typing.Any,
     ) -> typing.Any:
         return self.__client.resource_delete(
-            self.__build_node_url(bare_url), wait=wait, **kwargs
+            self.__build_node_url(bare_url), wait=wait, timeout=timeout, **kwargs
         )
 
     def node_resource_get(
-        self, bare_url: str, wait: bool = False, **kwargs: typing.Any
+        self,
+        bare_url: str,
+        wait: bool = False,
+        timeout: int = None,
+        **kwargs: typing.Any,
     ) -> typing.Any:
         return self.__client.resource_get(
-            self.__build_node_url(bare_url), wait=wait, **kwargs
+            self.__build_node_url(bare_url), wait=wait, timeout=timeout, **kwargs
         )
 
     @property
