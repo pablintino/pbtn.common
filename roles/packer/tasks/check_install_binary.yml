@@ -87,5 +87,8 @@
     _pbi_packer_binary: >-
       {{
         (_pbi_packer_binary_check_out.stdout | default('') | length != 0) |
-        ternary(_pbi_packer_binary_check_out.stdout, pbi_packer_binary_path)
+        ternary(
+          _pbi_packer_binary_check_out.stdout,
+          (pbi_packer_binary_path, 'packer') | ansible.builtin.path_join
+        )
       }}
