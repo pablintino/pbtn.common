@@ -2,10 +2,9 @@ import pytest
 from ansible_collections.pbtn.common.plugins.module_utils import (
     exceptions,
 )
-from ansible_collections.pbtn.commonodule_utils.nmcli import (
+from ansible_collections.pbtn.common.plugins.module_utils.nmcli import (
     nmcli_interface_utils,
 )
-
 
 def test_nmcli_interface_utils_cast_as_list():
     test_value_1 = "192.168.12.100"

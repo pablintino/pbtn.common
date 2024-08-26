@@ -11,7 +11,7 @@ from ansible_collections.pbtn.common.plugins.module_utils.nmcli import (
     nmcli_interface_types,
 )
 
-from ansible_collections.pbtn.commont.module_utils.test_utils import (
+from ansible_collections.pbtn.common.tests.unit.module_utils.test_utils import (
     net_config_stub,
 )
 
