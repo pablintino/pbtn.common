@@ -15,7 +15,7 @@ from ansible_collections.pbtn.common.plugins.module_utils.module_command_utils i
     get_module_command_runner,
 )
 
-from ansible_collections.pbtn.commonodule_utils.nmcli import (
+from ansible_collections.pbtn.common.plugins.module_utils.nmcli import (
     nmcli_querier,
 )
 
